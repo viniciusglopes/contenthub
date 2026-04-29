@@ -13,6 +13,10 @@ import {
   X,
   Check,
   Clock,
+  Settings,
+  Plug,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface Project {
@@ -40,6 +44,65 @@ interface Post {
   cta: string;
   productionNotes: string;
 }
+
+interface SocialAccount {
+  _id: string;
+  project: Project | string;
+  platform: string;
+  accountName: string;
+  accountId: string;
+  credentials: Record<string, string>;
+  active: boolean;
+  lastSync: string | null;
+  tokenExpiresAt: string | null;
+}
+
+const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
+  instagram: {
+    label: "Instagram / Meta Graph API",
+    fields: [
+      { key: "appId", label: "App ID" },
+      { key: "appSecret", label: "App Secret", secret: true },
+      { key: "accessToken", label: "Access Token", secret: true },
+      { key: "pageId", label: "Page ID / IG User ID" },
+    ],
+  },
+  facebook: {
+    label: "Facebook / Meta Graph API",
+    fields: [
+      { key: "appId", label: "App ID" },
+      { key: "appSecret", label: "App Secret", secret: true },
+      { key: "accessToken", label: "Access Token", secret: true },
+      { key: "pageId", label: "Page ID" },
+    ],
+  },
+  tiktok: {
+    label: "TikTok API",
+    fields: [
+      { key: "clientKey", label: "Client Key" },
+      { key: "clientSecret", label: "Client Secret", secret: true },
+      { key: "accessToken", label: "Access Token", secret: true },
+    ],
+  },
+  youtube: {
+    label: "YouTube / Google API",
+    fields: [
+      { key: "appId", label: "Client ID" },
+      { key: "appSecret", label: "Client Secret", secret: true },
+      { key: "refreshToken", label: "Refresh Token", secret: true },
+      { key: "channelId", label: "Channel ID" },
+    ],
+  },
+  twitter: {
+    label: "Twitter / X API v2",
+    fields: [
+      { key: "apiKey", label: "API Key" },
+      { key: "apiSecret", label: "API Secret", secret: true },
+      { key: "accessToken", label: "Access Token", secret: true },
+      { key: "bearerToken", label: "Bearer Token", secret: true },
+    ],
+  },
+};
 
 const FORMAT_COLORS: Record<string, string> = {
   reel: "bg-purple-500/20 text-purple-400 border-purple-500/30",
@@ -104,6 +167,12 @@ export default function Home() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [copied, setCopied] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsProject, setSettingsProject] = useState<string>("");
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
+  const [editingAccount, setEditingAccount] = useState<string | null>(null);
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [formPlatform, setFormPlatform] = useState("instagram");
 
   const loadProjects = useCallback(async () => {
     const res = await fetch("/api/projects");
@@ -225,6 +294,53 @@ export default function Home() {
     setTimeout(() => setCopied(""), 2000);
   }
 
+  const loadSocialAccounts = useCallback(async (projectId?: string) => {
+    const params = projectId ? `?project=${projectId}` : "";
+    const res = await fetch(`/api/social-accounts${params}`);
+    if (res.ok) setSocialAccounts(await res.json());
+  }, []);
+
+  async function handleSaveSocialAccount(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const platform = fd.get("platform") as string;
+    const credentials: Record<string, string> = {};
+    const fields = PLATFORM_FIELDS[platform]?.fields || [];
+    for (const f of fields) {
+      const val = fd.get(`cred_${f.key}`) as string;
+      if (val) credentials[f.key] = val;
+    }
+    const data = {
+      project: fd.get("project"),
+      platform,
+      accountName: fd.get("accountName"),
+      accountId: fd.get("accountId") || "",
+      credentials,
+      active: true,
+    };
+    const url = editingAccount ? `/api/social-accounts/${editingAccount}` : "/api/social-accounts";
+    const method = editingAccount ? "PUT" : "POST";
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    if (res.ok) {
+      setEditingAccount(null);
+      loadSocialAccounts(settingsProject || undefined);
+    }
+  }
+
+  async function handleDeleteAccount(id: string) {
+    await fetch(`/api/social-accounts/${id}`, { method: "DELETE" });
+    loadSocialAccounts(settingsProject || undefined);
+  }
+
+  async function handleToggleAccount(id: string, active: boolean) {
+    await fetch(`/api/social-accounts/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !active }),
+    });
+    loadSocialAccounts(settingsProject || undefined);
+  }
+
   const totalPosts = posts.length;
   const byStatus = posts.reduce<Record<string, number>>((acc, p) => {
     acc[p.status] = (acc[p.status] || 0) + 1;
@@ -294,6 +410,16 @@ export default function Home() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="p-4 border-b border-gray-800">
+          <button
+            onClick={() => { setShowSettings(true); loadSocialAccounts(); }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
+          >
+            <Settings size={16} />
+            <span>Configuracoes</span>
+          </button>
         </div>
 
         <div className="p-4 mt-auto border-t border-gray-800">
@@ -427,7 +553,7 @@ export default function Home() {
               </div>
             </div>
             <div className="p-4 space-y-4">
-              <h3 className="text-lg font-bold">{showDetail.title}</h3>
+              <h3 className="text-lg font-bold text-white">{showDetail.title}</h3>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-xs px-2 py-1 rounded border ${FORMAT_COLORS[showDetail.format]}`}>{showDetail.format.toUpperCase()}</span>
                 <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[showDetail.status]}`}>{STATUS_LABELS[showDetail.status]}</span>
@@ -447,7 +573,7 @@ export default function Home() {
               {showDetail.content && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Texto do Reel</div>
-                  <div className="bg-gray-800 rounded-lg p-3 text-sm border-l-2 border-yellow-500">{showDetail.content}</div>
+                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-100 border-l-2 border-yellow-500">{showDetail.content}</div>
                 </div>
               )}
               {showDetail.productionNotes && (
@@ -464,7 +590,7 @@ export default function Home() {
                       {copied === showDetail._id ? <><Check size={12} /> Copiado!</> : <><Copy size={12} /> Copiar</>}
                     </button>
                   </div>
-                  <div className="bg-gray-800 rounded-lg p-3 text-sm whitespace-pre-wrap">{showDetail.caption}</div>
+                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-100 whitespace-pre-wrap">{showDetail.caption}</div>
                 </div>
               )}
               {showDetail.platforms.length > 0 && (
@@ -490,20 +616,20 @@ export default function Home() {
             </div>
             <form onSubmit={handleSavePost} className="p-4 space-y-3">
               <div>
-                <label className="text-xs text-gray-500">Projeto</label>
-                <select name="project" defaultValue={editingPost?.project?._id || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1">
+                <label className="text-xs text-gray-400">Projeto</label>
+                <select name="project" defaultValue={editingPost?.project?._id || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100">
                   <option value="">Selecione...</option>
                   {projects.map((p) => <option key={p._id} value={p._id}>{p.icon} {p.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Titulo</label>
-                <input name="title" defaultValue={editingPost?.title || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                <label className="text-xs text-gray-400">Titulo</label>
+                <input name="title" defaultValue={editingPost?.title || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">Formato</label>
-                  <select name="format" defaultValue={editingPost?.format || "reel"} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1">
+                  <label className="text-xs text-gray-400">Formato</label>
+                  <select name="format" defaultValue={editingPost?.format || "reel"} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100">
                     <option value="reel">Reel</option>
                     <option value="story">Story</option>
                     <option value="post">Post</option>
@@ -512,24 +638,24 @@ export default function Home() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Status</label>
-                  <select name="status" defaultValue={editingPost?.status || "draft"} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1">
+                  <label className="text-xs text-gray-400">Status</label>
+                  <select name="status" defaultValue={editingPost?.status || "draft"} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100">
                     {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">Data</label>
-                  <input type="date" name="scheduledDate" defaultValue={editingPost?.scheduledDate?.split("T")[0] || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                  <label className="text-xs text-gray-400">Data</label>
+                  <input type="date" name="scheduledDate" defaultValue={editingPost?.scheduledDate?.split("T")[0] || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Horario</label>
-                  <input type="time" name="scheduledTime" defaultValue={editingPost?.scheduledTime || "09:00"} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                  <label className="text-xs text-gray-400">Horario</label>
+                  <input type="time" name="scheduledTime" defaultValue={editingPost?.scheduledTime || "09:00"} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Redes Sociais</label>
+                <label className="text-xs text-gray-400">Redes Sociais</label>
                 <div className="flex gap-3 mt-1 flex-wrap">
                   {["instagram", "tiktok", "youtube", "facebook", "twitter"].map((p) => (
                     <label key={p} className="flex items-center gap-1 text-xs text-gray-400">
@@ -540,24 +666,24 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Texto do Conteudo</label>
-                <textarea name="content" rows={2} defaultValue={editingPost?.content || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                <label className="text-xs text-gray-400">Texto do Conteudo</label>
+                <textarea name="content" rows={2} defaultValue={editingPost?.content || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Legenda</label>
-                <textarea name="caption" rows={4} defaultValue={editingPost?.caption || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                <label className="text-xs text-gray-400">Legenda</label>
+                <textarea name="caption" rows={4} defaultValue={editingPost?.caption || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Notas de Producao</label>
-                <textarea name="productionNotes" rows={2} defaultValue={editingPost?.productionNotes || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                <label className="text-xs text-gray-400">Notas de Producao</label>
+                <textarea name="productionNotes" rows={2} defaultValue={editingPost?.productionNotes || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">CTA</label>
-                <input name="cta" defaultValue={editingPost?.cta || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                <label className="text-xs text-gray-400">CTA</label>
+                <input name="cta" defaultValue={editingPost?.cta || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Hashtags (separadas por espaco)</label>
-                <input name="hashtags" defaultValue={editingPost?.hashtags?.join(" ") || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" placeholder="#HoraDeMudarOJogo #Mindset" />
+                <label className="text-xs text-gray-400">Hashtags (separadas por espaco)</label>
+                <input name="hashtags" defaultValue={editingPost?.hashtags?.join(" ") || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="#HoraDeMudarOJogo #Mindset" />
               </div>
               <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-2.5 rounded-lg hover:bg-yellow-400 transition">
                 {editingPost ? "Salvar Alteracoes" : "Criar Post"}
@@ -577,25 +703,25 @@ export default function Home() {
             </div>
             <form onSubmit={handleCreateProject} className="p-4 space-y-3">
               <div>
-                <label className="text-xs text-gray-500">Nome</label>
-                <input name="name" required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" placeholder="Hora de Mudar o Jogo" />
+                <label className="text-xs text-gray-400">Nome</label>
+                <input name="name" required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="Hora de Mudar o Jogo" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Descricao</label>
-                <input name="description" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" placeholder="Perfil motivacional no Instagram" />
+                <label className="text-xs text-gray-400">Descricao</label>
+                <input name="description" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="Perfil motivacional no Instagram" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500">Cor</label>
+                  <label className="text-xs text-gray-400">Cor</label>
                   <input type="color" name="color" defaultValue="#f5c518" className="w-full h-10 bg-gray-800 border border-gray-700 rounded-lg mt-1 cursor-pointer" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Icone (emoji)</label>
-                  <input name="icon" defaultValue="" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1" />
+                  <label className="text-xs text-gray-400">Icone (emoji)</label>
+                  <input name="icon" defaultValue="" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500">Redes Sociais</label>
+                <label className="text-xs text-gray-400">Redes Sociais</label>
                 <div className="flex gap-3 mt-1 flex-wrap">
                   {["instagram", "tiktok", "youtube", "facebook", "twitter"].map((p) => (
                     <label key={p} className="flex items-center gap-1 text-xs text-gray-400">
@@ -609,6 +735,170 @@ export default function Home() {
                 Criar Projeto
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setShowSettings(false); setEditingAccount(null); }}>
+          <div className="bg-gray-900 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Plug size={20} className="text-yellow-400" />
+                <h3 className="font-bold text-white">Configuracoes de Redes Sociais</h3>
+              </div>
+              <button onClick={() => { setShowSettings(false); setEditingAccount(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
+            </div>
+
+            <div className="p-4 border-b border-gray-800">
+              <label className="text-xs text-gray-400">Filtrar por Projeto</label>
+              <select
+                value={settingsProject}
+                onChange={(e) => { setSettingsProject(e.target.value); loadSocialAccounts(e.target.value || undefined); }}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+              >
+                <option value="">Todos os projetos</option>
+                {projects.map((p) => <option key={p._id} value={p._id}>{p.icon} {p.name}</option>)}
+              </select>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-300">Contas Conectadas</span>
+                <button
+                  onClick={() => setEditingAccount("new")}
+                  className="flex items-center gap-1 text-xs bg-yellow-500 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-400 transition"
+                >
+                  <Plus size={14} /> Adicionar Conta
+                </button>
+              </div>
+
+              {socialAccounts.length === 0 && !editingAccount && (
+                <div className="text-center py-10 text-gray-600">
+                  <Plug size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Nenhuma conta conectada</p>
+                  <p className="text-xs text-gray-700 mt-1">Adicione contas para habilitar postagem automatica</p>
+                </div>
+              )}
+
+              {socialAccounts.map((acc) => (
+                <div key={acc._id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-300">{PLATFORM_ICONS[acc.platform]}</span>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-200">{acc.accountName}</div>
+                        <div className="text-xs text-gray-500">{PLATFORM_FIELDS[acc.platform]?.label || acc.platform}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded ${acc.active ? "bg-green-500/20 text-green-400" : "bg-gray-600/20 text-gray-500"}`}>
+                        {acc.active ? "Ativo" : "Inativo"}
+                      </span>
+                      <button onClick={() => handleToggleAccount(acc._id, acc.active)} className="p-1 hover:bg-gray-700 rounded text-gray-400" title={acc.active ? "Desativar" : "Ativar"}>
+                        {acc.active ? <Eye size={14} /> : <EyeOff size={14} />}
+                      </button>
+                      <button onClick={() => { setEditingAccount(acc._id); setFormPlatform(acc.platform); }} className="p-1 hover:bg-gray-700 rounded text-gray-400"><Pencil size={14} /></button>
+                      <button onClick={() => handleDeleteAccount(acc._id)} className="p-1 hover:bg-red-500/20 rounded text-red-400"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                  {acc.accountId && <div className="text-xs text-gray-600 mt-1">ID: {acc.accountId}</div>}
+                  {acc.tokenExpiresAt && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      Token expira: {new Date(acc.tokenExpiresAt).toLocaleDateString("pt-BR")}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {editingAccount && (
+                <div className="bg-gray-800/50 rounded-xl p-4 border border-yellow-500/30">
+                  <h4 className="text-sm font-semibold text-yellow-400 mb-3">
+                    {editingAccount === "new" ? "Nova Conta" : "Editar Conta"}
+                  </h4>
+                  <form onSubmit={handleSaveSocialAccount} className="space-y-3">
+                    <div>
+                      <label className="text-xs text-gray-400">Projeto</label>
+                      <select
+                        name="project"
+                        defaultValue={settingsProject || (editingAccount !== "new" ? (socialAccounts.find(a => a._id === editingAccount)?.project as Project)?._id : "")}
+                        required
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                      >
+                        <option value="">Selecione...</option>
+                        {projects.map((p) => <option key={p._id} value={p._id}>{p.icon} {p.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-400">Plataforma</label>
+                        <select
+                          name="platform"
+                          value={formPlatform}
+                          onChange={(e) => setFormPlatform(e.target.value)}
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                        >
+                          {Object.entries(PLATFORM_FIELDS).map(([key, val]) => (
+                            <option key={key} value={key}>{val.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400">Nome da Conta</label>
+                        <input
+                          name="accountName"
+                          defaultValue={editingAccount !== "new" ? socialAccounts.find(a => a._id === editingAccount)?.accountName : ""}
+                          required
+                          placeholder="@horademudarojogo"
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400">Account ID (opcional)</label>
+                      <input
+                        name="accountId"
+                        defaultValue={editingAccount !== "new" ? socialAccounts.find(a => a._id === editingAccount)?.accountId : ""}
+                        placeholder="ID numerico da conta na plataforma"
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                      />
+                    </div>
+                    <div className="border-t border-gray-700 pt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Credenciais da API</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowSecrets(prev => ({ ...prev, [editingAccount]: !prev[editingAccount] }))}
+                          className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                        >
+                          {showSecrets[editingAccount] ? <><EyeOff size={12} /> Ocultar</> : <><Eye size={12} /> Mostrar</>}
+                        </button>
+                      </div>
+                      {(PLATFORM_FIELDS[formPlatform]?.fields || []).map((field) => (
+                        <div key={field.key}>
+                          <label className="text-xs text-gray-500">{field.label}</label>
+                          <input
+                            name={`cred_${field.key}`}
+                            type={field.secret && !showSecrets[editingAccount!] ? "password" : "text"}
+                            defaultValue={editingAccount !== "new" ? socialAccounts.find(a => a._id === editingAccount)?.credentials?.[field.key] || "" : ""}
+                            placeholder={field.label}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" className="flex-1 bg-yellow-500 text-black font-bold py-2 rounded-lg hover:bg-yellow-400 transition text-sm">
+                        Salvar
+                      </button>
+                      <button type="button" onClick={() => setEditingAccount(null)} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition text-sm">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
