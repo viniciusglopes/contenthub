@@ -173,6 +173,11 @@ export default function Home() {
   const [editingAccount, setEditingAccount] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [formPlatform, setFormPlatform] = useState("instagram");
+  const [settingsTab, setSettingsTab] = useState<"social" | "apis">("social");
+  const [apiCredentials, setApiCredentials] = useState<{ _id: string; service: string; label: string; credentials: Record<string, string>; active: boolean }[]>([]);
+  const [editingApi, setEditingApi] = useState<string | null>(null);
+  const [showApiSecrets, setShowApiSecrets] = useState(false);
+  const [formApiService, setFormApiService] = useState("");
 
   const loadProjects = useCallback(async () => {
     const res = await fetch("/api/projects");
@@ -341,6 +346,72 @@ export default function Home() {
     loadSocialAccounts(settingsProject || undefined);
   }
 
+  const API_SERVICES: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
+    elevenlabs: {
+      label: "ElevenLabs (Text-to-Speech)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+        { key: "defaultVoiceId", label: "Voice ID padrao" },
+        { key: "defaultLanguage", label: "Idioma padrao (pt-BR, es, en)" },
+      ],
+    },
+    opusclip: {
+      label: "Opus Clip (Video Clipping)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    freepik: {
+      label: "Freepik / Magnific (Imagens IA + Upscale)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    gemini: {
+      label: "Google Gemini (Roteiros IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+        { key: "model", label: "Modelo (gemini-2.5-flash)" },
+      ],
+    },
+    openai: {
+      label: "OpenAI / ChatGPT",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+        { key: "model", label: "Modelo (gpt-4o)" },
+      ],
+    },
+  };
+
+  const loadApiCredentials = useCallback(async () => {
+    const res = await fetch("/api/api-credentials");
+    if (res.ok) setApiCredentials(await res.json());
+  }, []);
+
+  async function handleSaveApiCredential(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const service = fd.get("service") as string;
+    const fields = API_SERVICES[service]?.fields || [];
+    const credentials: Record<string, string> = {};
+    for (const f of fields) {
+      const val = fd.get(`api_${f.key}`) as string;
+      if (val) credentials[f.key] = val;
+    }
+    await fetch("/api/api-credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service, label: API_SERVICES[service]?.label || service, credentials, active: true }),
+    });
+    setEditingApi(null);
+    loadApiCredentials();
+  }
+
+  async function handleDeleteApiCredential(service: string) {
+    await fetch(`/api/api-credentials?service=${service}`, { method: "DELETE" });
+    loadApiCredentials();
+  }
+
   const totalPosts = posts.length;
   const byStatus = posts.reduce<Record<string, number>>((acc, p) => {
     acc[p.status] = (acc[p.status] || 0) + 1;
@@ -414,7 +485,7 @@ export default function Home() {
 
         <div className="p-4 border-b border-gray-800">
           <button
-            onClick={() => { setShowSettings(true); loadSocialAccounts(); }}
+            onClick={() => { setShowSettings(true); setSettingsTab("social"); loadSocialAccounts(); loadApiCredentials(); }}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
           >
             <Settings size={16} />
@@ -747,9 +818,26 @@ export default function Home() {
                 <Plug size={20} className="text-yellow-400" />
                 <h3 className="font-bold text-white">Configuracoes de Redes Sociais</h3>
               </div>
-              <button onClick={() => { setShowSettings(false); setEditingAccount(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
+              <button onClick={() => { setShowSettings(false); setEditingAccount(null); setEditingApi(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex border-b border-gray-800">
+              <button
+                onClick={() => setSettingsTab("social")}
+                className={`flex-1 py-3 text-sm font-semibold transition-colors ${settingsTab === "social" ? "text-yellow-400 border-b-2 border-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                <Plug size={14} className="inline mr-1.5" /> Redes Sociais
+              </button>
+              <button
+                onClick={() => { setSettingsTab("apis"); loadApiCredentials(); }}
+                className={`flex-1 py-3 text-sm font-semibold transition-colors ${settingsTab === "apis" ? "text-yellow-400 border-b-2 border-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                🔧 APIs de Producao
+              </button>
+            </div>
+
+            {settingsTab === "social" && (<>
             <div className="p-4 border-b border-gray-800">
               <label className="text-xs text-gray-400">Filtrar por Projeto</label>
               <select
@@ -899,6 +987,114 @@ export default function Home() {
                 </div>
               )}
             </div>
+            </>)}
+
+            {settingsTab === "apis" && (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-gray-300">APIs de Producao de Video</span>
+                  <p className="text-xs text-gray-600 mt-0.5">Credenciais para geracao de roteiros, audio, imagens e corte de video</p>
+                </div>
+                {!editingApi && (
+                  <button
+                    onClick={() => { setEditingApi("new"); setFormApiService(""); }}
+                    className="flex items-center gap-1 text-xs bg-yellow-500 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-400 transition"
+                  >
+                    <Plus size={14} /> Adicionar API
+                  </button>
+                )}
+              </div>
+
+              {apiCredentials.length === 0 && !editingApi && (
+                <div className="text-center py-10 text-gray-600">
+                  <Settings size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Nenhuma API configurada</p>
+                  <p className="text-xs text-gray-700 mt-1">Adicione ElevenLabs, Opus Clip e Freepik para habilitar producao automatizada</p>
+                </div>
+              )}
+
+              {apiCredentials.map((api) => (
+                <div key={api._id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-200">{API_SERVICES[api.service]?.label || api.label}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {Object.keys(api.credentials || {}).length} campo(s) configurado(s)
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded ${api.active ? "bg-green-500/20 text-green-400" : "bg-gray-600/20 text-gray-500"}`}>
+                        {api.active ? "Ativo" : "Inativo"}
+                      </span>
+                      <button onClick={() => { setEditingApi(api.service); setFormApiService(api.service); }} className="p-1 hover:bg-gray-700 rounded text-gray-400"><Pencil size={14} /></button>
+                      <button onClick={() => handleDeleteApiCredential(api.service)} className="p-1 hover:bg-red-500/20 rounded text-red-400"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {editingApi && (
+                <div className="bg-gray-800/50 rounded-xl p-4 border border-yellow-500/30">
+                  <h4 className="text-sm font-semibold text-yellow-400 mb-3">
+                    {editingApi === "new" ? "Nova API" : `Editar ${API_SERVICES[editingApi]?.label || editingApi}`}
+                  </h4>
+                  <form onSubmit={handleSaveApiCredential} className="space-y-3">
+                    <div>
+                      <label className="text-xs text-gray-400">Servico</label>
+                      <select
+                        name="service"
+                        value={formApiService}
+                        onChange={(e) => setFormApiService(e.target.value)}
+                        required
+                        disabled={editingApi !== "new"}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100 disabled:opacity-50"
+                      >
+                        <option value="">Selecione...</option>
+                        {Object.entries(API_SERVICES).map(([key, val]) => (
+                          <option key={key} value={key}>{val.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {formApiService && API_SERVICES[formApiService] && (
+                    <div className="border-t border-gray-700 pt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Credenciais</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowApiSecrets(!showApiSecrets)}
+                          className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                        >
+                          {showApiSecrets ? <><EyeOff size={12} /> Ocultar</> : <><Eye size={12} /> Mostrar</>}
+                        </button>
+                      </div>
+                      {API_SERVICES[formApiService].fields.map((field) => (
+                        <div key={field.key} className="mb-2">
+                          <label className="text-xs text-gray-500">{field.label}</label>
+                          <input
+                            name={`api_${field.key}`}
+                            type={field.secret && !showApiSecrets ? "password" : "text"}
+                            defaultValue={editingApi !== "new" ? apiCredentials.find(a => a.service === editingApi)?.credentials?.[field.key] || "" : ""}
+                            placeholder={field.label}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" className="flex-1 bg-yellow-500 text-black font-bold py-2 rounded-lg hover:bg-yellow-400 transition text-sm">
+                        Salvar
+                      </button>
+                      <button type="button" onClick={() => setEditingApi(null)} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition text-sm">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+            )}
           </div>
         </div>
       )}
