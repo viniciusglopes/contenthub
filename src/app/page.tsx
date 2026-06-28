@@ -381,6 +381,26 @@ export default function Home() {
         { key: "model", label: "Modelo (gpt-4o)" },
       ],
     },
+    anthropic: {
+      label: "Anthropic / Claude",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+        { key: "model", label: "Modelo (claude-sonnet-4-6)" },
+      ],
+    },
+    stability: {
+      label: "Stability AI (Imagens/Video)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    deepseek: {
+      label: "DeepSeek",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+        { key: "model", label: "Modelo (deepseek-chat)" },
+      ],
+    },
   };
 
   const loadApiCredentials = useCallback(async () => {
