@@ -469,6 +469,36 @@ export default function Home() {
         { key: "apiKey", label: "API Key", secret: true },
       ],
     },
+    alibaba: {
+      label: "Alibaba / Wan (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    grok: {
+      label: "Grok / xAI (IA + Imagens)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    veed: {
+      label: "Veed (Edicao Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    pixverse: {
+      label: "PixVerse (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    ltx: {
+      label: "LTX Studio (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
   };
 
   const loadApiCredentials = useCallback(async () => {
