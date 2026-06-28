@@ -365,6 +365,7 @@ export default function Home() {
       label: "Freepik / Magnific (Imagens IA + Upscale)",
       fields: [
         { key: "apiKey", label: "API Key", secret: true },
+        { key: "webhookSecret", label: "Webhook Secret", secret: true },
       ],
     },
     gemini: {
@@ -399,6 +400,73 @@ export default function Home() {
       fields: [
         { key: "apiKey", label: "API Key", secret: true },
         { key: "model", label: "Modelo (deepseek-chat)" },
+      ],
+    },
+    runway: {
+      label: "Runway ML (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    leonardo: {
+      label: "Leonardo AI (Imagens)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    heygen: {
+      label: "HeyGen (Avatares Digitais)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    suno: {
+      label: "Suno AI (Musica IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    veo: {
+      label: "Google Veo 3 (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    seedance: {
+      label: "Seedance / ByteDance (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    kling: {
+      label: "Kling AI (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+        { key: "accessSecret", label: "Access Secret", secret: true },
+      ],
+    },
+    minimax: {
+      label: "MiniMax / Hailuo (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    pika: {
+      label: "Pika Labs (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    luma: {
+      label: "Luma Dream Machine (Video IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
+      ],
+    },
+    midjourney: {
+      label: "Midjourney (Imagens IA)",
+      fields: [
+        { key: "apiKey", label: "API Key", secret: true },
       ],
     },
   };
