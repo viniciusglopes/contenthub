@@ -1,37 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
+import { json, route } from "@/lib/api";
+import { projectOf } from "@/lib/instagram/data";
+import { postInput } from "@/lib/posts";
+import { toObjectId } from "@/lib/tenant";
 import Post from "@/models/Post";
 
-export async function GET(req: NextRequest) {
-  await connectDB();
-  const { searchParams } = new URL(req.url);
-  const project = searchParams.get("project");
-  const status = searchParams.get("status");
-  const startDate = searchParams.get("startDate");
-  const endDate = searchParams.get("endDate");
-  const platform = searchParams.get("platform");
-
-  const filter: Record<string, unknown> = {};
-  if (project) filter.project = project;
-  if (status) filter.status = status;
-  if (platform) filter.platforms = platform;
-  if (startDate || endDate) {
-    filter.scheduledDate = {};
-    if (startDate) (filter.scheduledDate as Record<string, unknown>).$gte = new Date(startDate);
-    if (endDate) (filter.scheduledDate as Record<string, unknown>).$lte = new Date(endDate);
+export const GET = route("org", async ({ org, req }) => {
+  const q = req.nextUrl.searchParams;
+  const filter: Record<string, unknown> = { organization: org };
+  if (q.get("project")) filter.project = toObjectId(q.get("project")) ?? null;
+  if (q.get("status")) filter.status = String(q.get("status"));
+  if (q.get("platform")) filter.platforms = String(q.get("platform"));
+  const range: Record<string, Date> = {};
+  for (const [param, op] of [["startDate", "$gte"], ["endDate", "$lte"]] as const) {
+    const d = q.get(param) ? new Date(String(q.get(param))) : null;
+    if (d && !Number.isNaN(d.getTime())) range[op] = d;
   }
+  if (Object.keys(range).length) filter.scheduledDate = range;
+  return json(await Post.find(filter).populate(projectOf(org)).sort({ scheduledDate: 1, scheduledTime: 1 }));
+});
 
-  const posts = await Post.find(filter)
-    .populate("project", "name slug color icon")
-    .sort({ scheduledDate: 1, scheduledTime: 1 });
-
-  return NextResponse.json(posts);
-}
-
-export async function POST(req: NextRequest) {
-  await connectDB();
-  const body = await req.json();
-  const post = await Post.create(body);
-  const populated = await post.populate("project", "name slug color icon");
-  return NextResponse.json(populated, { status: 201 });
-}
+export const POST = route("org", async ({ org, body }) => {
+  const post = await Post.create(await postInput(org, await body()));
+  return json(await post.populate(projectOf(org)), 201);
+});

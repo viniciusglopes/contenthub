@@ -1,35 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import SocialAccount from "@/models/SocialAccount";
+import { json, route } from "@/lib/api";
 import { sealCredentials } from "@/lib/crypto";
+import { FriendlyError } from "@/lib/errors";
 import { publicAccount } from "@/lib/instagram/accounts";
-import { handle } from "@/lib/instagram/data";
+import { projectOf } from "@/lib/instagram/data";
+import { assertProject } from "@/lib/orgs";
+import { toObjectId } from "@/lib/tenant";
+import SocialAccount from "@/models/SocialAccount";
 
 // As credenciais são gravadas criptografadas e nunca voltam para a tela.
-export async function GET(req: NextRequest) {
-  return handle(async () => {
-    await connectDB();
-    const projectId = req.nextUrl.searchParams.get("project");
-    const filter: Record<string, unknown> = {};
-    if (projectId) filter.project = projectId;
-    const accounts = await SocialAccount.find(filter).populate("project", "name slug color icon").sort({ platform: 1 });
-    return NextResponse.json(accounts.map(publicAccount));
-  });
-}
+export const GET = route("org", async ({ org, req }) => {
+  const filter: Record<string, unknown> = { organization: org };
+  const project = req.nextUrl.searchParams.get("project");
+  if (project) filter.project = toObjectId(project) ?? null;
+  const accounts = await SocialAccount.find(filter).populate(projectOf(org)).sort({ platform: 1 });
+  return json(accounts.map(publicAccount));
+});
 
-export async function POST(req: NextRequest) {
-  return handle(async () => {
-    await connectDB();
-    const body = await req.json();
-    const account = await SocialAccount.create({
-      project: body.project,
-      platform: body.platform,
-      accountName: body.accountName,
-      accountId: body.accountId || "",
-      active: body.active !== false,
-      credentials: sealCredentials(body.credentials || {}),
-    });
-    const populated = await account.populate("project", "name slug color icon");
-    return NextResponse.json(publicAccount(populated), { status: 201 });
+export const POST = route("org", async ({ org, body }) => {
+  const b = await body();
+  const projectId = toObjectId(String(b.project || ""));
+  if (!projectId) throw new FriendlyError("Escolha o projeto dessa conta.", 400, "project");
+  await assertProject(org, projectId);
+  const account = await SocialAccount.create({
+    organization: org,
+    project: projectId,
+    platform: b.platform,
+    accountName: b.accountName,
+    accountId: b.accountId || "",
+    active: b.active !== false,
+    credentials: sealCredentials(b.credentials && typeof b.credentials === "object" ? b.credentials : {}),
   });
-}
+  return json(publicAccount(await account.populate(projectOf(org))), 201);
+});

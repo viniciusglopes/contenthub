@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { CRON_PATHS, SESSION_COOKIE, checkCronToken, verifySessionToken } from "@/lib/auth";
 
-// Tudo exige login, menos a tela de login e a rota que cria a sessão.
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout"];
+// Primeira barreira: sem cookie assinado válido, nada passa (menos entrar e aceitar convite).
+// A segunda barreira é em cada rota (src/lib/api.ts): usuário ativo, papel e organização
+// conferidos no banco.
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/brand"];
+const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (PUBLIC_PATHS.some((p) => pathname === p)) return NextResponse.next();
+  if (PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
 
   if (verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value)) {
     return NextResponse.next();

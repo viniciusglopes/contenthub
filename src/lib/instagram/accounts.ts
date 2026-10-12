@@ -1,30 +1,17 @@
+import type { Types } from "mongoose";
 import { decrypt, encrypt, publicCredentials } from "@/lib/crypto";
+import { FriendlyError, notFound, toFriendly } from "@/lib/errors";
+import { assertProject } from "@/lib/orgs";
+import { toObjectId } from "@/lib/tenant";
 import SocialAccount from "@/models/SocialAccount";
-import { InstagramApiError, InstagramClient, type FetchLike, getDefaultFetch } from "./client";
-import { daysLeft, establishToken, isProfessionalAccount, planTokenAction, renewToken } from "./token";
+import { InstagramApiError, InstagramClient, type FetchLike, type IgProfile, getDefaultFetch } from "./client";
+import { type EstablishedToken, daysLeft, establishToken, isProfessionalAccount, planTokenAction, renewToken } from "./token";
 import { ensureMock } from "./mock";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export class FriendlyError extends Error {
-  status: number;
-  field?: string;
-  constructor(message: string, status = 400, field?: string) {
-    super(message);
-    this.status = status;
-    this.field = field;
-  }
-}
-
-export function toFriendly(e: unknown): FriendlyError {
-  if (e instanceof FriendlyError) return e;
-  if (e instanceof InstagramApiError) {
-    const status = e.kind === "limite" ? 429 : e.kind === "rede" || e.kind === "temporario" ? 502 : 400;
-    return new FriendlyError(e.friendly, status, e.kind === "token_invalido" ? "token" : undefined);
-  }
-  if (e instanceof Error && e.name === "CryptoConfigError") return new FriendlyError(e.message, 503);
-  return new FriendlyError("Algo deu errado no servidor. Tente de novo; se continuar, avise o Billy.", 500);
-}
+export { FriendlyError, toFriendly };
+type Org = Types.ObjectId;
 
 export function accountToken(account: any): string {
   const stored = account?.credentials?.accessToken;
@@ -68,32 +55,25 @@ function cleanToken(raw: string): string {
   return String(raw || "").replace(/\s+/g, "").replace(/^Bearer/i, "");
 }
 
-/** Cola o token -> valida em /me -> guarda criptografado com validade. */
-export async function connectInstagram(
-  input: { project: string; token: string; accountId?: string },
-  opts: { fetchImpl?: FetchLike; now?: number } = {}
+/**
+ * Grava a conexão já validada (perfil + token). Serve ao "colar token" e ao login pelo
+ * Instagram (OAuth). O projeto TEM de ser da organização; a conta também.
+ */
+export async function saveConnection(
+  org: Org,
+  input: { project: string; accountId?: string },
+  me: IgProfile,
+  established: EstablishedToken
 ) {
-  ensureMock();
-  const fetchImpl = opts.fetchImpl ?? getDefaultFetch();
-  const token = cleanToken(input.token);
-  if (!input.project) throw new FriendlyError("Escolha o projeto dessa conta.", 400, "project");
-  if (token.length < 20)
-    throw new FriendlyError("Cole o token inteiro (ele é longo, costuma começar com IG).", 400, "token");
-
-  const me = await new InstagramClient(token, fetchImpl).getMe();
+  const projectId = toObjectId(input.project);
+  if (!projectId) throw new FriendlyError("Escolha o projeto dessa conta.", 400, "project");
+  await assertProject(org, projectId);
   if (!me.userId || !me.username)
     throw new FriendlyError("O Instagram não devolveu os dados da conta. Gere um token novo e tente de novo.", 400, "token");
-  if (!isProfessionalAccount(me.accountType))
-    throw new InstagramApiError("conta_nao_profissional");
-
-  const established = await establishToken(token, {
-    appSecret: process.env.IG_APP_SECRET,
-    fetchImpl,
-    now: opts.now,
-  });
+  if (!isProfessionalAccount(me.accountType)) throw new InstagramApiError("conta_nao_profissional");
 
   const fields = {
-    project: input.project,
+    project: projectId,
     platform: "instagram",
     accountName: `@${me.username}`,
     accountId: me.userId,
@@ -111,22 +91,52 @@ export async function connectInstagram(
   };
 
   // Mesma conta do Instagram no mesmo projeto: atualiza em vez de duplicar.
-  const existing = input.accountId
-    ? await SocialAccount.findById(input.accountId)
-    : await SocialAccount.findOne({ project: input.project, platform: "instagram", accountId: me.userId });
-  const account = existing
-    ? await SocialAccount.findByIdAndUpdate(existing._id, { $set: fields }, { returnDocument: "after" })
-    : await SocialAccount.create({
-        ...fields,
-        credentials: { accessToken: fields["credentials.accessToken"] },
-      });
+  let existing: any = null;
+  if (input.accountId) {
+    const id = toObjectId(input.accountId);
+    existing = id ? await SocialAccount.findOne({ _id: id, organization: org }) : null;
+    if (!existing) throw notFound("Conta");
+  } else {
+    existing = await SocialAccount.findOne({ organization: org, project: projectId, platform: "instagram", accountId: me.userId });
+  }
+  return existing
+    ? SocialAccount.findOneAndUpdate({ _id: existing._id, organization: org }, { $set: fields }, { returnDocument: "after" })
+    : SocialAccount.create({ ...fields, organization: org, credentials: { accessToken: fields["credentials.accessToken"] } });
+}
+
+/** Cola o token -> valida em /me -> guarda criptografado com validade. */
+export async function connectInstagram(
+  org: Org,
+  input: { project: string; token: string; accountId?: string },
+  opts: { fetchImpl?: FetchLike; now?: number } = {}
+) {
+  ensureMock();
+  const fetchImpl = opts.fetchImpl ?? getDefaultFetch();
+  const token = cleanToken(input.token);
+  const projectId = toObjectId(input.project);
+  if (!projectId) throw new FriendlyError("Escolha o projeto dessa conta.", 400, "project");
+  await assertProject(org, projectId);
+  if (token.length < 20)
+    throw new FriendlyError("Cole o token inteiro (ele é longo, costuma começar com IG).", 400, "token");
+
+  const me = await new InstagramClient(token, fetchImpl).getMe();
+  if (!me.userId || !me.username)
+    throw new FriendlyError("O Instagram não devolveu os dados da conta. Gere um token novo e tente de novo.", 400, "token");
+  if (!isProfessionalAccount(me.accountType)) throw new InstagramApiError("conta_nao_profissional");
+  const established = await establishToken(token, { appSecret: process.env.IG_APP_SECRET, fetchImpl, now: opts.now });
+  return saveConnection(org, input, me, established);
+}
+
+async function ownAccount(org: Org, accountId: string): Promise<any> {
+  const id = toObjectId(accountId);
+  const account = id ? await SocialAccount.findOne({ _id: id, organization: org }) : null;
+  if (!account) throw notFound("Conta");
   return account;
 }
 
-export async function testInstagram(accountId: string, opts: { fetchImpl?: FetchLike } = {}) {
+export async function testInstagram(org: Org, accountId: string, opts: { fetchImpl?: FetchLike } = {}) {
   ensureMock();
-  const account = await SocialAccount.findById(accountId);
-  if (!account) throw new FriendlyError("Conta não encontrada.", 404);
+  const account = await ownAccount(org, accountId);
   const me = await new InstagramClient(accountToken(account), opts.fetchImpl ?? getDefaultFetch()).getMe();
   account.username = me.username || account.username;
   account.accountName = me.username ? `@${me.username}` : account.accountName;
@@ -139,12 +149,12 @@ export async function testInstagram(accountId: string, opts: { fetchImpl?: Fetch
 
 /** Renova agora. Devolve aviso amigável quando a Meta ainda não deixa (menos de 24h). */
 export async function renewInstagram(
+  org: Org,
   accountId: string,
   opts: { fetchImpl?: FetchLike; now?: number } = {}
 ) {
   ensureMock();
-  const account = await SocialAccount.findById(accountId);
-  if (!account) throw new FriendlyError("Conta não encontrada.", 404);
+  const account = await ownAccount(org, accountId);
   const now = opts.now ?? Date.now();
   const age = account.tokenObtainedAt ? now - new Date(account.tokenObtainedAt).getTime() : Infinity;
   if (age < 86_400_000)

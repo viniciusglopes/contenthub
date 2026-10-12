@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decrypt, encrypt, isEncrypted, loadKey, publicCredentials, sealCredentials } from "@/lib/crypto";
-import { checkCronToken, createSessionToken, verifySessionToken } from "@/lib/auth";
+import { checkCronToken, createSessionToken, hashPassword, passwordProblem, readSessionToken, readState, signState, verifyPassword, verifySessionToken } from "@/lib/auth";
 
 const key = loadKey("a".repeat(64));
 
@@ -49,15 +49,39 @@ describe("criptografia em repouso", () => {
 
 describe("sessão e token de rotina", () => {
   const secret = "segredo-de-sessao-com-32-caracteres!";
+  const uid = "a".repeat(24);
   it("valida cookie assinado e recusa adulterado, vencido ou de outra chave", () => {
-    const t = createSessionToken(1_000, secret);
+    const t = createSessionToken({ uid, sv: 1 }, 1_000, secret);
     expect(verifySessionToken(t, 2_000, secret)).toBe(true);
+    expect(readSessionToken(t, 2_000, secret)).toMatchObject({ uid, sv: 1 });
     expect(verifySessionToken(t, 1_000 + 31 * 86_400_000, secret)).toBe(false);
     expect(verifySessionToken(t, 2_000, "outra-chave-de-sessao-qualquer!!")).toBe(false);
-    const forged = Buffer.from(JSON.stringify({ exp: 9e15 })).toString("base64url") + "." + t.split(".")[1];
+    // trocar o usuário (ou acrescentar "entrar como") no cookie sem a chave: recusado
+    const forged = Buffer.from(JSON.stringify({ uid: "b".repeat(24), sv: 1, imp: "c".repeat(24), exp: 9e15 })).toString("base64url") + "." + t.split(".")[1];
     expect(verifySessionToken(forged, 2_000, secret)).toBe(false);
     expect(verifySessionToken("", 2_000, secret)).toBe(false);
     expect(verifySessionToken(t, 2_000, "")).toBe(false);
+  });
+
+  it("state do OAuth não serve de sessão, nem sessão de state", () => {
+    const state = signState({ uid, sv: 1 }, 60_000, 1_000, secret);
+    expect(readState(state, 2_000, secret)).toMatchObject({ uid });
+    expect(verifySessionToken(state, 2_000, secret)).toBe(false);
+    expect(readState(createSessionToken({ uid, sv: 1 }, 1_000, secret), 2_000, secret)).toBeNull();
+    expect(readState(state, 1_000 + 61_000, secret)).toBeNull();
+  });
+
+  it("senha: scrypt com sal, confere a certa e recusa a errada", async () => {
+    const h = await hashPassword("senha-forte-123");
+    expect(h).toMatch(/^scrypt\$32768\$8\$1\$/);
+    expect(h).not.toContain("senha-forte");
+    expect(await hashPassword("senha-forte-123")).not.toBe(h);
+    expect(await verifyPassword("senha-forte-123", h)).toBe(true);
+    expect(await verifyPassword("senha-forte-124", h)).toBe(false);
+    expect(await verifyPassword("senha-forte-123", "texto-qualquer")).toBe(false);
+    expect(passwordProblem("curta1")).toMatch(/pelo menos/);
+    expect(passwordProblem("somenteletrasaqui")).toMatch(/letras e números/);
+    expect(passwordProblem("senha-forte-123")).toBe("");
   });
 
   it("token de rotina só com Bearer exato", () => {

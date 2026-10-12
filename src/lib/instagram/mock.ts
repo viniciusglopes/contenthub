@@ -118,13 +118,24 @@ export function mockFetch(nowFn: () => number = Date.now): FetchLike {
     const now = nowFn();
     if (/invalido/i.test(token)) return fail(190, "Invalid OAuth access token - Cannot parse access token", 400);
 
+    // Login pelo Instagram (demonstração): código -> token curto -> token longo.
+    if (u.hostname === "api.instagram.com" && path === "/oauth/access_token") {
+      if (/invalido/i.test(params.get("code") || "")) return { ok: false, status: 400, json: async () => ({ error_type: "OAuthException", code: 400, error_message: "Matching code was not found or was already used" }) };
+      return ok({ data: [{ access_token: "IGAA-token-curto-do-login-0001", user_id: MOCK_USER_ID, permissions: "instagram_business_basic,instagram_business_manage_insights" }] });
+    }
+    if (path === "/access_token" && /curto/.test(token))
+      return ok({ access_token: token.replace("curto", "longo"), token_type: "bearer", expires_in: 5_183_944 });
+
+    // Token com "conta-<nome>" simula outra conta (para ver dois clientes com dados diferentes).
+    const named = /conta-([a-z0-9_.]+)/.exec(token)?.[1];
+    const seed = named ? [...named].reduce((n, c) => n + c.charCodeAt(0), 0) : 0;
     if (path === "/me")
       return ok({
-        user_id: MOCK_USER_ID,
-        username: "horademudarojogo",
-        name: "Hora de Mudar o Jogo",
+        user_id: named ? `178414${String(10_000_000_000 + seed).slice(1)}` : MOCK_USER_ID,
+        username: named || "horademudarojogo",
+        name: named || "Hora de Mudar o Jogo",
         account_type: /pessoal/i.test(token) ? "PERSONAL" : "MEDIA_CREATOR",
-        followers_count: 12512,
+        followers_count: named ? 2400 + ((seed * 37) % 9000) : 12512,
         follows_count: 310,
         media_count: 240,
       });
@@ -153,7 +164,7 @@ export function mockFetch(nowFn: () => number = Date.now): FetchLike {
     if (m) return ok({ id: `1790000000000${Math.round(rnd(now) * 1000)}` });
 
     m = /^\/(\d+)\/insights$/.exec(path);
-    if (m && m[1] === MOCK_USER_ID) {
+    if (m && m[1].startsWith("178414")) {
       const day = Math.floor(Number(params.get("since") || 0) / 86_400);
       const trend = 1 + ((day % 60) / 60) * 0.25;
       const weekend = [0, 6].includes(new Date(day * 86_400_000).getUTCDay()) ? 0.8 : 1;

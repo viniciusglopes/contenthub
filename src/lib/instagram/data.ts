@@ -2,40 +2,41 @@ import "@/models/Post";
 import "@/models/Project";
 import SocialAccount from "@/models/SocialAccount";
 import { InstagramAccountDaily, InstagramMedia } from "@/models/InstagramMedia";
-import { NextResponse } from "next/server";
-import { toFriendly } from "./accounts";
+import type { Types } from "mongoose";
+import { toObjectId } from "@/lib/tenant";
 import { addDays, dayKey } from "./dates";
 import type { DailyPoint, MediaItem } from "./stats";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** Embrulha uma rota: erro vira JSON com mensagem em português. */
-export async function handle(fn: () => Promise<NextResponse>): Promise<NextResponse> {
-  try {
-    return await fn();
-  } catch (e) {
-    const f = toFriendly(e);
-    if (f.status >= 500) console.error("[instagram]", e instanceof Error ? e.name : "erro", f.message);
-    return NextResponse.json({ error: f.message, field: f.field }, { status: f.status });
-  }
-}
+/** Projeto populado SEMPRE com a organização no filtro: referência cruzada não vaza. */
+export const projectOf = (org: Types.ObjectId) => ({ path: "project", select: "name slug color icon", match: { organization: org } });
 
-export async function connectedAccounts(filter: { project?: string | null; account?: string | null } = {}) {
-  const q: Record<string, unknown> = { platform: "instagram", "credentials.accessToken": { $exists: true, $ne: "" } };
-  if (filter.project) q.project = filter.project;
-  if (filter.account) q._id = filter.account;
-  return SocialAccount.find(q).populate("project", "name slug color icon").sort({ active: -1, createdAt: 1 });
+/** Contas conectadas DA organização. Filtro com id malformado não acha nada. */
+export async function connectedAccounts(
+  org: Types.ObjectId,
+  filter: { project?: string | null; account?: string | null } = {}
+) {
+  const q: Record<string, unknown> = {
+    organization: org,
+    platform: "instagram",
+    "credentials.accessToken": { $exists: true, $ne: "" },
+  };
+  if (filter.project) q.project = toObjectId(filter.project) ?? null;
+  if (filter.account) q._id = toObjectId(filter.account) ?? null;
+  return SocialAccount.find(q).populate(projectOf(org)).sort({ active: -1, createdAt: 1 });
 }
 
 export async function loadInsightData(
+  org: Types.ObjectId,
   accountId: unknown,
   now: number = Date.now()
 ): Promise<{ daily: DailyPoint[]; media: MediaItem[] }> {
   const today = dayKey(now);
   const [dailyDocs, mediaDocs] = await Promise.all([
-    InstagramAccountDaily.find({ account: accountId, date: { $gte: addDays(today, -75) } }).sort({ date: 1 }).lean(),
-    InstagramMedia.find({ account: accountId, timestamp: { $gte: new Date(now - 90 * 86_400_000) } })
-      .populate("post", "title")
+    InstagramAccountDaily.find({ organization: org, account: accountId, date: { $gte: addDays(today, -75) } }).sort({ date: 1 }).lean(),
+    InstagramMedia.find({ organization: org, account: accountId, timestamp: { $gte: new Date(now - 90 * 86_400_000) } })
+      .populate({ path: "post", select: "title", match: { organization: org } })
       .sort({ timestamp: -1 })
       .lean(),
   ]);

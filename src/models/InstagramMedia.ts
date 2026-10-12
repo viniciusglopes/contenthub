@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { tenantPlugin } from "@/lib/tenant";
 
 const metrics = {
   reach: Number,
@@ -19,7 +20,7 @@ const InstagramMediaSchema = new Schema(
   {
     account: { type: Schema.Types.ObjectId, ref: "SocialAccount", required: true, index: true },
     project: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
-    igId: { type: String, required: true, unique: true },
+    igId: { type: String, required: true },
     mediaType: String,
     productType: String,
     kind: { type: String, default: "imagem" },
@@ -34,7 +35,11 @@ const InstagramMediaSchema = new Schema(
   },
   { timestamps: true }
 );
+InstagramMediaSchema.plugin(tenantPlugin, { model: "InstagramMedia" });
 InstagramMediaSchema.index({ project: 1, timestamp: -1 });
+// A mesma conta do Instagram pode estar conectada em dois clientes (agência e marca):
+// a mídia é única POR conta conectada, não no banco inteiro.
+InstagramMediaSchema.index({ account: 1, igId: 1 }, { unique: true });
 
 // Histórico diário por mídia: permite comparar a evolução de um post entre semanas.
 const InstagramMediaDailySchema = new Schema(
@@ -46,7 +51,8 @@ const InstagramMediaDailySchema = new Schema(
   },
   { timestamps: true }
 );
-InstagramMediaDailySchema.index({ igId: 1, date: 1 }, { unique: true });
+InstagramMediaDailySchema.plugin(tenantPlugin, { model: "InstagramMediaDaily" });
+InstagramMediaDailySchema.index({ account: 1, igId: 1, date: 1 }, { unique: true });
 InstagramMediaDailySchema.index({ account: 1, date: 1 });
 
 // Histórico diário da conta: seguidores (foto do dia) e alcance/views do dia.
@@ -61,6 +67,7 @@ const InstagramAccountDailySchema = new Schema(
   },
   { timestamps: true }
 );
+InstagramAccountDailySchema.plugin(tenantPlugin, { model: "InstagramAccountDaily" });
 InstagramAccountDailySchema.index({ account: 1, date: 1 }, { unique: true });
 
 export const InstagramMedia =

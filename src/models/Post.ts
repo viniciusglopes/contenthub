@@ -1,6 +1,8 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { tenantPlugin } from "@/lib/tenant";
 
 export interface IPost extends Document {
+  organization: Types.ObjectId;
   project: Types.ObjectId;
   title: string;
   content: string;
@@ -64,6 +66,8 @@ const PostSchema = new Schema<IPost>(
   { timestamps: true }
 );
 
+PostSchema.plugin(tenantPlugin, { model: "Post" });
+PostSchema.index({ organization: 1, scheduledDate: 1 });
 PostSchema.index({ project: 1, scheduledDate: 1 });
 PostSchema.index({ status: 1, scheduledDate: 1 });
 

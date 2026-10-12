@@ -1,6 +1,8 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { tenantPlugin } from "@/lib/tenant";
 
 export interface ISocialAccount extends Document {
+  organization: Types.ObjectId;
   project: Types.ObjectId;
   platform: "instagram" | "tiktok" | "youtube" | "facebook" | "twitter";
   accountName: string;
@@ -74,6 +76,7 @@ const SocialAccountSchema = new Schema<ISocialAccount>(
   { timestamps: true }
 );
 
+SocialAccountSchema.plugin(tenantPlugin, { model: "SocialAccount" });
 SocialAccountSchema.index({ project: 1, platform: 1 });
 
 export default mongoose.models.SocialAccount ||

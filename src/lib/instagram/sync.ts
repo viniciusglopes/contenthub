@@ -1,4 +1,6 @@
+import type { Types } from "mongoose";
 import { encrypt } from "@/lib/crypto";
+import { toObjectId } from "@/lib/tenant";
 import Post from "@/models/Post";
 import SocialAccount from "@/models/SocialAccount";
 import { InstagramAccountDaily, InstagramMedia, InstagramMediaDaily } from "@/models/InstagramMedia";
@@ -37,13 +39,15 @@ const REFRESH_DAYS = 3; // dias recentes sempre rebuscados (a Meta atrasa até 4
 const MEDIA_WINDOW_DAYS = 90;
 
 export async function syncAccount(
+  org: Types.ObjectId,
   accountId: string,
   opts: { fetchImpl?: FetchLike; now?: number } = {}
 ): Promise<SyncResult> {
   ensureMock();
   const fetchImpl = opts.fetchImpl ?? getDefaultFetch();
   const now = opts.now ?? Date.now();
-  const account: any = await SocialAccount.findById(accountId);
+  const id = toObjectId(accountId);
+  const account: any = id ? await SocialAccount.findOne({ _id: id, organization: org }) : null;
   if (!account) throw new FriendlyError("Conta não encontrada.", 404);
   const result: SyncResult = {
     accountId: String(account._id),
@@ -99,7 +103,7 @@ export async function syncAccount(
     result.username = account.username;
     if (me.followersCount != null) {
       await InstagramAccountDaily.updateOne(
-        { account: account._id, date: today },
+        { organization: org, account: account._id, date: today },
         { $set: { followers: me.followersCount, project: account.project } },
         { upsert: true }
       );
@@ -107,6 +111,7 @@ export async function syncAccount(
 
     // 3) Alcance e views por dia: o que falta dos últimos 30 dias + os 3 mais recentes.
     const existing: any[] = await InstagramAccountDaily.find({
+      organization: org,
       account: account._id,
       date: { $gte: addDays(today, -HISTORY_DAYS) },
     }).lean();
@@ -119,7 +124,7 @@ export async function syncAccount(
         const totals = parseAccountTotals(await client.getAccountTotals(igUserId, since, until));
         if (totals.reach != null || totals.views != null) {
           await InstagramAccountDaily.updateOne(
-            { account: account._id, date: key },
+            { organization: org, account: account._id, date: key },
             { $set: { ...totals, project: account.project } },
             { upsert: true }
           );
@@ -152,7 +157,7 @@ export async function syncAccount(
       }
       metrics = withMediaCounters(metrics, raw);
 
-      const post: any = await Post.findOne({ project: account.project, "externalIds.instagram": raw.id });
+      const post: any = await Post.findOne({ organization: org, project: account.project, "externalIds.instagram": raw.id });
       if (post) {
         post.metrics = {
           views: metrics.views ?? post.metrics?.views,
@@ -181,10 +186,10 @@ export async function syncAccount(
       if (raw.permalink) set.permalink = raw.permalink;
       const thumbUrl = raw.thumbnail_url || (raw.media_type !== "VIDEO" ? raw.media_url : undefined);
       if (thumbUrl) set.thumbnailUrl = thumbUrl;
-      await InstagramMedia.updateOne({ igId: raw.id }, { $set: set }, { upsert: true });
+      await InstagramMedia.updateOne({ organization: org, account: account._id, igId: raw.id }, { $set: set }, { upsert: true });
       await InstagramMediaDaily.updateOne(
-        { igId: raw.id, date: today },
-        { $set: { account: account._id, metrics } },
+        { organization: org, account: account._id, igId: raw.id, date: today },
+        { $set: { metrics } },
         { upsert: true }
       );
       result.media++;
@@ -201,21 +206,22 @@ export async function syncAccount(
   } catch (e) {
     const friendly = toFriendly(e);
     result.error = friendly.message;
-    await SocialAccount.updateOne({ _id: account._id }, { $set: { lastSyncError: friendly.message } });
+    await SocialAccount.updateOne({ _id: account._id, organization: org }, { $set: { lastSyncError: friendly.message } });
     return result;
   }
 }
 
-/** Sincroniza todas as contas ativas do Instagram (ou só as de um projeto). Uma por vez. */
+/** Sincroniza as contas ativas do Instagram DE UMA organização (ou só as de um projeto). Uma por vez. */
 export async function syncAll(
+  org: Types.ObjectId,
   filter: { project?: string; account?: string } = {},
   opts: { fetchImpl?: FetchLike; now?: number } = {}
 ): Promise<SyncResult[]> {
-  const q: Record<string, unknown> = { platform: "instagram", active: true, "credentials.accessToken": { $exists: true, $ne: "" } };
-  if (filter.project) q.project = filter.project;
-  if (filter.account) q._id = filter.account;
+  const q: Record<string, unknown> = { organization: org, platform: "instagram", active: true, "credentials.accessToken": { $exists: true, $ne: "" } };
+  if (filter.project) q.project = toObjectId(filter.project) ?? null;
+  if (filter.account) q._id = toObjectId(filter.account) ?? null;
   const accounts = await SocialAccount.find(q).select("_id");
   const results: SyncResult[] = [];
-  for (const a of accounts) results.push(await syncAccount(String(a._id), opts));
+  for (const a of accounts) results.push(await syncAccount(org, String(a._id), opts));
   return results;
 }
