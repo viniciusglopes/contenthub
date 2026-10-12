@@ -87,7 +87,11 @@ Seria preciso: campo `domains` na organização; a tela de entrada e o proxy esc
 - Conectar: Configurações > Redes Sociais > Adicionar Conta > Instagram > colar o token (ou "Conectar com o Instagram" quando `IG_OAUTH_ENABLED=true`).
 - Métricas: `POST /api/instagram/sync` (com login: contas do cliente; com o token de rotina: todos os clientes; corpo `{ "project" }` ou `{ "account" }` para uma só).
   Cron diário sugerido: `curl -X POST -H "Authorization: Bearer $CRON_TOKEN" https://<host>/api/instagram/sync`
-- Relatório em texto: `GET /api/instagram/report?tipo=segunda|raiox[&project=<id>]`
+- Histórico: a PRIMEIRA sincronização de uma conta busca até 12 meses de posts (paginando, com teto de 1.000 posts, 1.500 chamadas e 4 minutos por rodada; se a Meta limitar, guarda o que veio e avisa) e até 90 dias de alcance/views da conta (é o que a Meta guarda). As diárias buscam só os posts dos últimos 90 dias. Conta já conectada: botão "Buscar histórico (12 meses)" ou `POST /api/instagram/sync` com `{ "account": "<id>", "historico": true }` (só com login; a rotina nunca busca histórico).
+- Período do painel e do relatório (padrão 30 dias; dias de Brasília): `?periodo=7d|30d|90d|mes|mes-passado`, ou `?dias=N` (1 a 366), ou `?de=AAAA-MM-DD&ate=AAAA-MM-DD`. A comparação é sempre com o período anterior do mesmo tamanho; sem dado suficiente o percentual vem `null` ("sem comparação ainda"). Período inválido: 400 com `error` e `field`.
+- Painel: `GET /api/instagram/dashboard?project=<id>[&período]`.
+- Relatório em texto: `GET /api/instagram/report?tipo=segunda|raiox[&project=<id>]` (atalhos) ou com os parâmetros de período acima (relatório "do período").
+- Dois alcances, de propósito: "Alcance da conta" é a SOMA do alcance de cada dia (a mesma pessoa conta de novo a cada dia; inclui stories, anúncios e posts antigos) e "Alcance dos posts do período" soma só os posts publicados no período. Não são comparáveis.
 - Publicação (base, desligada): `POST /api/instagram/publish` com `{ "postId", "dryRun": true }` só confere o post.
 
 ## Testes e demonstração local

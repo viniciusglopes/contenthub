@@ -1,8 +1,10 @@
 import { addDays, dayKey, formatDateBR, formatDateTimeBR, formatDayBR } from "./dates";
 import { KIND_LABEL, savesPlusShares } from "./metrics";
+import type { Period } from "./period";
 import {
   type DailyPoint,
   type MediaItem,
+  buildPeriodDashboard,
   comparePeriods,
   followersAt,
   lastFullWeek,
@@ -187,5 +189,62 @@ export function buildXrayReport(input: ReportInput): string {
     );
   }
   lines.push("", ...bestLines(posts), "", `Ação sugerida: ${suggestAction(posts, reach.pct, 12)}`, "", footer(input.lastSync));
+  return lines.join("\n");
+}
+
+export const EXPLICA_ALCANCE_CONTA = "soma dos dias, a mesma pessoa pode contar mais de uma vez";
+
+/** Relatório do período escolhido, contra o período anterior de mesmo tamanho. */
+export function buildPeriodReport(input: ReportInput & { period: Period; mediaSince?: string | null }): string {
+  const now = input.now ?? Date.now();
+  const p = input.period;
+  const d = buildPeriodDashboard(input.daily, input.media, p, { now, mediaSince: input.mediaSince });
+  const cmp = (pct: number | null) => (pct == null ? "sem comparação ainda" : `${fmtPct(pct)} sobre ${p.compareLabel}`);
+  const closed = (m: typeof d.reach) =>
+    m.expectedDays > 0 && m.days < m.expectedDays ? `, dado de ${m.days} de ${m.expectedDays} dias` : "";
+  const f = d.followersDelta;
+  const lines = [
+    `RELATÓRIO DO PERÍODO: @${input.username}`,
+    `Período de ${formatDayBR(p.from, true)} a ${formatDayBR(p.to, true)} (${p.days} ${p.days === 1 ? "dia" : "dias"})`,
+    `Comparação com ${p.compareLabel}: ${formatDayBR(p.prevFrom, true)} a ${formatDayBR(p.prevTo, true)}`,
+    "",
+    f
+      ? `Seguidores: ${fmtInt(f.start)} no início, ${fmtInt(f.end)} no fim (${fmtDelta(f.delta)}, ${fmtPct(f.pct)})${
+          f.partial ? `, contando desde ${formatDayBR(f.since, true)}` : ""
+        }`
+      : d.coverage.followersSince
+        ? `Seguidores: ${fmtInt(d.followers)} hoje. Sem comparação ainda no período (o histórico de seguidores começou em ${formatDayBR(d.coverage.followersSince, true)})`
+        : "Seguidores: ainda sem histórico (começa a contar na primeira sincronização)",
+    d.reach.days === 0
+      ? "Alcance da conta: sem dado no período"
+      : `Alcance da conta (${EXPLICA_ALCANCE_CONTA}): ${fmtInt(d.reach.current)} (${cmp(d.reach.pct)}${closed(d.reach)})`,
+    `Alcance dos posts do período (soma do alcance dos ${d.posts.length} posts publicados): ${d.posts.length ? fmtInt(d.postsReach) : "nenhum post"}`,
+    d.views.days === 0
+      ? "Views da conta: sem dado no período"
+      : `Views da conta: ${fmtInt(d.views.current)} (${cmp(d.views.pct)}${closed(d.views)})`,
+    `Posts publicados: ${d.posts.length}${d.prevPosts != null ? ` (${fmtInt(d.prevPosts)} ${p.days === 1 ? "no dia anterior" : `nos ${p.days} dias anteriores`})` : ""}`,
+  ];
+  if (d.postsIncomplete)
+    lines.push(
+      d.coverage.mediaSince
+        ? `Atenção: os posts só foram buscados desde ${formatDayBR(d.coverage.mediaSince, true)}; antes disso pode faltar post.`
+        : "Atenção: os posts dessa conta ainda não foram buscados."
+    );
+  const kinds = statsByKind(d.posts);
+  if (kinds.length > 0) {
+    lines.push("", "Por formato (média de salvamentos+compartilhamentos por post):");
+    for (const k of kinds)
+      lines.push(`${KIND_LABEL[k.kind]}: ${k.posts} post(s), média ${fmtInt(k.avgSavesShares)}, alcance médio ${fmtInt(k.avgReach)}`);
+  }
+  const top3 = d.posts.filter((m) => savesPlusShares(m.metrics) > 0).slice(0, 3);
+  if (top3.length > 0) {
+    lines.push("", "Top 3 do período:");
+    top3.forEach((m, i) =>
+      lines.push(
+        `${i + 1}. ${describe(m)}: ${fmtInt(m.metrics.saved ?? 0)} salvamentos, ${fmtInt(m.metrics.shares ?? 0)} compartilhamentos, alcance ${fmtInt(m.metrics.reach)}`
+      )
+    );
+  }
+  lines.push("", ...bestLines(d.posts), "", `Ação sugerida: ${suggestAction(d.posts, d.reach.pct)}`, "", footer(input.lastSync));
   return lines.join("\n");
 }

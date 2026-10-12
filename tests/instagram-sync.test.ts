@@ -76,7 +76,8 @@ describe("sincronizar", () => {
       scheduledDate: new Date(NOW), scheduledTime: "09:00", status: "posted", externalIds: { instagram: "1800000000000100" },
     });
     const r = await syncAccount(org, accountId, { fetchImpl: mockFetch(() => NOW), now: NOW });
-    expect(r).toMatchObject({ ok: true, media: 26, matchedPosts: 1, days: 30, tokenRenewed: false });
+    // primeira sincronização = histórico: 90 dias da conta (o que a Meta guarda) e até 12 meses de posts
+    expect(r).toMatchObject({ ok: true, media: 26, matchedPosts: 1, days: 90, tokenRenewed: false, history: true });
     expect(r.warnings).toEqual([]);
 
     const reel = await InstagramMedia.findOne({ organization: org, igId: "1800000000000100" }).lean<Record<string, any>>();
@@ -95,9 +96,9 @@ describe("sincronizar", () => {
 
     const today = dayKey(NOW);
     const days = await InstagramAccountDaily.find({ organization: org, account: accountId }).lean<Record<string, any>[]>();
-    expect(days).toHaveLength(31); // 30 dias de alcance/views + hoje com seguidores
+    expect(days).toHaveLength(91); // 90 dias de alcance/views + hoje com seguidores
     expect(days.find((d) => d.date === today)).toMatchObject({ followers: 12512 });
-    expect(days.filter((d) => d.reach > 0 && d.views > 0)).toHaveLength(30);
+    expect(days.filter((d) => d.reach > 0 && d.views > 0)).toHaveLength(90);
     expect(await InstagramMediaDaily.countDocuments({ organization: org, date: today })).toBe(26);
 
     const acc = await SocialAccount.findOne({ _id: accountId, organization: org }).lean<Record<string, any>>();

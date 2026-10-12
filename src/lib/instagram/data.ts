@@ -4,7 +4,7 @@ import SocialAccount from "@/models/SocialAccount";
 import { InstagramAccountDaily, InstagramMedia } from "@/models/InstagramMedia";
 import type { Types } from "mongoose";
 import { toObjectId } from "@/lib/tenant";
-import { addDays, dayKey } from "./dates";
+import { addDays, dayKey, dayStartMs } from "./dates";
 import type { DailyPoint, MediaItem } from "./stats";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -27,15 +27,23 @@ export async function connectedAccounts(
   return SocialAccount.find(q).populate(projectOf(org)).sort({ active: -1, createdAt: 1 });
 }
 
+/** Janela padrão de leitura: cobre um período de 12 meses e o período anterior a ele. */
+const DEFAULT_LOOKBACK_DAYS = 2 * 366 + 2;
+
+/**
+ * Dados gravados de UMA conta da organização. `sinceKey` (dia de Brasília) limita a leitura;
+ * sem ele vem a janela padrão. Só lê o banco: não chama a Meta.
+ */
 export async function loadInsightData(
   org: Types.ObjectId,
   accountId: unknown,
-  now: number = Date.now()
+  now: number = Date.now(),
+  sinceKey?: string
 ): Promise<{ daily: DailyPoint[]; media: MediaItem[] }> {
-  const today = dayKey(now);
+  const from = sinceKey ?? addDays(dayKey(now), -DEFAULT_LOOKBACK_DAYS);
   const [dailyDocs, mediaDocs] = await Promise.all([
-    InstagramAccountDaily.find({ organization: org, account: accountId, date: { $gte: addDays(today, -75) } }).sort({ date: 1 }).lean(),
-    InstagramMedia.find({ organization: org, account: accountId, timestamp: { $gte: new Date(now - 90 * 86_400_000) } })
+    InstagramAccountDaily.find({ organization: org, account: accountId, date: { $gte: addDays(from, -1) } }).sort({ date: 1 }).lean(),
+    InstagramMedia.find({ organization: org, account: accountId, timestamp: { $gte: new Date(dayStartMs(from)) } })
       .populate({ path: "post", select: "title", match: { organization: org } })
       .sort({ timestamp: -1 })
       .lean(),
@@ -54,3 +62,14 @@ export async function loadInsightData(
     })),
   };
 }
+
+/**
+ * Dia até onde os posts dessa conta foram buscados na Meta. Conta sincronizada antes de
+ * existir esse registro buscava 90 dias a cada sincronização.
+ */
+export function mediaSinceOf(account: { mediaHistorySince?: Date | string | null; lastSync?: Date | string | null }): string | null {
+  if (account.mediaHistorySince) return dayKey(new Date(account.mediaHistorySince));
+  if (account.lastSync) return dayKey(new Date(account.lastSync).getTime() - LEGACY_MEDIA_WINDOW_DAYS * 86_400_000);
+  return null;
+}
+export const LEGACY_MEDIA_WINDOW_DAYS = 90;

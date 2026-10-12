@@ -32,6 +32,11 @@ export interface ISocialAccount extends Document {
   profilePictureUrl: string;
   lastSyncError: string;
   lastSyncStats: { media?: number; matchedPosts?: number; days?: number } | null;
+  /** até que dia os posts já foram buscados na Meta (histórico) */
+  mediaHistorySince: Date | null;
+  /** última busca de histórico (12 meses) e o que ela trouxe */
+  historyFetchedAt: Date | null;
+  historyNote: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -72,6 +77,9 @@ const SocialAccountSchema = new Schema<ISocialAccount>(
     profilePictureUrl: { type: String, default: "" },
     lastSyncError: { type: String, default: "" },
     lastSyncStats: { type: Schema.Types.Mixed, default: null },
+    mediaHistorySince: { type: Date, default: null },
+    historyFetchedAt: { type: Date, default: null },
+    historyNote: { type: String, default: "" },
   },
   { timestamps: true }
 );

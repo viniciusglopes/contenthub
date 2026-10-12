@@ -222,13 +222,23 @@ const CASES: Record<string, Case> = {
     attack: (t) => [
       { path: `/api/instagram/dashboard?project=${t.project._id}`, expect: 200 },
       { path: `/api/instagram/dashboard?account=${t.account._id}`, expect: 200 },
+      // período escolhido: os parâmetros novos não abrem caminho para a conta do outro
+      { path: `/api/instagram/dashboard?project=${t.project._id}&dias=90`, expect: 200 },
+      { path: `/api/instagram/dashboard?account=${t.account._id}&periodo=mes-passado`, expect: 200 },
+      { path: `/api/instagram/dashboard?account=${t.account._id}&de=2026-01-01&ate=2026-10-01`, expect: 200 },
     ],
-    own: (t) => ({ path: `/api/instagram/dashboard?project=${t.project._id}` }),
+    own: (t) => ({ path: `/api/instagram/dashboard?project=${t.project._id}&dias=7` }),
   },
   "GET /api/instagram/report": {
     access: "org+cron",
-    attack: (t) => [{ path: "/api/instagram/report", expect: 200 }, { path: `/api/instagram/report?project=${t.project._id}`, expect: 200 }],
-    own: () => ({ path: "/api/instagram/report?tipo=raiox" }),
+    attack: (t) => [
+      { path: "/api/instagram/report", expect: 200 },
+      { path: `/api/instagram/report?project=${t.project._id}`, expect: 200 },
+      { path: `/api/instagram/report?project=${t.project._id}&dias=30`, expect: 200 },
+      { path: `/api/instagram/report?project=${t.project._id}&de=2026-01-01&ate=2026-10-01`, expect: 200 },
+      { path: "/api/instagram/report?periodo=90d", expect: 200 },
+    ],
+    own: () => ({ path: "/api/instagram/report?tipo=raiox&dias=30" }),
   },
   "POST /api/instagram/sync": {
     access: "org+cron",
@@ -236,6 +246,8 @@ const CASES: Record<string, Case> = {
     attack: (t) => [
       { method: "POST", path: "/api/instagram/sync", body: { account: String(t.account._id) }, expect: 200 },
       { method: "POST", path: "/api/instagram/sync", body: { project: String(t.project._id) }, expect: 200 },
+      // buscar o histórico (12 meses) da conta do outro: nada é buscado nem gravado
+      { method: "POST", path: "/api/instagram/sync", body: { account: String(t.account._id), historico: true }, expect: 200 },
     ],
     own: (t) => ({ method: "POST", path: "/api/instagram/sync", body: { account: String(t.account._id) } }),
   },
@@ -486,7 +498,7 @@ describe("cada rota, uma por uma", () => {
     expect(projects.data.map((p: any) => p.name)).toEqual(expect.arrayContaining(["Projeto Alfa", "Projeto Alfa Dois", "Projeto Alfa Três"]));
     const dash = await call(handlers["GET /api/instagram/dashboard"], { path: `/api/instagram/dashboard?project=${w.A.project._id}`, cookie });
     expect(dash.data.account.username).toBe("alfaoficial");
-    expect(dash.data.dashboard.posts30.length).toBeGreaterThan(5);
+    expect(dash.data.dashboard.posts.length).toBeGreaterThan(5);
   });
 
   it("os dois clientes guardam a mesma mídia do Instagram sem misturar", async () => {

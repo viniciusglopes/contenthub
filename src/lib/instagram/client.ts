@@ -115,12 +115,24 @@ export interface RawInsight {
   total_value?: { value?: number };
 }
 
+export interface MediaPage {
+  items: RawMedia[];
+  /** chegou na data de corte ou no fim das mídias */
+  complete: boolean;
+  pages: number;
+  /** por que parou antes do fim: teto de mídias, teto de páginas, ou a Meta limitou/falhou */
+  stopped: "max" | "paginas" | "limite" | "temporario" | "rede" | null;
+}
+
 const MEDIA_FIELDS_FULL =
   "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count";
 // Conjunto mínimo, caso a Meta recuse algum campo do conjunto completo.
 const MEDIA_FIELDS_SAFE = "id,media_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count";
 
 export class InstagramClient {
+  /** Chamadas feitas à Meta por este cliente (para o limite de segurança do histórico). */
+  calls = 0;
+
   constructor(
     private token: string,
     private fetchImpl: FetchLike = getDefaultFetch(),
@@ -136,6 +148,7 @@ export class InstagramClient {
     const base = `${IG_HOST}${versioned ? `/${this.version}` : ""}${path}`;
     const all = { ...params, access_token: this.token };
     let res: FetchResponseLike;
+    this.calls++;
     try {
       res =
         method === "GET"
@@ -200,22 +213,53 @@ export class InstagramClient {
 
   /** Lista mídias da mais nova para a mais antiga, parando em `sinceMs` ou em `max`. */
   async listMedia(igUserId: string, opts: { sinceMs?: number; max?: number } = {}): Promise<RawMedia[]> {
+    const r = await this.listMediaPaged(igUserId, { ...opts, tolerant: false });
+    return r.items;
+  }
+
+  /**
+   * Paginação com limites de segurança, para o histórico.
+   * `complete` = chegou na data de corte (ou no fim das mídias da conta).
+   * Com `tolerant`, limite de taxa / instabilidade DEPOIS da primeira página não joga fora o que
+   * já veio: devolve o que tem e diz por que parou em `stopped`.
+   */
+  async listMediaPaged(
+    igUserId: string,
+    opts: { sinceMs?: number; max?: number; maxPages?: number; pageSize?: number; tolerant?: boolean } = {}
+  ): Promise<MediaPage> {
     const max = opts.max ?? 200;
+    const maxPages = opts.maxPages ?? 20;
     const out: RawMedia[] = [];
     let after: string | undefined;
     let fields = MEDIA_FIELDS_FULL;
-    for (let page = 0; page < 20 && out.length < max; page++) {
+    let pages = 0;
+    let complete = false;
+    let stopped: MediaPage["stopped"] = null;
+    for (let page = 0; ; page++) {
+      if (out.length >= max) {
+        stopped = "max";
+        break;
+      }
+      if (page >= maxPages) {
+        stopped = "paginas";
+        break;
+      }
       let r: { data?: RawMedia[]; paging?: { cursors?: { after?: string }; next?: string } };
       try {
-        r = await this.call(`/${igUserId}/media`, { fields, limit: 50, after });
+        r = await this.call(`/${igUserId}/media`, { fields, limit: opts.pageSize ?? 50, after });
       } catch (e) {
         if (e instanceof InstagramApiError && e.kind === "parametro" && fields === MEDIA_FIELDS_FULL) {
           fields = MEDIA_FIELDS_SAFE;
           page--;
           continue;
         }
+        if (opts.tolerant && pages > 0 && e instanceof InstagramApiError && (e.kind === "limite" || e.kind === "temporario" || e.kind === "rede")) {
+          stopped = e.kind;
+          break;
+        }
         throw e;
       }
+      pages++;
       const items = r.data || [];
       let reachedOld = false;
       for (const m of items) {
@@ -223,13 +267,16 @@ export class InstagramClient {
           reachedOld = true;
           break;
         }
-        out.push(m);
         if (out.length >= max) break;
+        out.push(m);
       }
       after = r.paging?.cursors?.after;
-      if (reachedOld || !r.paging?.next || !after || items.length === 0) break;
+      if (reachedOld || !r.paging?.next || !after || items.length === 0) {
+        complete = true;
+        break;
+      }
     }
-    return out;
+    return { items: out, complete, pages, stopped };
   }
 
   async getMediaInsights(mediaId: string, metrics: string[]): Promise<RawInsight[]> {
