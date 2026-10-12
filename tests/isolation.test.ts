@@ -14,7 +14,9 @@ import { syncAccount } from "@/lib/instagram/sync";
 import { createInvite } from "@/lib/invites";
 import { TENANT_MODELS, TenantScopeError } from "@/lib/tenant";
 import ApiCredential from "@/models/ApiCredential";
+import InstagramComment from "@/models/InstagramComment";
 import { InstagramMedia } from "@/models/InstagramMedia";
+import { syncComments } from "@/lib/instagram/comments";
 import MediaAsset from "@/models/MediaAsset";
 import Post from "@/models/Post";
 import Project from "@/models/Project";
@@ -37,7 +39,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const NOW = Date.now();
 
 interface Side {
-  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string;
+  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -291,6 +293,41 @@ const CASES: Record<string, Case> = {
     attack: (t) => [{ method: "POST", path: "/api/instagram/publish", body: { postId: String(t.post._id), dryRun: true } }],
     own: (t) => ({ method: "POST", path: "/api/instagram/publish", body: { postId: String(t.post._id), dryRun: true } }),
   },
+  // ---- comentários (texto e @ de terceiros)
+  "GET /api/instagram/comments": {
+    access: "org",
+    attack: (t) => [
+      { path: `/api/instagram/comments?post=${t.post._id}` },
+      // as duas contas de exemplo têm mídias com o MESMO id no Instagram: a ALFA só recebe os comentários dela
+      { path: `/api/instagram/comments?media=${MEDIA_ID}&account=${t.account._id}&organization=${t.org._id}`, expect: 200 },
+    ],
+    own: () => ({ path: `/api/instagram/comments?media=${MEDIA_ID}` }),
+  },
+  "GET /api/instagram/comments/study": {
+    access: "org",
+    attack: (t) => [
+      { path: `/api/instagram/comments/study?account=${t.account._id}`, expect: 200 },
+      { path: `/api/instagram/comments/study?project=${t.project._id}&dias=90`, expect: 200 },
+    ],
+    own: (t) => ({ path: `/api/instagram/comments/study?project=${t.project._id}&dias=90` }),
+  },
+  "POST /api/instagram/comments/sync": {
+    access: "org",
+    // buscar os comentários da conta do outro: 404, nada é buscado nem gravado
+    attack: (t) => [
+      { method: "POST", path: "/api/instagram/comments/sync", body: { account: String(t.account._id) } },
+      { method: "POST", path: "/api/instagram/comments/sync", body: { account: String(t.account._id), media: MEDIA_ID } },
+      { method: "POST", path: "/api/instagram/comments/sync", body: { account: String(t.account._id), periodo: "90d", organization: String(t.org._id) } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/instagram/comments/sync", body: { account: String(t.account._id), media: MEDIA_ID } }),
+  },
+  "POST /api/instagram/comments/[id]/reply": {
+    access: "org",
+    // chave de resposta desligada: 403 antes de qualquer leitura (com a chave ligada, o comentário
+    // do outro cliente dá 404: provado em comments.test.ts)
+    attack: (t) => [{ method: "POST", path: "/api/instagram/comments/x/reply", params: { id: String(t.comment._id) }, body: { message: "invadido", confirm: true }, expect: 403 }],
+    own: (t) => ({ method: "POST", path: "/api/instagram/comments/x/reply", params: { id: String(t.comment._id) }, body: { message: "oi", confirm: true }, expect: 403 }),
+  },
   "POST /api/instagram/accounts/[id]/test": {
     access: "org",
     attack: (t) => [{ method: "POST", path: "/api/instagram/accounts/x/test", params: { id: String(t.account._id) } }],
@@ -314,6 +351,8 @@ const CASES: Record<string, Case> = {
     own: () => ({ path: "/api/instagram/oauth/callback?error=access_denied&error_reason=user_denied", expect: 307 }),
   },
 };
+
+const MEDIA_ID = "1800000000000100";
 
 function post(project: string) {
   return { project, title: "Post de ataque", format: "reel", platforms: ["instagram"], scheduledDate: "2026-10-20", scheduledTime: "09:00" };
@@ -363,7 +402,11 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   const assetPath = path.join(mediaDir, String(o), file);
   writeFileSync(assetPath, `arquivo-da-${tag}`);
   const asset = await MediaAsset.create({ organization: o, kind: "image", file, mime: "image/jpeg", bytes: 15, width: 1080, height: 1080, originalName: `foto-${tag}.jpg` });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath };
+  // comentários de terceiros guardados (a mídia 100 tem comentários no simulador)
+  await syncComments(o, String(account._id), { mediaIgId: MEDIA_ID }, { now: NOW - 1_700_000 });
+  const comment = await InstagramComment.findOne({ organization: o, account: account._id, parentIgId: null, own: false });
+  expect(comment, "o simulador devolveu comentários").toBeTruthy();
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -384,7 +427,7 @@ function markers(side: Side): string[] {
     String(side.account._id), String(side.other._id), String(side.cred._id), String(side.invite._id),
     side.org.name, side.org.slug, "Marca Beta", side.project.name, side.post.title, "legenda-beta", "betaoficial", "@beta-tiktok",
     side.owner.email, side.member.email, "convidado@beta.test", "Chave Beta", "OpenAI Beta", side.inviteToken,
-    String(side.asset._id), side.asset.file, "foto-beta.jpg",
+    String(side.asset._id), side.asset.file, "foto-beta.jpg", String(side.comment._id),
   ];
 }
 
@@ -453,7 +496,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["ApiCredential", "InstagramAccountDaily", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount"]);
+    expect(TENANT_MODELS.sort()).toEqual(["ApiCredential", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

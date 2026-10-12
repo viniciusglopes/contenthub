@@ -13,6 +13,14 @@ const OrganizationSchema = new Schema(
     active: { type: Boolean, default: true },
     // Publicação automática no Instagram: desligada por padrão; só o administrador da plataforma liga.
     publishEnabled: { type: Boolean, default: false },
+    // Responder comentário pelo ContentHub: desligado por padrão; só o administrador da plataforma liga.
+    commentReplyEnabled: { type: Boolean, default: false },
+    // Classificação por IA (etapa seguinte): ordem dos provedores a tentar, em sequência.
+    // As chaves ficam em ApiCredential (criptografadas, uma por serviço por organização).
+    ai: {
+      commentProviders: { type: [String], default: [] },
+      enabled: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );

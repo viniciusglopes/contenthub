@@ -2,7 +2,9 @@
 /* eslint-disable react-hooks/set-state-in-effect -- estado inicial lido do link e do navegador */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, CalendarDays, Check, Copy, ExternalLink, History, RefreshCw, X } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, Check, Copy, ExternalLink, History, MessageCircle, RefreshCw, X } from "lucide-react";
+import CommentStudy from "./CommentStudy";
+import PostComments from "./PostComments";
 import { dayKey, formatDayBR } from "@/lib/instagram/dates";
 import { DEFAULT_PRESET, PERIOD_PRESETS, type Period, type PeriodPreset, resolvePeriod } from "@/lib/instagram/period";
 import { type PublicAccount, api, fmt, fmtDateTime, fmtDay, fmtPct, readLocal, tokenLabel, writeLocal } from "./shared";
@@ -321,13 +323,13 @@ function Notice({ id, tone = "info", children }: { id: string; tone?: "info" | "
 }
 
 function ReportBox({ projectId, periodQuery, periodName }: { projectId: string; periodQuery: string; periodName: string }) {
-  const [tipo, setTipo] = useState<"periodo" | "segunda" | "raiox">("periodo");
+  const [tipo, setTipo] = useState<"periodo" | "segunda" | "raiox" | "comentarios">("periodo");
   const [text, setText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     let alive = true;
     setText(null);
-    const q = tipo === "periodo" ? periodQuery || `periodo=${DEFAULT_PRESET}` : `tipo=${tipo}`;
+    const q = tipo === "periodo" ? periodQuery || `periodo=${DEFAULT_PRESET}` : tipo === "comentarios" ? `tipo=comentarios&${periodQuery || `periodo=${DEFAULT_PRESET}`}` : `tipo=${tipo}`;
     api<{ reports: { text: string }[] }>(`/api/instagram/report?project=${projectId}&${q}`).then((r) => {
       if (alive) setText(r.ok ? r.data?.reports?.[0]?.text || "Sem conta ativa para montar o relatório." : r.error);
     });
@@ -343,6 +345,7 @@ function ReportBox({ projectId, periodQuery, periodName }: { projectId: string; 
         <button type="button" className={chip(tipo === "periodo")} onClick={() => setTipo("periodo")}>Do período ({periodName})</button>
         <button type="button" className={chip(tipo === "segunda")} onClick={() => setTipo("segunda")}>Relatório da segunda</button>
         <button type="button" className={chip(tipo === "raiox")} onClick={() => setTipo("raiox")}>Raio-x de 30 dias</button>
+        <button type="button" className={chip(tipo === "comentarios")} onClick={() => setTipo("comentarios")}>Comentários do período</button>
         <button
           type="button"
           disabled={!text}
@@ -388,6 +391,10 @@ export default function InstagramPanel({
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "ss", dir: -1 });
   const [kind, setKind] = useState<string>("");
   const [showReport, setShowReport] = useState(false);
+  // Aba da tela (fica no link) e o post aberto no painel de comentários (também no link).
+  const [tab, setTab] = useState<"posts" | "comentarios">("posts");
+  const [openPost, setOpenPost] = useState("");
+  const [studyKey, setStudyKey] = useState(0);
   // null até ler o link: assim a primeira busca já sai com o período certo.
   const [sel, setSel] = useState<Selection | null>(null);
 
@@ -399,6 +406,8 @@ export default function InstagramPanel({
     const o = p.get("ordem") as SortKey | null;
     if (o && SORT_VALUE[o]) setSort({ key: o, dir: p.get("dir") === "asc" ? 1 : -1 });
     if (p.get("relatorio") === "1") setShowReport(true);
+    if (p.get("aba") === "comentarios") setTab("comentarios");
+    if (/^\d{5,40}$/.test(p.get("post") || "")) setOpenPost(p.get("post") as string);
     const de = p.get("de") || "";
     const ate = p.get("ate") || "";
     const preset = p.get("periodo") as PeriodPreset | null;
@@ -503,6 +512,18 @@ export default function InstagramPanel({
     setSort(next);
     setUrlParam("ordem", key === "ss" && next.dir === -1 ? null : key);
     setUrlParam("dir", next.dir === 1 ? "asc" : null);
+  }
+  function changeTab(t: "posts" | "comentarios") {
+    setTab(t);
+    setUrlParam("aba", t === "comentarios" ? t : null);
+  }
+  function openComments(igId: string) {
+    setOpenPost(igId);
+    setUrlParam("post", igId || null);
+    if (!igId) {
+      setUrlParam("cfiltro", null);
+      setStudyKey((k) => k + 1);
+    }
   }
   function changeKind(k: string) {
     setKind(k);
@@ -623,6 +644,18 @@ export default function InstagramPanel({
               <>
                 <PeriodBar sel={sel} period={period} busy={loading} serverError={periodError} onPick={pickPeriod} />
 
+                <div className="flex gap-1 border-b border-gray-800" role="tablist" data-testid="ig-tabs">
+                  {([["posts", "Desempenho dos posts"], ["comentarios", "Comentários"]] as const).map(([k, label]) => (
+                    <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => changeTab(k)} data-testid={`ig-tab-${k}`} className={`px-3 py-2 text-sm -mb-px border-b-2 transition inline-flex items-center gap-1.5 ${tab === k ? "border-brand-500 text-white font-semibold" : "border-transparent text-gray-400 hover:text-gray-200"}`}>
+                      {k === "comentarios" && <MessageCircle size={14} />} {label}
+                    </button>
+                  ))}
+                </div>
+
+                {tab === "comentarios" ? (
+                  <CommentStudy projectId={projectId} periodQuery={periodQuery} onOpenPost={openComments} refreshKey={studyKey} />
+                ) : (
+                <>
                 {/* Até onde vai o dado */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400" data-testid="ig-coverage">
                   <span>
@@ -709,13 +742,13 @@ export default function InstagramPanel({
                       </h3>
                       <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
                         {dash.top10.map((m, i) => (
-                          <a
+                          <button
                             key={m.igId}
-                            href={m.permalink || "#"}
-                            target="_blank"
-                            rel="noreferrer"
-                            title={title(m)}
-                            className="shrink-0 w-36 bg-gray-900 border border-gray-800 rounded-xl p-2 hover:border-gray-600 transition"
+                            type="button"
+                            onClick={() => openComments(m.igId)}
+                            title={`${title(m)} · ver métricas e comentários`}
+                            data-testid="ig-top-card"
+                            className="shrink-0 w-36 text-left bg-gray-900 border border-gray-800 rounded-xl p-2 hover:border-gray-600 transition"
                           >
                             <div className="relative">
                               <Thumb m={m} size={128} />
@@ -726,7 +759,7 @@ export default function InstagramPanel({
                             <div className="text-sm font-bold text-white tabular-nums mt-0.5">
                               {fmt(ss(m.metrics))} <span className="text-[10px] font-normal text-gray-400">salv.+comp.</span>
                             </div>
-                          </a>
+                          </button>
                         ))}
                       </div>
                     </section>
@@ -767,7 +800,7 @@ export default function InstagramPanel({
                               </tr>
                             )}
                             {rows.map((m) => (
-                              <tr key={m.igId} className="border-b border-gray-800/60 last:border-0 hover:bg-gray-800/40">
+                              <tr key={m.igId} onClick={() => openComments(m.igId)} data-testid="ig-row" title="Ver métricas e comentários do post" className="border-b border-gray-800/60 last:border-0 hover:bg-gray-800/40 cursor-pointer">
                                 <td className="px-3 py-1.5 sticky left-0 bg-gray-900 z-10">
                                   <div className="flex items-center gap-2 w-44 sm:w-64 lg:w-80">
                                     <Thumb m={m} size={32} />
@@ -786,7 +819,7 @@ export default function InstagramPanel({
                                 <td className="text-right px-2 tabular-nums text-gray-300">{m.kind === "reel" ? watch(m.metrics.avgWatchTimeMs) : "–"}</td>
                                 <td className="px-2">
                                   {m.permalink && (
-                                    <a href={m.permalink} target="_blank" rel="noreferrer" aria-label="Abrir no Instagram" title="Abrir no Instagram" className="text-gray-400 hover:text-white inline-flex p-1">
+                                    <a href={m.permalink} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Abrir no Instagram" title="Abrir no Instagram" className="text-gray-400 hover:text-white inline-flex p-1">
                                       <ExternalLink size={14} />
                                     </a>
                                   )}
@@ -796,15 +829,18 @@ export default function InstagramPanel({
                           </tbody>
                         </table>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2 md:hidden">Arraste a tabela para o lado para ver todas as colunas.</p>
+                      <p className="text-xs text-gray-500 mt-2">Clique em um post para ver as métricas e os comentários.<span className="md:hidden"> Arraste a tabela para o lado para ver todas as colunas.</span></p>
                     </section>
                   </>
+                )}
+                </>
                 )}
               </>
             )}
           </>
         )}
       </div>
+      {openPost && <PostComments key={openPost} mediaIgId={openPost} onClose={() => openComments("")} />}
     </div>
   );
 }

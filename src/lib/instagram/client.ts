@@ -29,7 +29,7 @@ const FRIENDLY: Record<IgErrorKind, string> = {
   token_invalido:
     "O token não é válido ou já venceu. Gere um novo no painel do app da Meta e cole aqui.",
   permissao:
-    "O token não tem a permissão necessária. Gere de novo marcando: instagram_business_basic, instagram_business_manage_insights e instagram_business_content_publish.",
+    "O token não tem a permissão necessária. Gere de novo marcando: instagram_business_basic, instagram_business_manage_insights, instagram_business_manage_comments e instagram_business_content_publish.",
   conta_nao_profissional:
     "Essa conta do Instagram não é profissional. Mude para Empresa ou Criador de conteúdo no app do Instagram e gere o token de novo.",
   limite: "O Instagram pediu para esperar (limite de chamadas atingido). Tente de novo em alguns minutos.",
@@ -109,6 +109,27 @@ export interface RawMedia {
   comments_count?: number;
 }
 
+export interface RawComment {
+  id: string;
+  text?: string;
+  timestamp?: string;
+  username?: string;
+  like_count?: number;
+  hidden?: boolean;
+  parent_id?: string;
+  from?: { id?: string; username?: string };
+  replies?: { data?: RawComment[]; paging?: { cursors?: { after?: string }; next?: string } };
+}
+
+export interface CommentsPage {
+  /** comentários de primeiro nível, cada um com TODAS as respostas que a Meta entregou */
+  items: (RawComment & { allReplies: RawComment[] })[];
+  /** foi até o fim da paginação (comentários e respostas) */
+  complete: boolean;
+  pages: number;
+  stopped: "paginas" | "chamadas" | null;
+}
+
 export interface RawInsight {
   name: string;
   values?: { value?: number | Record<string, number>; end_time?: string }[];
@@ -127,6 +148,14 @@ export interface MediaPage {
 const MEDIA_FIELDS_FULL =
   "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count";
 // Conjunto mínimo, caso a Meta recuse algum campo do conjunto completo.
+// Comentários (documentação oficial conferida em 12/10/2026: IG Media › comments e IG Comment).
+// A lista devolve só o primeiro nível, no máximo 50 por consulta, do mais novo para o mais antigo;
+// as respostas vêm por expansão de campo (`replies`) ou por GET /{comentário}/replies.
+const COMMENT_FIELDS = "id,text,timestamp,username,like_count,hidden,parent_id";
+const COMMENT_FIELDS_FULL = `${COMMENT_FIELDS},replies.limit(50){${COMMENT_FIELDS}}`;
+const COMMENT_FIELDS_SAFE = "id,text,timestamp,username,like_count";
+export const COMMENTS_PAGE_SIZE = 50;
+
 const MEDIA_FIELDS_SAFE = "id,media_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count";
 
 export class InstagramClient {
@@ -294,6 +323,63 @@ export class InstagramClient {
       until: untilUnix,
     });
     return r.data || [];
+  }
+
+  // ---- Comentários (leitura) ----
+
+  /**
+   * Comentários de UMA mídia com as respostas, paginando. Só leitura.
+   * `budget()` devolve quantas chamadas ainda podem ser feitas: ao zerar, para e avisa em `stopped`.
+   */
+  async listComments(mediaId: string, opts: { maxPages?: number; budget?: () => number } = {}): Promise<CommentsPage> {
+    const maxPages = opts.maxPages ?? 40;
+    const left = opts.budget ?? (() => Infinity);
+    type Page = { data?: RawComment[]; paging?: { cursors?: { after?: string }; next?: string } };
+    const items: CommentsPage["items"] = [];
+    let fields = COMMENT_FIELDS_FULL;
+    let after: string | undefined;
+    let pages = 0;
+    let stopped: CommentsPage["stopped"] = null;
+    let complete = false;
+    for (;;) {
+      if (pages >= maxPages) { stopped = "paginas"; break; }
+      if (left() <= 0) { stopped = "chamadas"; break; }
+      let r: Page;
+      try {
+        r = await this.call<Page>(`/${mediaId}/comments`, { fields, limit: COMMENTS_PAGE_SIZE, after });
+      } catch (e) {
+        // A Meta recusou algum campo: tenta de novo só com o conjunto mínimo.
+        if (e instanceof InstagramApiError && e.kind === "parametro" && fields === COMMENT_FIELDS_FULL && pages === 0) {
+          fields = COMMENT_FIELDS_SAFE;
+          continue;
+        }
+        throw e;
+      }
+      pages++;
+      for (const c of r.data || []) {
+        const allReplies = [...(c.replies?.data || [])];
+        // mais respostas do que couberam na expansão: busca o restante na borda /replies
+        let rAfter = c.replies?.paging?.next ? c.replies.paging.cursors?.after : undefined;
+        while (rAfter) {
+          if (left() <= 0) { stopped = "chamadas"; break; }
+          const rr = await this.call<Page>(`/${c.id}/replies`, { fields: COMMENT_FIELDS, limit: COMMENTS_PAGE_SIZE, after: rAfter });
+          allReplies.push(...(rr.data || []));
+          rAfter = rr.paging?.next ? rr.paging.cursors?.after : undefined;
+        }
+        items.push({ ...c, allReplies });
+        if (stopped) break;
+      }
+      if (stopped) break;
+      after = r.paging?.cursors?.after;
+      if (!r.paging?.next || !after || (r.data || []).length === 0) { complete = true; break; }
+    }
+    return { items, complete, pages, stopped };
+  }
+
+  /** Resposta PÚBLICA a um comentário. ESCRITA: só é chamada com as duas chaves de resposta ligadas. */
+  async replyToComment(commentId: string, message: string): Promise<string> {
+    const r = await this.call<{ id: string }>(`/${commentId}/replies`, { message }, "POST");
+    return r.id;
   }
 
   // ---- Publicação (container -> publish) ----

@@ -102,6 +102,41 @@ function mediaNumbers(m: MockMedia) {
   } as Record<string, number>;
 }
 
+// Comentários de exemplo (português informal de Instagram). Autores inventados.
+const COMMENT_POOL = [
+  "Amei esse conteúdo 😍", "Quanto custa?", "valor?", "Como faço pra agendar?", "@carol.mendes olha isso", "Top demais 👏👏",
+  "Será que funciona mesmo? já tentei de tudo", "Muito caro pra mim, infelizmente", "Atende aos sábados?", "🔥🔥🔥", "Manda no direct por favor",
+  "Qual o valor da consulta?", "Onde fica? qual cidade?", "Parcelam no cartão?", "Mandei mensagem faz 3 dias e ninguém respondeu", "Perfeito, salvei pra ver depois",
+  "Dói muito?", "Quero!! como eu compro?", "Obrigada pela dica 🙏", "Quanto tempo demora pra ver resultado?", "@ju_santos @bia.rocha vamos?",
+  "Parabéns pelo trabalho, sensacional", "Tem como passar o whats?", "Renda extra trabalhando de casa, link na minha bio", "Tenho medo de não dar certo",
+  "Aceita convênio?", "Ótimo atendimento, só que não né", "Que conteúdo necessário ❤️", "Tem vaga pra essa semana?", "Passa o orçamento por favor",
+  "kkkkk eu todinha", "Isso serve pra qualquer idade?", "❤️", "Não gostei do atendimento, demorou demais", "Qual o horário de atendimento?", "Maravilhosa 😍😍",
+];
+const COMMENT_USERS = ["carol.mendes", "ju_santos", "bia.rocha", "leo.martins", "nanda_alves", "rafa.lima", "dani.souza", "paty_oliveira", "gabi.ferraz", "marcos.tavares", "lu_castro", "tati.nunes", "vivi.araujo", "fe_ribeiro", "duda.pires", "camila.reis"];
+const OWNER_REPLIES = ["Te chamei no direct 😉", "Obrigada pelo carinho! ❤️", "Respondemos por mensagem, dá uma olhada lá", "Atendemos sim! Chama no direct que explico tudo"];
+
+/** Lista completa (primeiro nível + respostas) de uma mídia de exemplo, da mais nova para a mais antiga. */
+function mockComments(m: MockMedia, owner: string, now: number) {
+  const total = Math.min(mediaNumbers(m).comments, 140);
+  // Para a demonstração do aviso: a cada 4 mídias, uma não libera nada e outra libera só parte.
+  const allowed = m.i % 4 === 1 ? 0 : m.i % 4 === 3 ? Math.round(total * 0.6) : total;
+  const out: { id: string; text: string; timestamp: string; username: string; like_count: number; hidden: boolean; replies: { id: string; text: string; timestamp: string; username: string; like_count: number; hidden: boolean; parent_id: string }[] }[] = [];
+  let used = 0;
+  for (let k = 0; used < allowed; k++) {
+    const seed = m.i * 131 + k * 17;
+    const ts = Math.min(now - 60_000, m.ts + Math.round((0.3 + rnd(seed + 1) * 70) * 3_600_000));
+    const id = `1790${String(m.i).padStart(3, "0")}${String(k).padStart(6, "0")}`;
+    const c = { id, text: COMMENT_POOL[Math.floor(rnd(seed + 2) * COMMENT_POOL.length)], timestamp: new Date(ts).toISOString(), username: COMMENT_USERS[Math.floor(rnd(seed + 3) * COMMENT_USERS.length)], like_count: Math.floor(rnd(seed + 4) * 6), hidden: false, replies: [] as (typeof out)[number]["replies"] };
+    used++;
+    if (used < allowed && rnd(seed + 5) < 0.4) {
+      c.replies.push({ id: `${id}1`, text: OWNER_REPLIES[Math.floor(rnd(seed + 6) * OWNER_REPLIES.length)], timestamp: new Date(Math.min(now - 30_000, ts + Math.round((0.2 + rnd(seed + 7) * 9) * 3_600_000))).toISOString(), username: owner, like_count: 0, hidden: false, parent_id: id });
+      used++;
+    }
+    out.push(c);
+  }
+  return out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
 function ok(body: unknown): FetchResponseLike {
   return { ok: true, status: 200, json: async () => body };
 }
@@ -187,6 +222,25 @@ export function mockFetch(nowFn: () => number = Date.now): FetchLike {
           .map((k) => ({ name: k, period: "lifetime", values: [{ value: nums[k] }] })),
       });
     }
+
+    // Comentários (leitura): 50 por página, mais novos primeiro, respostas por expansão de campo.
+    m = /^\/(\d+)\/comments$/.exec(path);
+    if (m && (init?.method || "GET") === "GET") {
+      const media = list.find((x) => x.id === m![1]);
+      if (!media) return fail(100, "Unsupported get request. Object does not exist");
+      // token com "padrao" simula o acesso padrão da Meta: 200 com lista vazia
+      const all = /padrao/.test(token) ? [] : mockComments(media, named || "horademudarojogo", now);
+      const start = Number(params.get("after") || 0);
+      const size = Math.min(Number(params.get("limit") || 50), 50);
+      const slice = all.slice(start, start + size);
+      const withReplies = (params.get("fields") || "").includes("replies");
+      const more = start + size < all.length;
+      return ok({
+        data: slice.map(({ replies, ...c }) => (withReplies && replies.length ? { ...c, replies: { data: replies } } : c)),
+        ...(slice.length ? { paging: { cursors: { after: String(start + size) }, ...(more ? { next: "proxima" } : {}) } } : {}),
+      });
+    }
+    if (/^\/\d+\/replies$/.test(path)) return (init?.method || "GET") === "POST" ? ok({ id: `1791${String(Math.round(rnd(now) * 1e9)).padStart(9, "0")}` }) : ok({ data: [] });
 
     if (/^\/\d+\/media_publish$/.test(path)) return ok({ id: "17900000000009999" });
     if (/^\/\d+\/content_publishing_limit$/.test(path))

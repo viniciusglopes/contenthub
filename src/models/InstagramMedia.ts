@@ -32,6 +32,9 @@ const InstagramMediaSchema = new Schema(
     metrics,
     metricsUpdatedAt: Date,
     insightsError: { type: String, default: "" },
+    // Última busca de comentários desta mídia: quantos o Instagram informou x quantos liberou.
+    // { at, reported, fetched, topLevel, replies, complete, error }
+    commentsSync: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );

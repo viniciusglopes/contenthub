@@ -5,6 +5,7 @@ import Post from "@/models/Post";
 import SocialAccount from "@/models/SocialAccount";
 import { InstagramAccountDaily, InstagramMedia, InstagramMediaDaily } from "@/models/InstagramMedia";
 import { FriendlyError, accountToken, toFriendly } from "./accounts";
+import { syncComments } from "./comments";
 import { InstagramApiError, InstagramClient, type FetchLike, getDefaultFetch } from "./client";
 import { addDays, dayKey, dayRangeUnix, formatDateBR } from "./dates";
 import {
@@ -42,6 +43,8 @@ export interface SyncResult {
   calls: number;
   /** por que o histórico parou antes do fim (vazio = foi até o fim) */
   stopped: string;
+  /** comentários dos posts recentes: informados pelo Instagram x entregues (null = não buscou) */
+  comments: { reported: number; fetched: number; medias: number; error: string } | null;
 }
 
 export interface SyncOptions {
@@ -52,6 +55,8 @@ export interface SyncOptions {
   /** limites de segurança do histórico (os padrões estão logo abaixo) */
   maxCalls?: number;
   maxMedia?: number;
+  /** false = não busca comentários nesta rodada */
+  comments?: boolean;
   timeBudgetMs?: number;
 }
 
@@ -95,6 +100,7 @@ export async function syncAccount(
     oldestPost: null,
     calls: 0,
     stopped: "",
+    comments: null,
   };
   // Primeira sincronização da conta = histórico. Depois, só quando pedirem.
   const history = opts.history === true || (!account.lastSync && !account.mediaHistorySince);
@@ -318,6 +324,19 @@ export async function syncAccount(
     }
     if (insightFailures > 0)
       result.warnings.push(`${insightFailures} mídia(s) sem métricas detalhadas (a Meta não devolveu insights).`);
+
+    // 5) Comentários dos posts recentes (só leitura). Falha aqui vira aviso: não derruba a sincronização.
+    //    Na busca de histórico não entra: os comentários do período são buscados sob demanda.
+    if (!history && opts.comments !== false) {
+      await account.save();
+      try {
+        const c = await syncComments(org, String(account._id), { recent: true }, { client: api, now });
+        result.comments = { reported: c.reported, fetched: c.fetched, medias: c.checked, error: c.error || "" };
+        if (c.error) result.warnings.push(`Comentários não vieram: ${c.error}`);
+      } catch (e) {
+        result.warnings.push(`Comentários não vieram: ${toFriendly(e).message}`);
+      }
+    }
 
     account.lastSync = new Date(now);
     account.lastSyncError = "";

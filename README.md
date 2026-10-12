@@ -64,6 +64,7 @@ contas, chaves de API e dados do Instagram pertencem a uma organização e nunca
 | `IG_API_VERSION` | opcional, padrão `v25.0` |
 | `IG_PUBLISH_ENABLED` | `true` liga a publicação. Padrão: desligada |
 | `IG_MOCK` | `1` = modo demonstração (Meta simulada). Nunca em produção |
+| `IG_COMMENT_REPLY_ENABLED` | `true` = chave geral de responder comentário pelo ContentHub (padrão: desligada). Ainda precisa da chave do cliente em Admin › Clientes |
 
 `APP_PASSWORD` deixou de existir (era a senha única).
 
@@ -128,3 +129,11 @@ npm run demo:db     # banco em memória na porta 27117
 npm run demo:seed   # 5 clientes de exemplo + administrador (exige IG_MOCK=1, MONGODB_URI local, ADMIN_EMAIL e ADMIN_PASSWORD)
 npm run dev         # abrir por http://localhost:3000 (não por 127.0.0.1)
 ```
+
+## Comentários do Instagram
+
+- **Leitura**: `GET /{mídia}/comments` com as respostas (`replies`), 50 por página. Entra na sincronização normal (posts dos últimos 30 dias) e no botão "Buscar comentários" (um post ou todos os posts do período). Token precisa de `instagram_business_manage_comments`.
+- **Acesso padrão da Meta**: enquanto o app não passa pela análise (acesso avançado), a API responde 200 com poucos ou nenhum comentário. O sistema compara com o `comments_count` do post e mostra o aviso "O Instagram informou N comentários, mas só liberou M".
+- **O que fica guardado** (`InstagramComment`): @ de quem escreveu, texto, data, curtidas, se é resposta e de qual comentário, se a conta já respondeu, oculto. Nada de id de usuário, foto ou perfil. Some junto ao desconectar a conta; comentário apagado no Instagram sai na busca seguinte.
+- **Estudo** (`src/lib/comments/`): classificador com interface única (`classify.ts`), provedor de regras em português (`rules.ts`, "automática simples") e contrato de IA com provedores em sequência e fallback (`llm.ts`; nenhum adaptador HTTP registrado, nada é chamado). Relatório em texto: `GET /api/instagram/report?tipo=comentarios&periodo=30d`.
+- **Responder** (`POST /api/instagram/comments/<id>/reply`): só com `IG_COMMENT_REPLY_ENABLED=true` E a chave do cliente ligada pelo administrador; pede confirmação e registra quem respondeu. Ocultar e apagar não existem.

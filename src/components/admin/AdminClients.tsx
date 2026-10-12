@@ -27,6 +27,8 @@ interface OrgDetail {
   active: boolean;
   publishEnabled: boolean;
   publishGlobal: boolean;
+  commentReplyEnabled: boolean;
+  commentReplyGlobal: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
   invites: PendingInvite[];
@@ -240,6 +242,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
   const [publishOn, setPublishOn] = useState(false);
+  const [replyOn, setReplyOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -253,6 +256,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setName(r.data.name);
     setActive(r.data.active);
     setPublishOn(r.data.publishEnabled);
+    setReplyOn(r.data.commentReplyEnabled);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -261,7 +265,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -315,6 +319,18 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                     ? "Ligada: os posts aprovados deste cliente sobem sozinhos na data e hora marcadas."
                     : "Desligada: o cliente cria, aprova e agenda, mas nada sai sozinho."}
                   {!d.publishGlobal && " A chave geral do sistema (IG_PUBLISH_ENABLED) está desligada: mesmo ligando aqui, nada é publicado até ela ser ligada no servidor."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="reply-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={replyOn} onChange={(e) => setReplyOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Responder comentários pelo ContentHub
+                </label>
+                <p className="text-xs text-gray-400">
+                  {replyOn
+                    ? "Ligada: a equipe deste cliente pode responder comentários em público daqui (com confirmação e registro de quem respondeu)."
+                    : "Desligada: os comentários aparecem para leitura e estudo; responder, só pelo Instagram."}
+                  {!d.commentReplyGlobal && " A chave geral do sistema (IG_COMMENT_REPLY_ENABLED) está desligada: mesmo ligando aqui, nenhuma resposta é enviada."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

@@ -2,7 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect -- carrega o post ao abrir */
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, CheckCircle2, Circle, Copy, ExternalLink, Pencil, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Circle, Copy, ExternalLink, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import PostComments from "@/components/instagram/PostComments";
 import { ghostBtn, primaryBtn } from "@/components/brand";
 import { send } from "@/components/http";
 import PhonePreview from "./PhonePreview";
@@ -19,6 +20,7 @@ export default function PostDetail({ postId, username, onClose, onEdit, onChange
   const [note, setNote] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const load = useCallback(async () => {
     const r = await send<Flow>("GET", `/api/posts/${postId}/workflow`);
@@ -157,6 +159,11 @@ export default function PostDetail({ postId, username, onClose, onEdit, onChange
                 </div>
               )}
 
+              {post.externalIds?.instagram && (
+                <button type="button" onClick={() => setShowComments(true)} className={`${ghostBtn} inline-flex items-center gap-1.5`} data-testid="detail-comments">
+                  <MessageCircle size={14} /> Ver comentários
+                </button>
+              )}
               {post.caption && (
                 <button type="button" onClick={() => { navigator.clipboard.writeText(post.caption); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="text-xs text-gray-400 hover:text-brand-400 flex items-center gap-1">
                   {copied ? <><Check size={12} /> Legenda copiada</> : <><Copy size={12} /> Copiar legenda</>}
@@ -189,6 +196,7 @@ export default function PostDetail({ postId, username, onClose, onEdit, onChange
           </div>
         )}
       </div>
+      {showComments && <PostComments postId={postId} onClose={() => setShowComments(false)} />}
     </div>
   );
 }

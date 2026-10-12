@@ -28,6 +28,8 @@ export const GET = route("admin", async ({ params, id }) => {
     active: organization.active,
     publishEnabled: organization.publishEnabled === true,
     publishGlobal: publishEnabled(),
+    commentReplyEnabled: organization.commentReplyEnabled === true,
+    commentReplyGlobal: process.env.IG_COMMENT_REPLY_ENABLED === "true",
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -56,7 +58,12 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   // Chave de publicação automática deste cliente: só aqui, só o administrador da plataforma.
   const publishChanged = b.publishEnabled !== undefined && Boolean(b.publishEnabled) !== (organization.publishEnabled === true);
   if (publishChanged) organization.publishEnabled = Boolean(b.publishEnabled);
+  // Chave de responder comentários pelo ContentHub: mesma regra (só aqui, só o administrador).
+  const replyChanged = b.commentReplyEnabled !== undefined && Boolean(b.commentReplyEnabled) !== (organization.commentReplyEnabled === true);
+  if (replyChanged) organization.commentReplyEnabled = Boolean(b.commentReplyEnabled);
   await organization.save();
+  if (replyChanged)
+    await audit({ action: organization.commentReplyEnabled ? "cliente.resposta_comentario_ligada" : "cliente.resposta_comentario_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (publishChanged)
     await audit({ action: organization.publishEnabled ? "cliente.publicacao_ligada" : "cliente.publicacao_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   await audit({
@@ -65,5 +72,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, brand: publicBrand(organization) });
 });

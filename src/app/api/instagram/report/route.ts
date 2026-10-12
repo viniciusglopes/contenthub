@@ -1,5 +1,6 @@
 import { json, route } from "@/lib/api";
 import { connectedAccounts, loadInsightData, mediaSinceOf } from "@/lib/instagram/data";
+import { periodStudy } from "@/lib/instagram/comments";
 import { hasPeriodParams, periodFromParams } from "@/lib/instagram/period";
 import { buildMondayReport, buildPeriodReport, buildXrayReport } from "@/lib/instagram/report";
 
@@ -7,12 +8,14 @@ import { buildMondayReport, buildPeriodReport, buildXrayReport } from "@/lib/ins
 // Atalhos: ?tipo=segunda (padrão) ou ?tipo=raiox.
 // Período escolhido: ?periodo=7d|30d|90d|mes|mes-passado · ?dias=N · ?de=AAAA-MM-DD&ate=AAAA-MM-DD
 // (com período, o relatório é o "do período" e o `tipo` é ignorado). ?project=<id> opcional.
+// ?tipo=comentarios: estudo dos comentários dos posts publicados no período (sem período: 30 dias).
 // Com login: só as contas do cliente da sessão. Com "Authorization: Bearer <CRON_TOKEN>":
 // percorre TODAS as organizações ativas. Só lê o banco: não chama a Meta.
 export const GET = route("org+cron", async ({ orgs, req, cron }) => {
   const q = req.nextUrl.searchParams;
-  const period = hasPeriodParams(q) ? periodFromParams(q) : null;
-  const tipo = period ? "periodo" : q.get("tipo") === "raiox" ? "raiox" : "segunda";
+  const comentarios = q.get("tipo") === "comentarios";
+  const period = hasPeriodParams(q) || comentarios ? periodFromParams(q) : null;
+  const tipo = comentarios ? "comentarios" : period ? "periodo" : q.get("tipo") === "raiox" ? "raiox" : "segunda";
   const project = cron ? null : q.get("project");
   const reports = [];
   for (const org of orgs) {
@@ -29,7 +32,9 @@ export const GET = route("org+cron", async ({ orgs, req, cron }) => {
         username: account.username,
         lastSync: account.lastSync,
         lastSyncError: account.lastSyncError || "",
-        text: period
+        text: comentarios && period
+          ? (await periodStudy(org._id, account, period)).report
+          : period
           ? buildPeriodReport({ ...input, period, mediaSince: mediaSinceOf(account) })
           : tipo === "raiox"
             ? buildXrayReport(input)

@@ -12,6 +12,7 @@ import { InstagramAccountDaily } from "../src/models/InstagramMedia";
 import { hashPassword } from "../src/lib/auth";
 import { connectInstagram } from "../src/lib/instagram/accounts";
 import { addDays, dayKey } from "../src/lib/instagram/dates";
+import { syncComments } from "../src/lib/instagram/comments";
 import { syncAccount } from "../src/lib/instagram/sync";
 import { createInvite } from "../src/lib/invites";
 import { ensureAdmin, ensureDefaultOrganization } from "../src/lib/orgs";
@@ -59,7 +60,10 @@ async function content(org: Types.ObjectId, project: Types.ObjectId, titles: str
       { upsert: true }
     );
   }
-  return syncAccount(org, String(account._id));
+  const r = await syncAccount(org, String(account._id));
+  // comentários de exemplo dos posts dos últimos 60 dias (a Meta simulada libera só parte deles)
+  await syncComments(org, String(account._id), { from: addDays(today, -60), to: today });
+  return r;
 }
 
 // Arte de exemplo (gerada aqui mesmo) passando pelo MESMO caminho de um envio de verdade.

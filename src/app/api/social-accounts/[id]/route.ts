@@ -2,6 +2,7 @@ import { json, route } from "@/lib/api";
 import { sealCredentials } from "@/lib/crypto";
 import { FriendlyError, notFound } from "@/lib/errors";
 import { publicAccount } from "@/lib/instagram/accounts";
+import { purgeComments } from "@/lib/instagram/comments";
 import { projectOf } from "@/lib/instagram/data";
 import { assertProject } from "@/lib/orgs";
 import { toObjectId } from "@/lib/tenant";
@@ -37,7 +38,10 @@ export const PUT = route("org", async ({ org, params, id, body }) => {
 });
 
 export const DELETE = route("org", async ({ org, params, id }) => {
-  const r = await SocialAccount.deleteOne({ _id: id(params.id, "Conta"), organization: org });
+  const accountId = id(params.id, "Conta");
+  const r = await SocialAccount.deleteOne({ _id: accountId, organization: org });
   if (!r.deletedCount) throw notFound("Conta");
-  return json({ deleted: true });
+  // Conta desconectada: os comentários de terceiros guardados dela saem junto.
+  const comments = await purgeComments(org, accountId);
+  return json({ deleted: true, commentsDeleted: comments });
 });
