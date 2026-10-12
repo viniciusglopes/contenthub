@@ -313,6 +313,12 @@ export class InstagramClient {
     return r.id;
   }
 
+  /** Link público de uma mídia já publicada. */
+  async getPermalink(mediaId: string): Promise<string> {
+    const r = await this.call<{ permalink?: string }>(`/${mediaId}`, { fields: "permalink" });
+    return r.permalink || "";
+  }
+
   async getPublishingLimit(igUserId: string): Promise<{ used: number; total: number }> {
     const r = await this.call<{ data?: { quota_usage?: number; config?: { quota_total?: number } }[] }>(
       `/${igUserId}/content_publishing_limit`,

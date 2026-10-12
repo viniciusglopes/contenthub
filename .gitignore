@@ -42,3 +42,4 @@ next-env.d.ts
 
 # prints de tela locais
 /.prints/
+/.media/

@@ -191,7 +191,8 @@ export function mockFetch(nowFn: () => number = Date.now): FetchLike {
     if (/^\/\d+\/media_publish$/.test(path)) return ok({ id: "17900000000009999" });
     if (/^\/\d+\/content_publishing_limit$/.test(path))
       return ok({ data: [{ quota_usage: 2, config: { quota_total: 100, quota_duration: 86400 } }] });
-    if (/^\/\d+$/.test(path)) return ok({ status_code: "FINISHED", id: path.slice(1) });
+    if (/^\/\d+$/.test(path))
+      return ok({ status_code: "FINISHED", id: path.slice(1), permalink: `https://www.instagram.com/p/EXEMPLO${path.slice(-4)}/` });
     return fail(100, "Unsupported request");
   };
 }

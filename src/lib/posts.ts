@@ -15,6 +15,12 @@ const FIELDS = [
 export async function postInput(org: Types.ObjectId, body: Record<string, any>, opts: { partial?: boolean } = {}) {
   const out: Record<string, any> = {};
   for (const k of FIELDS) if (body[k] !== undefined) out[k] = body[k];
+  // A situação do post só muda pelo fluxo de aprovação (src/lib/workflow.ts). Daqui só entra
+  // "rascunho" ou "publicado por fora" na criação/importação; na edição, nunca.
+  if (opts.partial) delete out.status;
+  else if (out.status !== "posted") out.status = "draft";
+  if (out.scheduledTime !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(out.scheduledTime)))
+    throw new FriendlyError("Informe o horário no formato 09:00.", 400, "scheduledTime");
   if (body.project !== undefined || !opts.partial) {
     const raw = typeof body.project === "object" && body.project ? body.project._id : body.project;
     const projectId = toObjectId(String(raw || ""));

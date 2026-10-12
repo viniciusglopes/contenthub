@@ -16,6 +16,7 @@ export interface Me {
   canManage: boolean;
   impersonating: boolean;
   features: { igOauth: boolean; demo: boolean };
+  publishing?: { global: boolean; org: boolean; on: boolean; message: string };
 }
 type Err = { msg: string; field?: string } | null;
 

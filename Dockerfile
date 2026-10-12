@@ -14,6 +14,11 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Mídia dos posts: pasta do volume persistente (no Coolify: volume montado em /data/media).
+# Criada aqui com o dono certo para o volume novo já nascer gravável pelo usuário do app.
+RUN mkdir -p /data/media && chown nextjs:nodejs /data/media
+ENV MEDIA_DIR=/data/media
+VOLUME ["/data/media"]
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000

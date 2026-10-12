@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
@@ -14,6 +15,7 @@ import { createInvite } from "@/lib/invites";
 import { TENANT_MODELS, TenantScopeError } from "@/lib/tenant";
 import ApiCredential from "@/models/ApiCredential";
 import { InstagramMedia } from "@/models/InstagramMedia";
+import MediaAsset from "@/models/MediaAsset";
 import Post from "@/models/Post";
 import Project from "@/models/Project";
 import SocialAccount from "@/models/SocialAccount";
@@ -35,7 +37,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const NOW = Date.now();
 
 interface Side {
-  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string;
+  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -163,6 +165,39 @@ const CASES: Record<string, Case> = {
     attack: (t) => [{ method: "DELETE", path: "/api/posts/x", params: { id: String(t.post._id) } }],
     own: (t) => ({ method: "DELETE", path: "/api/posts/x", params: { id: String(t.post._id) } }),
   },
+
+  "GET /api/posts/[id]/workflow": {
+    access: "org",
+    attack: (t) => [{ path: "/api/posts/x/workflow", params: { id: String(t.post._id) } }],
+    own: (t) => ({ path: "/api/posts/x/workflow", params: { id: String(t.post._id) } }),
+  },
+  "POST /api/posts/[id]/workflow": {
+    access: "org",
+    // aprovar, pedir aprovação, devolver, tentar de novo ou marcar como publicado o post do outro
+    attack: (t) => ["approve", "request", "adjust", "draft", "retry", "mark_posted"].map((action) => ({ method: "POST", path: "/api/posts/x/workflow", params: { id: String(t.post._id) }, body: { action, organization: String(t.org._id) } })),
+    own: (t) => ({ method: "POST", path: "/api/posts/x/workflow", params: { id: String(t.post._id) }, body: { action: "request" } }),
+  },
+
+  // ---- mídia (arquivos)
+  "GET /api/uploads": { access: "org", attack: (t) => [{ path: `/api/uploads?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/uploads" }) },
+  "POST /api/uploads": {
+    access: "org",
+    // a pasta é sempre a da sessão; o corpo aqui não é imagem (415). O envio de verdade é provado em publish.test.ts
+    attack: (t) => [{ method: "POST", path: `/api/uploads?organization=${t.org._id}&name=..%2F..%2F${t.org._id}%2Fx.jpg`, body: { organization: String(t.org._id) }, expect: 415 }],
+    own: () => ({ method: "POST", path: "/api/uploads?name=foto.jpg", body: { nada: true }, expect: 415 }),
+  },
+  "PUT /api/uploads/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/uploads/x", params: { id: String(t.asset._id) }, body: { fit: "crop" } }],
+    own: (t) => ({ method: "PUT", path: "/api/uploads/x", params: { id: String(t.asset._id) }, body: { fit: "crop" } }),
+  },
+  "DELETE /api/uploads/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/uploads/x", params: { id: String(t.asset._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/uploads/x", params: { id: String(t.asset._id) } }),
+  },
+  "GET /api/media/[org]/[file]": { access: "public", why: "arquivo público que a Meta baixa: só abre com o nome sorteado de 192 bits; sem listagem (publish.test.ts)" },
+  "POST /api/instagram/publish-due": { access: "cron", why: "agendador: só com o token de rotina; percorre só organizações com a publicação ligada" },
 
   // ---- contas e chaves
   "GET /api/social-accounts": {
@@ -301,6 +336,7 @@ function inventory(): { key: string; file: string }[] {
 }
 
 let mongo: MongoMemoryServer;
+let mediaDir = "";
 const w = {} as World;
 const handlers: Record<string, any> = {};
 let attacks = 0;
@@ -321,7 +357,13 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   const cred = await ApiCredential.create({ organization: o, service: tag === "beta" ? "freepik" : "elevenlabs", label: `Chave ${label}`, credentials: {} });
   if (tag === "beta") await ApiCredential.create({ organization: o, service: "openai", label: "OpenAI Beta", credentials: {} });
   const { invite, token } = await createInvite({ kind: "member", organization: o, email: `convidado@${tag}.test`, createdBy: owner });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token };
+  // uma mídia solta (enviada, ainda fora de post), com o arquivo no disco
+  const file = `${(tag === "beta" ? "b" : "a").repeat(48)}.jpg`;
+  mkdirSync(path.join(mediaDir, String(o)), { recursive: true });
+  const assetPath = path.join(mediaDir, String(o), file);
+  writeFileSync(assetPath, `arquivo-da-${tag}`);
+  const asset = await MediaAsset.create({ organization: o, kind: "image", file, mime: "image/jpeg", bytes: 15, width: 1080, height: 1080, originalName: `foto-${tag}.jpg` });
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -342,11 +384,14 @@ function markers(side: Side): string[] {
     String(side.account._id), String(side.other._id), String(side.cred._id), String(side.invite._id),
     side.org.name, side.org.slug, "Marca Beta", side.project.name, side.post.title, "legenda-beta", "betaoficial", "@beta-tiktok",
     side.owner.email, side.member.email, "convidado@beta.test", "Chave Beta", "OpenAI Beta", side.inviteToken,
+    String(side.asset._id), side.asset.file, "foto-beta.jpg",
   ];
 }
 
 beforeAll(async () => {
   setTestEnv();
+  mediaDir = mkdtempSync(path.join(os.tmpdir(), "contenthub-isolamento-"));
+  process.env.MEDIA_DIR = mediaDir;
   Object.assign(process.env, { IG_OAUTH_ENABLED: "true", IG_APP_ID: "1234567890", IG_APP_SECRET: "segredo-do-app-de-teste", APP_URL: "https://contenthub.exemplo.test" });
   setFetchOverride(mockFetch(() => NOW));
   mongo = await MongoMemoryServer.create();
@@ -373,6 +418,8 @@ afterAll(async () => {
   setFetchOverride(null);
   await mongoose.disconnect();
   await mongo.stop();
+  delete process.env.MEDIA_DIR;
+  rmSync(mediaDir, { recursive: true, force: true });
 });
 
 const send = (key: string, r: Req, cookie: string) => {
@@ -391,7 +438,7 @@ describe("inventário de rotas", () => {
       expect(handlers[key].access, `${key} não foi criada com route()`).toBe(CASES[key].access);
       const c = CASES[key];
       // rota que lê dado de cliente TEM de ter ataque e controle
-      if (c.access !== "public" && c.access !== "admin") expect(Boolean(c.attack && c.own), `${key} sem ataque/controle`).toBe(true);
+      if (c.access !== "public" && c.access !== "admin" && c.access !== "cron") expect(Boolean(c.attack && c.own), `${key} sem ataque/controle`).toBe(true);
       else expect(c.why, `${key} sem justificativa`).toBeTruthy();
     }
   });
@@ -406,7 +453,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["ApiCredential", "InstagramAccountDaily", "InstagramMedia", "InstagramMediaDaily", "Post", "Project", "SocialAccount"]);
+    expect(TENANT_MODELS.sort()).toEqual(["ApiCredential", "InstagramAccountDaily", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação
@@ -475,6 +522,7 @@ describe("cada rota, uma por uma", () => {
         }
       }
       expect(await snapshot(w.B), `${key} alterou o banco da BETA`).toBe(before);
+      expect(existsSync(w.B.assetPath), `${key} apagou arquivo da BETA`).toBe(true);
     }
     expect(attacks).toBeGreaterThan(100);
     console.log(`[isolamento] ${Object.keys(handlers).length} rotas x método no inventário · ${Object.values(CASES).filter((c) => c.attack).length} com dado de cliente · ${attacks} pedidos de ataque, todos barrados`);
@@ -493,6 +541,8 @@ describe("cada rota, uma por uma", () => {
       expect(expected, `${key} -> ${res.status} ${res.text.slice(0, 160)}`).toContain(res.status);
     }
     expect(await snapshot(w.B)).toBe(beforeB);
+    // o arquivo da ALFA saiu (controle do DELETE), o da BETA continua lá
+    expect([existsSync(w.A.assetPath), existsSync(w.B.assetPath)]).toEqual([false, true]);
     // e as listas da ALFA mostram os dados da ALFA
     const projects = await call(handlers["GET /api/projects"], { path: "/api/projects", cookie });
     expect(projects.data.map((p: any) => p.name)).toEqual(expect.arrayContaining(["Projeto Alfa", "Projeto Alfa Dois", "Projeto Alfa Três"]));
@@ -523,6 +573,11 @@ describe("rotina (cron) e administrador", () => {
     expect(new Set(sync.data.results.map((r: any) => r.organizationId))).toEqual(new Set([String(w.A.org._id), String(w.B.org._id)]));
     const report = await call(handlers["GET /api/instagram/report"], { path: "/api/instagram/report", headers: bearer() });
     expect(new Set(report.data.reports.map((r: any) => r.organizationName))).toEqual(new Set(["Cliente Alfa", "Cliente Beta"]));
+    // o agendador de publicação: só o token de rotina; nenhum login entra (nem o do administrador)
+    for (const u of [w.A.owner, w.A.member, w.admin])
+      expect((await call(handlers["POST /api/instagram/publish-due"], { method: "POST", path: "/api/instagram/publish-due", cookie: cookieFor(u) })).status).toBe(401);
+    const due = await call(handlers["POST /api/instagram/publish-due"], { method: "POST", path: "/api/instagram/publish-due", headers: bearer() });
+    expect(due.data).toMatchObject({ enabled: false, published: 0, organizations: [] }); // IG_PUBLISH_ENABLED desligada: nada sai
     // o token de rotina não abre nenhuma outra rota
     const other = await call(handlers["GET /api/projects"], { path: "/api/projects", headers: bearer() });
     expect(other.status).toBe(401);

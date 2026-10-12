@@ -37,6 +37,8 @@ export interface ISocialAccount extends Document {
   /** última busca de histórico (12 meses) e o que ela trouxe */
   historyFetchedAt: Date | null;
   historyNote: string;
+  canPublish: boolean | null;
+  canPublishCheckedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +82,9 @@ const SocialAccountSchema = new Schema<ISocialAccount>(
     mediaHistorySince: { type: Date, default: null },
     historyFetchedAt: { type: Date, default: null },
     historyNote: { type: String, default: "" },
+    // O token pode publicar? (null = ainda não conferido). Conferido lendo o limite de publicações.
+    canPublish: { type: Boolean, default: null },
+    canPublishCheckedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

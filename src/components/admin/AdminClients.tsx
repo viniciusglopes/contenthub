@@ -12,6 +12,7 @@ interface OrgRow {
   name: string;
   slug: string;
   active: boolean;
+  publishEnabled: boolean;
   brand: BrandInfo;
   users: number;
   accounts: number;
@@ -24,6 +25,8 @@ interface OrgDetail {
   name: string;
   slug: string;
   active: boolean;
+  publishEnabled: boolean;
+  publishGlobal: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
   invites: PendingInvite[];
@@ -206,6 +209,7 @@ export default function AdminClients({ homeOrgId }: { homeOrgId: string }) {
                 <span className={`text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap ${!o.active ? "bg-gray-800 text-gray-500" : o.users === 0 ? "bg-gray-800 text-gray-300" : "bg-green-500/15 text-green-400"}`}>
                   {!o.active ? "Inativo" : o.users === 0 ? (o.pendingInvites ? "Convite enviado" : "Sem dono") : "Ativo"}
                 </span>
+                {o.publishEnabled && <span className="ml-1 text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap bg-sky-500/15 text-sky-300" title="Publicação automática no Instagram ligada para este cliente">Publica sozinho</span>}
               </span>
               <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                 {o.active && o.users === 0 && (
@@ -235,6 +239,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [error, setError] = useState<{ msg: string; field?: string } | null>(null);
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
+  const [publishOn, setPublishOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -247,6 +252,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setD(r.data);
     setName(r.data.name);
     setActive(r.data.active);
+    setPublishOn(r.data.publishEnabled);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -255,7 +261,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -299,6 +305,18 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                 <input type="checkbox" checked={active} disabled={isHome} onChange={(e) => setActive(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
                 Cliente ativo {isHome ? "(sua própria conta não pode ser desativada)" : "(desmarcar bloqueia o acesso de todos os usuários dele)"}
               </label>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="publish-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={publishOn} onChange={(e) => setPublishOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Publicação automática no Instagram
+                </label>
+                <p className="text-xs text-gray-400">
+                  {publishOn
+                    ? "Ligada: os posts aprovados deste cliente sobem sozinhos na data e hora marcadas."
+                    : "Desligada: o cliente cria, aprova e agenda, mas nada sai sozinho."}
+                  {!d.publishGlobal && " A chave geral do sistema (IG_PUBLISH_ENABLED) está desligada: mesmo ligando aqui, nada é publicado até ela ser ligada no servidor."}
+                </p>
+              </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}
               <div className="flex items-center gap-3">
                 <button type="submit" disabled={saving} className={primaryBtn}>{saving ? "Salvando..." : "Salvar"}</button>

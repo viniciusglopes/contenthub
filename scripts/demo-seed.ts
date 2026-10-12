@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Dados de EXEMPLO (white label) para ver as telas sem token de verdade.
 // Exige IG_MOCK=1 e banco local. Cria o administrador (ADMIN_EMAIL/ADMIN_PASSWORD) e
 // clientes em situações diferentes: com dados, recém-criado, aguardando o dono e inativo.
@@ -14,6 +15,11 @@ import { addDays, dayKey } from "../src/lib/instagram/dates";
 import { syncAccount } from "../src/lib/instagram/sync";
 import { createInvite } from "../src/lib/invites";
 import { ensureAdmin, ensureDefaultOrganization } from "../src/lib/orgs";
+import sharp from "sharp";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { storeUpload } from "../src/lib/media/store";
+import { historyEntry } from "../src/lib/workflow";
 
 const uri = process.env.MONGODB_URI || "";
 if (!/127\.0\.0\.1|localhost/.test(uri) || process.env.IG_MOCK !== "1") {
@@ -40,7 +46,7 @@ async function content(org: Types.ObjectId, project: Types.ObjectId, titles: str
       platforms: ["instagram"],
       scheduledDate: new Date(now + (i - 2) * 86_400_000),
       scheduledTime: ["09:00", "12:00", "19:00"][i % 3],
-      status: i < 2 ? "posted" : i < 4 ? "scheduled" : "draft",
+      status: i < 2 ? "posted" : "draft",
       externalIds: i === 0 ? { instagram: "1800000000000100" } : {},
     });
   }
@@ -54,6 +60,70 @@ async function content(org: Types.ObjectId, project: Types.ObjectId, titles: str
     );
   }
   return syncAccount(org, String(account._id));
+}
+
+// Arte de exemplo (gerada aqui mesmo) passando pelo MESMO caminho de um envio de verdade.
+async function art(org: Types.ObjectId, text: string, a: string, b: string, w = 1080, h = 1350) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><text x="50%" y="50%" font-family="Arial" font-size="${Math.round(w / 12)}" font-weight="700" fill="#fff" text-anchor="middle">${text}</text></svg>`;
+  const buf = await sharp(Buffer.from(svg)).png().toBuffer();
+  return storeUpload(org, { body: new Blob([new Uint8Array(buf)]).stream() as ReadableStream<Uint8Array>, name: `${text}.png` });
+}
+async function video(org: Types.ObjectId) {
+  const buf = readFileSync(path.resolve(__dirname, "../tests/fixtures/reel-ok.mp4"));
+  return storeUpload(org, { body: new Blob([new Uint8Array(buf)]).stream() as ReadableStream<Uint8Array>, name: "aula-experimental.mp4" });
+}
+
+// Posts em cada situação do fluxo: rascunho com ajuste pedido, aguardando aprovação, aprovado,
+// publicado, falhou e perdeu o horário.
+async function flowPosts(org: Types.ObjectId, project: Types.ObjectId, owner: string, member: string) {
+  const now = Date.now();
+  const day = (d: number) => new Date(Date.parse(dayKey(now + d * 86_400_000) + "T00:00:00Z"));
+  const at = (d: number, time: string) => new Date(Date.parse(dayKey(now + d * 86_400_000) + "T00:00:00Z") + 3 * 3_600_000 + (Number(time.slice(0, 2)) * 60 + Number(time.slice(3))) * 60_000);
+  const mk = async (title: string, format: string, d: number, time: string, assets: any[], extra: Record<string, unknown>) => {
+    const post = await Post.create({
+      organization: org, project, title, format, platforms: ["instagram"], scheduledDate: day(d), scheduledTime: time,
+      caption: "Cuidar da postura muda o seu dia. Veja o passo a passo e salve para fazer em casa.\n\nAgende sua aula experimental pelo link do perfil.",
+      hashtags: ["#pilates", "#postura", "#bemestar"], media: assets.map((a) => a._id), ...extra,
+    });
+    for (const a of assets) { a.post = post._id; await a.save(); }
+    return post;
+  };
+  const h = (type: string, by: string, note: string, minsAgo: number) => historyEntry(type, by, note, new Date(now - minsAgo * 60_000));
+  const approval = (mins: number) => ({ by: null, byName: owner, at: new Date(now - mins * 60_000) });
+
+  await mk("Carrossel: postura no trabalho", "carrossel", 1, "09:00", [await art(org, "4 erros na postura", "#ec4899", "#8b5cf6"), await art(org, "1. Ombros caídos", "#8b5cf6", "#06b6d4"), await art(org, "2. Celular baixo", "#06b6d4", "#22c55e")], {
+    status: "pending", review: { requestedByName: member, requestedAt: new Date(now - 50 * 60_000) }, history: [h("criado", member, "", 70), h("pedido", member, "", 50)],
+  });
+  await mk("Reel: convite para a aula", "reel", 2, "19:00", [await video(org)], {
+    status: "pending", review: { requestedByName: member, requestedAt: new Date(now - 20 * 60_000) }, history: [h("criado", member, "", 30), h("pedido", member, "", 20)],
+  });
+  await mk("Frase da semana (foto muito alta)", "post", 3, "12:00", [await art(org, "Respire fundo", "#f97316", "#ec4899", 1080, 2200)], {
+    status: "pending", review: { requestedByName: member, requestedAt: new Date(now - 10 * 60_000) }, history: [h("criado", member, "", 15), h("pedido", member, "", 10)],
+  });
+  await mk("Depoimento da aluna Ana", "post", 2, "09:00", [await art(org, "Depoimento da Ana", "#0ea5e9", "#6366f1", 1080, 1080)], {
+    status: "scheduled", publishAt: at(2, "09:00"), approval: approval(200), publish: { dueAt: at(2, "09:00") }, history: [h("criado", member, "", 400), h("pedido", member, "", 380), h("aprovado", owner, "Sai no horário marcado", 200)],
+  });
+  await mk("Horários de novembro", "post", 4, "08:30", [await art(org, "Horários de novembro", "#22c55e", "#0ea5e9", 1080, 1080)], {
+    status: "scheduled", publishAt: at(4, "08:30"), approval: approval(90), publish: { dueAt: at(4, "08:30") }, history: [h("criado", owner, "", 100), h("aprovado", owner, "", 90)],
+  });
+  await mk("Alongamento de 5 minutos", "post", -1, "09:00", [await art(org, "Alongamento 5 min", "#a855f7", "#ec4899")], {
+    status: "posted", publishAt: at(-1, "09:00"), approval: approval(3000), externalIds: { instagram: "1800000000000105", instagramPermalink: "https://www.instagram.com/p/EXEMPLO5/" },
+    publish: { dueAt: at(-1, "09:00"), publishedAt: new Date(at(-1, "09:00").getTime() + 40_000) },
+    history: [h("criado", member, "", 3200), h("pedido", member, "", 3100), h("aprovado", owner, "", 3000), historyEntry("publicado", "ContentHub", "https://www.instagram.com/p/EXEMPLO5/", new Date(at(-1, "09:00").getTime() + 40_000))],
+  });
+  await mk("Promoção de aniversário", "post", 0, "07:00", [await art(org, "Promoção", "#ef4444", "#f97316", 1080, 1080)], {
+    status: "failed", publishAt: at(0, "07:00"), approval: approval(900),
+    publish: { dueAt: at(0, "07:00"), lastError: "A conta do Instagram está restrita ou com alguma pendência. Abra o aplicativo do Instagram e resolva o aviso que aparecer. (código 25/2207050)", lastErrorKind: "desconhecido", lastErrorAt: at(0, "07:00") },
+    history: [h("criado", owner, "", 1000), h("aprovado", owner, "", 900), historyEntry("falhou", "ContentHub", "A conta do Instagram está restrita ou com alguma pendência.", at(0, "07:00"))],
+  });
+  await mk("Dica rápida de respiração", "post", -2, "18:00", [await art(org, "Respiração", "#14b8a6", "#3b82f6", 1080, 1080)], {
+    status: "missed", publishAt: at(-2, "18:00"), approval: approval(4000),
+    publish: { dueAt: at(-2, "18:00"), lastError: "Não foi publicado: passou mais de 60 minutos do horário marcado. Escolha publicar agora ou marcar outro horário.", lastErrorKind: "atraso", lastErrorAt: new Date(at(-2, "18:00").getTime() + 70 * 60_000) },
+    history: [h("criado", member, "", 4200), h("aprovado", owner, "", 4000), historyEntry("perdeu", "ContentHub", "Passou mais de 60 minutos do horário marcado.", new Date(at(-2, "18:00").getTime() + 70 * 60_000))],
+  });
+  await mk("Bastidores do estúdio", "carrossel", 5, "17:00", [await art(org, "Bastidores", "#64748b", "#0f172a", 1080, 1080)], {
+    status: "draft", review: { note: "Falta a segunda foto e a legenda está genérica.", noteByName: owner, noteAt: new Date(now - 30 * 60_000) }, history: [h("criado", member, "", 300), h("pedido", member, "", 280), h("ajuste", owner, "Falta a segunda foto e a legenda está genérica.", 30)],
+  });
 }
 
 async function main() {
@@ -77,6 +147,11 @@ async function main() {
   const pilates = await Project.create({ organization: bella._id, name: "Bella Forma Pilates", slug: "bella-forma-pilates", color: "#ec4899", icon: "🧘", platforms: ["instagram"] });
   const r2 = await content(bella._id, pilates._id, ["Reel: alongamento de 5 minutos", "Carrossel: 4 erros na postura", "Depoimento da aluna Ana", "Reel: aula experimental", "Carrossel: horários de novembro"], "IGAA-conta-bellaformapilates-01", 4380);
   await createInvite({ kind: "member", organization: bella._id, email: "recepcao@bellaforma.exemplo" });
+  bella.publishEnabled = true; // este cliente está com a publicação automática ligada
+  await bella.save();
+  await flowPosts(bella._id, pilates._id, "Marina Duarte", "Rafael Lima");
+  // na casa (chave desligada): um aprovado, para ver o aviso "publicação automática desligada"
+  await flowPosts(home._id, hdmoj._id, "Administrador", "Equipe");
 
   // 3) Cliente que acabou de entrar: dono criado, nenhum projeto (primeira experiência)
   const padaria = await Organization.create({ name: "Padaria Pão Quente", slug: "pao-quente", brand: { displayName: "Pão Quente", color: "#f97316" } });

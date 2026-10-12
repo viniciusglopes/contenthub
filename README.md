@@ -94,6 +94,32 @@ Seria preciso: campo `domains` na organização; a tela de entrada e o proxy esc
 - Dois alcances, de propósito: "Alcance da conta" é a SOMA do alcance de cada dia (a mesma pessoa conta de novo a cada dia; inclui stories, anúncios e posts antigos) e "Alcance dos posts do período" soma só os posts publicados no período. Não são comparáveis.
 - Publicação (base, desligada): `POST /api/instagram/publish` com `{ "postId", "dryRun": true }` só confere o post.
 
+## Publicar sozinho: mídia, aprovação e agendador
+
+O cliente cria o post **com a mídia**, o dono aprova e o post sobe no Instagram na data e hora marcadas (horário de Brasília).
+
+**Fluxo do post:** rascunho → aguardando aprovação → aprovado/agendado → publicando → publicado | falhou | perdeu o horário.
+Só o dono da organização (ou o administrador) aprova; membro pede aprovação; editar um post aprovado devolve para "aguardando aprovação". Aprovação, pedido de ajuste e publicação ficam no `AuditLog` e no histórico do post. A situação só muda por `POST /api/posts/[id]/workflow` (`request`, `approve`, `adjust`, `draft`, `retry`, `mark_posted`); mandar `status` na edição não tem efeito.
+
+**Mídia** (`src/lib/media`): o arquivo é enviado para `POST /api/uploads` (o corpo do pedido é o próprio arquivo), o tipo é conferido pelo conteúdo, imagem (JPG/PNG/WebP) vira JPEG sRGB de até 1440 px e vídeo (MP4/MOV) tem duração, codec, tamanho e quadros lidos do próprio arquivo. Fora do padrão do Instagram vira aviso na tela; proporção fora de 4:5 a 1,91:1 oferece "Recortar" ou "Ajustar com fundo". HEIC ainda não é aceito.
+Os arquivos ficam em `MEDIA_DIR` (em produção `/data/media`, **volume persistente**), em `<organização>/<nome sorteado de 192 bits>.<jpg|mp4|mov>`, e são servidos sem login por `GET /api/media/<organização>/<arquivo>` (é o endereço que a Meta baixa; aceita `Range`). Não existe listagem. Apagar o post, ou tirar a mídia do post e salvar, apaga o arquivo. Mídia enviada e não usada some em 24h.
+Limites: imagem até 30 MB, vídeo até 300 MB, 10 itens por post, cota de 5 GB por organização (`MEDIA_QUOTA_MB` muda).
+
+**Duas chaves, as duas desligadas por padrão:** `IG_PUBLISH_ENABLED=true` (env, geral) **e** "Publicação automática no Instagram" em Admin › Clientes (por organização, só o administrador da plataforma). Com qualquer uma desligada o post pode ser aprovado e agendado, a tela avisa "Publicação automática desligada para esta conta" e nada sai.
+
+**Agendador** (`src/lib/instagram/scheduler.ts`): `POST /api/instagram/publish-due`, só com `Authorization: Bearer $CRON_TOKEN`. Rodar a cada minuto:
+
+```
+* * * * * curl -fsS -m 280 -X POST -H "Authorization: Bearer $CRON_TOKEN" https://SEU-DOMINIO/api/instagram/publish-due
+```
+
+- trava atômica por post (nunca publica duas vezes, mesmo com duas rodadas ao mesmo tempo);
+- container → espera ficar pronto (reel processa; a rodada seguinte continua) → publica → guarda id e link em `externalIds.instagram` / `externalIds.instagramPermalink`;
+- se o processo cair no meio, a próxima rodada pergunta ao Instagram em que pé está o container e retoma sem duplicar;
+- lê o limite de publicações de 24h da própria API antes de publicar;
+- passou mais de `IG_PUBLISH_TOLERANCE_MIN` (padrão 60) do horário: não publica, marca "perdeu o horário" e pede decisão;
+- erro permanente da Meta: falha na hora com a mensagem traduzida; erro temporário: no máximo 2 novas tentativas (2 e 10 minutos depois).
+
 ## Testes e demonstração local
 
 ```bash

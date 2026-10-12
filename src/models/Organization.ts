@@ -11,6 +11,8 @@ const OrganizationSchema = new Schema(
       color: { type: String, default: "" }, // #rrggbb; vazio = cor padrão
     },
     active: { type: Boolean, default: true },
+    // Publicação automática no Instagram: desligada por padrão; só o administrador da plataforma liga.
+    publishEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

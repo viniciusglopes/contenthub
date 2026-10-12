@@ -13,7 +13,6 @@ import {
   Trash2,
   X,
   Check,
-  Clock,
   Settings,
   Plug,
   Eye,
@@ -23,6 +22,7 @@ import {
   PanelLeftOpen,
   LogOut,
   BarChart3,
+  ClipboardCheck,
   Building2,
   UserCog,
 } from "lucide-react";
@@ -33,6 +33,10 @@ import { BrandMark, DEFAULT_BRAND, rememberBrand, varsStyle } from "@/components
 import InstagramPanel from "@/components/instagram/InstagramPanel";
 import { InstagramAccountStatus, InstagramConnectForm } from "@/components/instagram/InstagramAccounts";
 import type { PublicAccount } from "@/components/instagram/shared";
+import ApprovalQueue from "@/components/posts/ApprovalQueue";
+import PostDetail from "@/components/posts/PostDetail";
+import PostForm from "@/components/posts/PostForm";
+import { type PostT, STATUS, STATUS_ORDER, flowStatus, stateLine, statusOf } from "@/components/posts/flow";
 
 interface Project {
   _id: string;
@@ -43,26 +47,11 @@ interface Project {
   platforms: string[];
 }
 
-interface Post {
-  _id: string;
-  project: Project;
-  title: string;
-  content: string;
-  caption: string;
-  format: string;
-  platforms: string[];
-  scheduledDate: string;
-  scheduledTime: string;
-  status: string;
-  tags: string[];
-  hashtags: string[];
-  cta: string;
-  productionNotes: string;
-}
+type Post = PostT;
 
 type SocialAccount = PublicAccount;
-type View = "calendar" | "list" | "instagram" | "clientes" | "conta";
-const VIEW_TITLE: Record<string, string> = { instagram: "Instagram", clientes: "Clientes", conta: "Minha conta" };
+type View = "calendar" | "list" | "aprovacoes" | "instagram" | "clientes" | "conta";
+const VIEW_TITLE: Record<string, string> = { instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações" };
 
 const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
   instagram: {
@@ -119,22 +108,6 @@ const FORMAT_COLORS: Record<string, string> = {
   shorts: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-500/20 text-gray-400",
-  approved: "bg-yellow-500/20 text-yellow-400",
-  scheduled: "bg-blue-500/20 text-blue-400",
-  posted: "bg-green-500/20 text-green-400",
-  failed: "bg-red-500/20 text-red-400",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  approved: "Aprovado",
-  scheduled: "Agendado",
-  posted: "Postado",
-  failed: "Falhou",
-};
-
 const PLATFORM_ICONS: Record<string, React.ReactNode> = {
   instagram: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>,
   youtube: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>,
@@ -179,6 +152,8 @@ export default function Home() {
   const [menuCollapsed, setMenuCollapsed] = useState(false); // desktop: recolhido, lembrando a escolha
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Post | null>(null);
+  const [queue, setQueue] = useState<Post[] | null>(null);
+  const [publishOffClosed, setPublishOffClosed] = useState(true);
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [copied, setCopied] = useState("");
@@ -198,7 +173,7 @@ export default function Home() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const v = p.get("view");
-    if (v === "instagram" || v === "list" || v === "clientes" || v === "conta") setViewState(v);
+    if (v === "instagram" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes") setViewState(v);
     // Volta do login pelo Instagram: o resultado vem no link e sai dele depois de lido.
     const igOk = p.get("ig_ok");
     const igErro = p.get("ig_erro");
@@ -278,7 +253,15 @@ export default function Home() {
     if (!data.impersonating) rememberBrand(data.organization.slug, data.brand, data.vars);
     try {
       setOnboardingClosed(window.localStorage.getItem(`ch-passos-fechado-${data.organization._id}`) === "1");
+      // aviso "publicação automática desligada": fechado no X, só volta se a situação mudar
+      setPublishOffClosed(window.localStorage.getItem(`ch-publicacao-aviso-${data.organization._id}`) === "desligada");
     } catch { /* navegação privada */ }
+  }, []);
+
+  // Fila de aprovação (e o que falhou): de qualquer mês, para o número no menu e a tela Aprovações.
+  const loadQueue = useCallback(async () => {
+    const res = await fetch("/api/posts?fila=aprovacao");
+    if (res.ok) setQueue(await res.json());
   }, []);
 
   const loadIgAccounts = useCallback(async () => {
@@ -286,7 +269,7 @@ export default function Home() {
     if (res.ok) setIgAccounts(await res.json());
   }, []);
 
-  useEffect(() => { loadMe(); loadIgAccounts(); }, [loadMe, loadIgAccounts]);
+  useEffect(() => { loadMe(); loadIgAccounts(); loadQueue(); }, [loadMe, loadIgAccounts, loadQueue]);
 
   async function leaveImpersonation() {
     await fetch("/api/admin/impersonate", { method: "DELETE" });
@@ -357,57 +340,20 @@ export default function Home() {
     }
   }
 
-  async function handleSavePost(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const data = {
-      project: fd.get("project"),
-      title: fd.get("title"),
-      content: fd.get("content"),
-      caption: fd.get("caption"),
-      format: fd.get("format"),
-      platforms: fd.getAll("platforms"),
-      scheduledDate: fd.get("scheduledDate"),
-      scheduledTime: fd.get("scheduledTime"),
-      status: fd.get("status"),
-      cta: fd.get("cta"),
-      productionNotes: fd.get("productionNotes"),
-      hashtags: (fd.get("hashtags") as string || "").split(" ").filter(Boolean),
-    };
-
-    const url = editingPost ? `/api/posts/${editingPost._id}` : "/api/posts";
-    const method = editingPost ? "PUT" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
-      setShowModal(false);
-      setEditingPost(null);
-      loadPosts();
-    }
+  function closePublishOff() {
+    setPublishOffClosed(true);
+    try {
+      if (me) window.localStorage.setItem(`ch-publicacao-aviso-${me.organization._id}`, "desligada");
+    } catch { /* navegação privada */ }
   }
-
-  async function handleDelete(id: string) {
-    const res = await fetch(`/api/posts/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setShowDetail(null);
-      loadPosts();
-    }
-  }
-
-  async function handleStatusChange(id: string, status: string) {
-    await fetch(`/api/posts/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    loadPosts();
-    if (showDetail?._id === id) {
-      setShowDetail({ ...showDetail, status });
-    }
-  }
+  const refreshPosts = () => { loadPosts(); loadQueue(); };
+  // @usuario do Instagram de cada projeto, para a prévia do post
+  const usernames = (igAccounts || []).reduce<Record<string, string>>((acc, a) => {
+    const pid = typeof a.project === "string" ? a.project : a.project?._id;
+    if (a.platform === "instagram" && a.username && pid && a.active) acc[pid] = a.username;
+    return acc;
+  }, {});
+  const queueCount = (queue || []).filter((p) => (me?.canManage ? true : false) && ["pending", "failed", "missed"].includes(flowStatus(p.status))).length;
 
   function copyCaption(caption: string, id: string) {
     navigator.clipboard.writeText(caption);
@@ -734,7 +680,7 @@ export default function Home() {
             >
               Todos
             </button>
-            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+            {STATUS_ORDER.map((key) => [key, STATUS[key].label] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setSelectedStatus(key)}
@@ -742,7 +688,7 @@ export default function Home() {
                   selectedStatus === key ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-800/50"
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[key].split(" ")[0]}`} />
+                <span className={`w-2 h-2 rounded-full ${STATUS[key].dot}`} />
                 {label}
               </button>
             ))}
@@ -750,6 +696,15 @@ export default function Home() {
         </div>
 
         <div className="p-4 border-b border-gray-800 space-y-1">
+          <button
+            onClick={() => { setView("aprovacoes"); setMenuOpen(false); loadQueue(); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "aprovacoes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            data-testid="menu-aprovacoes"
+          >
+            <ClipboardCheck size={16} />
+            <span>Aprovações</span>
+            {queueCount > 0 && <span className="ml-auto text-[11px] font-bold bg-brand-500 text-brand-ink rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">{queueCount}</span>}
+          </button>
           <button
             onClick={() => { setView("instagram"); setMenuOpen(false); }}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "instagram" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
@@ -799,7 +754,7 @@ export default function Home() {
             </div>
             {Object.entries(byStatus).map(([status, count]) => (
               <div key={status} className="flex justify-between">
-                <span>{STATUS_LABELS[status]}</span>
+                <span>{statusOf(status).label}</span>
                 <span>{count}</span>
               </div>
             ))}
@@ -835,6 +790,10 @@ export default function Home() {
             <div className="flex bg-gray-800 rounded-lg p-0.5">
               <button onClick={() => setView("calendar")} title="Calendario" aria-label="Calendario" className={`p-2 rounded ${view === "calendar" ? "bg-gray-700 text-white" : "text-gray-400"}`}><CalendarIcon size={16} /></button>
               <button onClick={() => setView("list")} title="Lista" aria-label="Lista" className={`p-2 rounded ${view === "list" ? "bg-gray-700 text-white" : "text-gray-400"}`}><List size={16} /></button>
+              <button onClick={() => { setView("aprovacoes"); loadQueue(); }} title="Aprovações" aria-label="Aprovações" className={`p-2 rounded relative ${view === "aprovacoes" ? "bg-gray-700 text-white" : "text-gray-400"}`}>
+                <ClipboardCheck size={16} />
+                {queueCount > 0 && <span className="absolute -top-1 -right-1 text-[10px] font-bold bg-brand-500 text-brand-ink rounded-full min-w-4 h-4 px-1 flex items-center justify-center">{queueCount}</span>}
+              </button>
               <button onClick={() => setView("instagram")} title="Instagram: metricas" aria-label="Instagram: metricas" className={`p-2 rounded ${view === "instagram" ? "bg-gray-700 text-white" : "text-gray-400"}`}><BarChart3 size={16} /></button>
             </div>
             {calendarViews && projects.length > 0 && (
@@ -854,7 +813,15 @@ export default function Home() {
             <button type="button" onClick={() => setNotice(null)} aria-label="Fechar aviso" className="p-1 -m-1 opacity-80 hover:opacity-100"><X size={16} /></button>
           </div>
         )}
-        {view === "clientes" && me?.isAdmin ? (
+        {me?.publishing && !me.publishing.on && !publishOffClosed && (calendarViews || view === "aprovacoes") && (
+          <div className="shrink-0 flex items-start gap-3 px-3 md:px-6 py-2 text-sm border-b border-gray-800 bg-gray-800/60 text-gray-300" role="status" data-testid="publish-off-banner">
+            <p className="flex-1">{me.publishing.message}</p>
+            <button type="button" onClick={closePublishOff} aria-label="Fechar aviso" className="p-1 -m-1 opacity-80 hover:opacity-100"><X size={16} /></button>
+          </div>
+        )}
+        {view === "aprovacoes" && me ? (
+          <ApprovalQueue posts={queue} canApprove={me.canManage} publishing={me.publishing} onOpen={(p) => setShowDetail(p)} onChanged={refreshPosts} />
+        ) : view === "clientes" && me?.isAdmin ? (
           <AdminClients homeOrgId={me.impersonating ? "" : me.organization._id} />
         ) : view === "conta" && me ? (
           <TeamPanel me={me} onChanged={loadMe} />
@@ -913,10 +880,11 @@ export default function Home() {
                     <div className={`text-xs font-semibold mb-1 ${isToday ? "text-brand-400" : "text-gray-500"}`}>{day}</div>
                     <div className="space-y-1">
                       {dayPosts.slice(0, 4).map((post) => (
-                        <button key={post._id} onClick={() => setShowDetail(post)} className="w-full text-left">
-                          <div className="text-[10px] px-1.5 py-0.5 rounded truncate border-l-2" style={{ borderColor: post.project?.color || "#666" }}>
-                            <span className="text-gray-500">{post.scheduledTime}</span>{" "}
-                            <span className="text-gray-300">{post.title.slice(0, 25)}</span>
+                        <button key={post._id} onClick={() => setShowDetail(post)} className="w-full text-left" title={`${post.title} · ${stateLine(post, me?.publishing)}`} data-testid="cal-post" data-status={flowStatus(post.status)}>
+                          <div className="text-[10px] px-1 py-0.5 rounded border-l-2 flex items-center gap-1 min-w-0 hover:bg-gray-800" style={{ borderColor: post.project?.color || "#666" }}>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusOf(post.status).dot}`} aria-label={statusOf(post.status).label} />
+                            <span className="text-gray-500 shrink-0 hidden sm:inline">{post.scheduledTime}</span>
+                            <span className="text-gray-300 truncate">{post.title}</span>
                           </div>
                         </button>
                       ))}
@@ -945,7 +913,7 @@ export default function Home() {
                       <div className="flex items-center gap-1">
                         {post.platforms.map((p) => <span key={p} className="text-gray-500">{PLATFORM_ICONS[p]}</span>)}
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded ${STATUS_COLORS[post.status]}`}>{STATUS_LABELS[post.status]}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded whitespace-nowrap max-w-[45%] truncate ${statusOf(post.status).chip}`} title={stateLine(post, me?.publishing)}>{flowStatus(post.status) === "scheduled" ? stateLine(post, me?.publishing).split(" · ")[0] : statusOf(post.status).label}</span>
                       <button onClick={(e) => { e.stopPropagation(); copyCaption(post.caption, post._id); }} className="text-gray-500 hover:text-brand-400" title="Copiar legenda">
                         {copied === post._id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                       </button>
@@ -965,160 +933,27 @@ export default function Home() {
         )}
       </main>
 
-      {/* Post Detail Modal */}
-      {showDetail && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowDetail(null)}>
-          <div className="bg-gray-900 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-800">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{showDetail.project?.icon}</span>
-                <span className="text-sm text-gray-400">{showDetail.project?.name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setEditingPost(showDetail); setShowDetail(null); setShowModal(true); }} className="p-1.5 hover:bg-gray-800 rounded text-gray-400"><Pencil size={16} /></button>
-                <button onClick={() => handleDelete(showDetail._id)} className="p-1.5 hover:bg-red-500/20 rounded text-red-400"><Trash2 size={16} /></button>
-                <button onClick={() => setShowDetail(null)} className="p-1.5 hover:bg-gray-800 rounded"><X size={16} /></button>
-              </div>
-            </div>
-            <div className="p-4 space-y-4">
-              <h3 className="text-lg font-bold text-white">{showDetail.title}</h3>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className={`text-xs px-2 py-1 rounded border ${FORMAT_COLORS[showDetail.format]}`}>{showDetail.format.toUpperCase()}</span>
-                <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[showDetail.status]}`}>{STATUS_LABELS[showDetail.status]}</span>
-                <span className="text-xs text-gray-500 flex items-center gap-1">
-                  <Clock size={12} />
-                  {new Date(showDetail.scheduledDate).toLocaleDateString("pt-BR")} as {showDetail.scheduledTime}
-                </span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {(["draft", "approved", "scheduled", "posted"] as const).map((s) => (
-                  <button key={s} onClick={() => handleStatusChange(showDetail._id, s)}
-                    className={`text-xs px-3 py-1 rounded border transition ${showDetail.status === s ? "border-brand-500 text-brand-400" : "border-gray-700 text-gray-500 hover:border-gray-500"}`}>
-                    {STATUS_LABELS[s]}
-                  </button>
-                ))}
-              </div>
-              {showDetail.content && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Texto do Reel</div>
-                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-100 border-l-2 border-brand-500">{showDetail.content}</div>
-                </div>
-              )}
-              {showDetail.productionNotes && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Notas de Produção</div>
-                  <div className="text-sm text-gray-400">{showDetail.productionNotes}</div>
-                </div>
-              )}
-              {showDetail.caption && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Legenda</div>
-                    <button onClick={() => copyCaption(showDetail.caption, showDetail._id)} className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
-                      {copied === showDetail._id ? <><Check size={12} /> Copiado!</> : <><Copy size={12} /> Copiar</>}
-                    </button>
-                  </div>
-                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-100 whitespace-pre-wrap">{showDetail.caption}</div>
-                </div>
-              )}
-              {showDetail.platforms.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">Redes:</span>
-                  {showDetail.platforms.map((p) => (
-                    <span key={p} className="text-gray-400 flex items-center gap-1 text-xs">{PLATFORM_ICONS[p]} {p}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {showDetail && !showModal && (
+        <PostDetail
+          key={showDetail._id}
+          postId={showDetail._id}
+          username={usernames[showDetail.project?._id] || ""}
+          onClose={() => setShowDetail(null)}
+          onEdit={(p) => { setEditingPost(p); setShowModal(true); }}
+          onChanged={refreshPosts}
+        />
       )}
 
-      {/* Create/Edit Post Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); setEditingPost(null); }}>
-          <div className="bg-gray-900 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-800">
-              <h3 className="font-bold">{editingPost ? "Editar Post" : "Novo Post"}</h3>
-              <button onClick={() => { setShowModal(false); setEditingPost(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
-            </div>
-            <form onSubmit={handleSavePost} className="p-4 space-y-3">
-              <div>
-                <label className="text-xs text-gray-400">Projeto</label>
-                <select name="project" defaultValue={editingPost?.project?._id || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100">
-                  <option value="">Selecione...</option>
-                  {projects.map((p) => <option key={p._id} value={p._id}>{p.icon} {p.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Título</label>
-                <input name="title" defaultValue={editingPost?.title || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-400">Formato</label>
-                  <select name="format" defaultValue={editingPost?.format || "reel"} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100">
-                    <option value="reel">Reel</option>
-                    <option value="story">Story</option>
-                    <option value="post">Post</option>
-                    <option value="carrossel">Carrossel</option>
-                    <option value="shorts">Shorts</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400">Status</label>
-                  <select name="status" defaultValue={editingPost?.status || "draft"} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100">
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-400">Data</label>
-                  <input type="date" name="scheduledDate" defaultValue={editingPost?.scheduledDate?.split("T")[0] || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400">Horário</label>
-                  <input type="time" name="scheduledTime" defaultValue={editingPost?.scheduledTime || "09:00"} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Redes Sociais</label>
-                <div className="flex gap-3 mt-1 flex-wrap">
-                  {["instagram", "tiktok", "youtube", "facebook", "twitter"].map((p) => (
-                    <label key={p} className="flex items-center gap-1 text-xs text-gray-400">
-                      <input type="checkbox" name="platforms" value={p} defaultChecked={editingPost?.platforms?.includes(p)} className="rounded bg-gray-800 border-gray-700" />
-                      {p}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Texto do Conteúdo</label>
-                <textarea name="content" rows={2} defaultValue={editingPost?.content || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Legenda</label>
-                <textarea name="caption" rows={4} defaultValue={editingPost?.caption || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Notas de Produção</label>
-                <textarea name="productionNotes" rows={2} defaultValue={editingPost?.productionNotes || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">CTA</label>
-                <input name="cta" defaultValue={editingPost?.cta || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">Hashtags (separadas por espaço)</label>
-                <input name="hashtags" defaultValue={editingPost?.hashtags?.join(" ") || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="#HoraDeMudarOJogo #Mindset" />
-              </div>
-              <button type="submit" className="w-full bg-brand-500 text-brand-ink font-bold py-2.5 rounded-lg hover:bg-brand-400 transition">
-                {editingPost ? "Salvar Alterações" : "Criar Post"}
-              </button>
-            </form>
-          </div>
-        </div>
+        <PostForm
+          post={editingPost}
+          projects={projects}
+          defaultProject={selectedProject !== "all" ? selectedProject : undefined}
+          usernames={usernames}
+          publishing={me?.publishing}
+          onClose={() => { setShowModal(false); setEditingPost(null); }}
+          onSaved={(p) => { setShowModal(false); setEditingPost(null); setShowDetail(p); refreshPosts(); }}
+        />
       )}
 
       {/* Create Project Modal */}

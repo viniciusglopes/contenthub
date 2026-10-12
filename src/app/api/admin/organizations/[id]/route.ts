@@ -1,6 +1,7 @@
 import { json, route } from "@/lib/api";
 import { publicBrand } from "@/lib/brand";
 import { FriendlyError, notFound } from "@/lib/errors";
+import { publishEnabled } from "@/lib/instagram/publish";
 import { publicInvite } from "@/lib/invites";
 import { applyBrand, audit, publicUser } from "@/lib/orgs";
 import { clientIp } from "@/lib/session";
@@ -25,6 +26,8 @@ export const GET = route("admin", async ({ params, id }) => {
     name: organization.name,
     slug: organization.slug,
     active: organization.active,
+    publishEnabled: organization.publishEnabled === true,
+    publishGlobal: publishEnabled(),
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -50,12 +53,17 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
       throw new FriendlyError("Essa é a sua própria organização: não dá para desativar.", 400);
     organization.active = Boolean(b.active);
   }
+  // Chave de publicação automática deste cliente: só aqui, só o administrador da plataforma.
+  const publishChanged = b.publishEnabled !== undefined && Boolean(b.publishEnabled) !== (organization.publishEnabled === true);
+  if (publishChanged) organization.publishEnabled = Boolean(b.publishEnabled);
   await organization.save();
+  if (publishChanged)
+    await audit({ action: organization.publishEnabled ? "cliente.publicacao_ligada" : "cliente.publicacao_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   await audit({
     action: b.active === undefined ? "cliente.alterado" : organization.active ? "cliente.ativado" : "cliente.desativado",
     actor: s.user,
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, brand: publicBrand(organization) });
 });

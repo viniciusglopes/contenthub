@@ -27,7 +27,7 @@ export type PublishPlan =
   | { kind: "CAROUSEL"; items: { url: string; video: boolean }[]; caption: string }
   | { kind: "REELS"; videoUrl: string; caption: string };
 
-const isVideo = (u: string) => /\.(mp4|mov)(\?|#|$)/i.test(u);
+export const isVideo = (u: string) => /\.(mp4|mov)(\?|#|$)/i.test(u);
 const isJpeg = (u: string) => /\.jpe?g(\?|#|$)/i.test(u);
 const isOtherImage = (u: string) => /\.(png|webp|gif|heic|avif|bmp)(\?|#|$)/i.test(u);
 

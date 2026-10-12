@@ -1,6 +1,7 @@
 import { json, route } from "@/lib/api";
 import { publicBrand } from "@/lib/brand";
 import { FriendlyError } from "@/lib/errors";
+import { publishEnabled } from "@/lib/instagram/publish";
 import { createInvite } from "@/lib/invites";
 import { audit, countOrphans, organizationStats, uniqueOrgSlug } from "@/lib/orgs";
 import { clientIp } from "@/lib/session";
@@ -23,11 +24,13 @@ export const GET = route("admin", async () => {
   const pendingBy = Object.fromEntries(pending.map((p: any) => [String(p._id), p.n]));
   return json({
     orphans,
+    publishGlobal: publishEnabled(),
     organizations: (orgs as any[]).map((o) => ({
       _id: String(o._id),
       name: o.name,
       slug: o.slug,
       active: o.active,
+      publishEnabled: o.publishEnabled === true,
       brand: publicBrand(o),
       createdAt: o.createdAt,
       users: stats[String(o._id)]?.users ?? 0,

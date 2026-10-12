@@ -18,7 +18,8 @@ import Organization from "@/models/Organization";
 // owner     dono da organização (ou administrador)
 // admin     só administrador da plataforma
 // org+cron  login OU "Authorization: Bearer <CRON_TOKEN>"; no cron, `ctx.orgs` = todas as ativas
-export type Access = "public" | "org" | "owner" | "admin" | "org+cron";
+// cron      SÓ "Authorization: Bearer <CRON_TOKEN>" (o agendador de publicação): login não entra
+export type Access = "public" | "org" | "owner" | "admin" | "org+cron" | "cron";
 
 export interface Ctx {
   req: NextRequest;
@@ -51,7 +52,10 @@ export function route(access: Access, handler: Handler): RouteFn {
       let cron = false;
       let orgs: Ctx["orgs"] = [];
 
-      if (access !== "public") {
+      if (access === "cron") {
+        if (!checkCronToken(req.headers.get("authorization"))) return UNAUTH();
+        cron = true;
+      } else if (access !== "public") {
         session = await getSession(req);
         if (!session && access === "org+cron" && checkCronToken(req.headers.get("authorization"))) {
           cron = true;
