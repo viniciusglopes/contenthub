@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect -- estado inicial lido do link e do navegador */
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -17,7 +18,15 @@ import {
   Plug,
   Eye,
   EyeOff,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  LogOut,
+  BarChart3,
 } from "lucide-react";
+import InstagramPanel from "@/components/instagram/InstagramPanel";
+import { InstagramAccountStatus, InstagramConnectForm } from "@/components/instagram/InstagramAccounts";
+import type { PublicAccount } from "@/components/instagram/shared";
 
 interface Project {
   _id: string;
@@ -45,17 +54,7 @@ interface Post {
   productionNotes: string;
 }
 
-interface SocialAccount {
-  _id: string;
-  project: Project | string;
-  platform: string;
-  accountName: string;
-  accountId: string;
-  credentials: Record<string, string>;
-  active: boolean;
-  lastSync: string | null;
-  tokenExpiresAt: string | null;
-}
+type SocialAccount = PublicAccount;
 
 const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
   instagram: {
@@ -161,7 +160,9 @@ export default function Home() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [view, setViewState] = useState<"calendar" | "list" | "instagram">("calendar");
+  const [menuOpen, setMenuOpen] = useState(false); // celular: menu como gaveta
+  const [menuCollapsed, setMenuCollapsed] = useState(false); // desktop: recolhido, lembrando a escolha
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Post | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -174,10 +175,61 @@ export default function Home() {
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [formPlatform, setFormPlatform] = useState("instagram");
   const [settingsTab, setSettingsTab] = useState<"social" | "apis">("social");
-  const [apiCredentials, setApiCredentials] = useState<{ _id: string; service: string; label: string; credentials: Record<string, string>; active: boolean }[]>([]);
+  const [apiCredentials, setApiCredentials] = useState<{ _id: string; service: string; label: string; credentials: Record<string, string>; credentialsFilled?: Record<string, boolean>; active: boolean }[]>([]);
   const [editingApi, setEditingApi] = useState<string | null>(null);
   const [showApiSecrets, setShowApiSecrets] = useState(false);
   const [formApiService, setFormApiService] = useState("");
+
+  // A visão e o projeto ficam no link (dá para favoritar /?view=instagram&project=...).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const v = p.get("view");
+    if (v === "instagram" || v === "list") setViewState(v);
+    const proj = p.get("project");
+    if (proj) setSelectedProject(proj);
+    try {
+      setMenuCollapsed(window.localStorage.getItem("ch-menu-recolhido") === "1");
+    } catch { /* navegação privada */ }
+  }, []);
+
+  function setUrl(key: string, value: string | null) {
+    const url = new URL(window.location.href);
+    if (value) url.searchParams.set(key, value);
+    else url.searchParams.delete(key);
+    window.history.replaceState(null, "", url);
+  }
+  function setView(v: "calendar" | "list" | "instagram") {
+    setViewState(v);
+    setUrl("view", v === "calendar" ? null : v);
+  }
+  function selectProject(id: string) {
+    setSelectedProject(id);
+    setUrl("project", id === "all" ? null : id);
+    setMenuOpen(false);
+  }
+  function toggleMenuCollapsed() {
+    const next = !menuCollapsed;
+    setMenuCollapsed(next);
+    try {
+      window.localStorage.setItem("ch-menu-recolhido", next ? "1" : "0");
+    } catch { /* navegação privada */ }
+  }
+  function openSettings(projectId?: string, connectInstagram = false) {
+    setShowSettings(true);
+    setSettingsTab("social");
+    setSettingsProject(projectId || "");
+    loadSocialAccounts(projectId || undefined);
+    loadApiCredentials();
+    if (connectInstagram) {
+      setFormPlatform("instagram");
+      setEditingAccount("new");
+    }
+    setMenuOpen(false);
+  }
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
 
   const loadProjects = useCallback(async () => {
     const res = await fetch("/api/projects");
@@ -537,12 +589,21 @@ export default function Home() {
   }, {});
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-800">
-          <h1 className="text-xl font-bold text-yellow-400">ContentHub</h1>
-          <p className="text-xs text-gray-500 mt-1">Gestao de Conteudo</p>
+    <div className="flex h-dvh overflow-hidden">
+      {/* Sidebar: gaveta no celular, recolhível no desktop */}
+      {menuOpen && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setMenuOpen(false)} />}
+      <aside
+        className={`w-64 bg-gray-900 border-r border-gray-800 flex-col shrink-0 overflow-y-auto fixed inset-y-0 left-0 z-40 md:static md:z-auto ${
+          menuOpen ? "flex" : "hidden"
+        } ${menuCollapsed ? "md:hidden" : "md:flex"}`}
+      >
+        <div className="p-4 border-b border-gray-800 flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-yellow-400">ContentHub</h1>
+            <p className="text-xs text-gray-500 mt-1">Gestao de Conteudo</p>
+          </div>
+          <button onClick={() => setMenuOpen(false)} className="p-1 hover:bg-gray-800 rounded md:hidden" aria-label="Fechar menu"><X size={18} /></button>
+          <button onClick={toggleMenuCollapsed} className="p-1 hover:bg-gray-800 rounded text-gray-400 hidden md:block" aria-label="Recolher menu" title="Recolher menu"><PanelLeftClose size={18} /></button>
         </div>
 
         <div className="p-4 border-b border-gray-800">
@@ -553,7 +614,7 @@ export default function Home() {
             </button>
           </div>
           <button
-            onClick={() => setSelectedProject("all")}
+            onClick={() => selectProject("all")}
             className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition ${
               selectedProject === "all" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"
             }`}
@@ -563,14 +624,14 @@ export default function Home() {
           {projects.map((p) => (
             <button
               key={p._id}
-              onClick={() => setSelectedProject(p._id)}
+              onClick={() => selectProject(p._id)}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 flex items-center gap-2 transition ${
                 selectedProject === p._id ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"
               }`}
             >
               <span>{p.icon}</span>
-              <span>{p.name}</span>
-              <span className="w-2 h-2 rounded-full ml-auto" style={{ backgroundColor: p.color }} />
+              <span className="truncate" title={p.name}>{p.name}</span>
+              <span className="w-2 h-2 rounded-full ml-auto shrink-0" style={{ backgroundColor: p.color }} />
             </button>
           ))}
         </div>
@@ -601,13 +662,27 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="p-4 border-b border-gray-800">
+        <div className="p-4 border-b border-gray-800 space-y-1">
           <button
-            onClick={() => { setShowSettings(true); setSettingsTab("social"); loadSocialAccounts(); loadApiCredentials(); }}
+            onClick={() => { setView("instagram"); setMenuOpen(false); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "instagram" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+          >
+            <BarChart3 size={16} />
+            <span>Instagram</span>
+          </button>
+          <button
+            onClick={() => openSettings()}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
           >
             <Settings size={16} />
             <span>Configuracoes</span>
+          </button>
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
+          >
+            <LogOut size={16} />
+            <span>Sair</span>
           </button>
         </div>
 
@@ -628,34 +703,54 @@ export default function Home() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-900/50 shrink-0">
-          <div className="flex items-center gap-4">
-            <button onClick={prevMonth} className="p-1 hover:bg-gray-800 rounded"><ChevronLeft size={20} /></button>
-            <h2 className="text-lg font-bold min-w-[200px] text-center">{MONTHS_PT[currentMonth]} {currentYear}</h2>
-            <button onClick={nextMonth} className="p-1 hover:bg-gray-800 rounded"><ChevronRight size={20} /></button>
-            <button
-              onClick={() => { setCurrentMonth(new Date().getMonth()); setCurrentYear(new Date().getFullYear()); }}
-              className="text-xs text-yellow-400 hover:text-yellow-300 px-2 py-1 border border-yellow-400/30 rounded"
-            >
-              Hoje
-            </button>
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <header className="flex items-center justify-between gap-2 px-3 md:px-6 py-3 md:py-4 border-b border-gray-800 bg-gray-900/50 shrink-0">
+          <div className="flex items-center gap-1 md:gap-4 min-w-0">
+            <button onClick={() => setMenuOpen(true)} className="p-2 hover:bg-gray-800 rounded md:hidden" aria-label="Abrir menu"><Menu size={20} /></button>
+            {menuCollapsed && (
+              <button onClick={toggleMenuCollapsed} className="p-2 hover:bg-gray-800 rounded text-gray-400 hidden md:block" aria-label="Mostrar menu" title="Mostrar menu"><PanelLeftOpen size={20} /></button>
+            )}
+            {view === "instagram" ? (
+              <h2 className="text-lg font-bold truncate">Instagram</h2>
+            ) : (
+              <>
+                <button onClick={prevMonth} className="p-1 hover:bg-gray-800 rounded" aria-label="Mes anterior"><ChevronLeft size={20} /></button>
+                <h2 className="text-base md:text-lg font-bold md:min-w-[200px] text-center truncate">{MONTHS_PT[currentMonth]} {currentYear}</h2>
+                <button onClick={nextMonth} className="p-1 hover:bg-gray-800 rounded" aria-label="Proximo mes"><ChevronRight size={20} /></button>
+                <button
+                  onClick={() => { setCurrentMonth(new Date().getMonth()); setCurrentYear(new Date().getFullYear()); }}
+                  className="text-xs text-yellow-400 hover:text-yellow-300 px-2 py-1 border border-yellow-400/30 rounded hidden sm:block"
+                >
+                  Hoje
+                </button>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="flex bg-gray-800 rounded-lg p-0.5">
-              <button onClick={() => setView("calendar")} className={`p-2 rounded ${view === "calendar" ? "bg-gray-700 text-white" : "text-gray-400"}`}><CalendarIcon size={16} /></button>
-              <button onClick={() => setView("list")} className={`p-2 rounded ${view === "list" ? "bg-gray-700 text-white" : "text-gray-400"}`}><List size={16} /></button>
+              <button onClick={() => setView("calendar")} title="Calendario" aria-label="Calendario" className={`p-2 rounded ${view === "calendar" ? "bg-gray-700 text-white" : "text-gray-400"}`}><CalendarIcon size={16} /></button>
+              <button onClick={() => setView("list")} title="Lista" aria-label="Lista" className={`p-2 rounded ${view === "list" ? "bg-gray-700 text-white" : "text-gray-400"}`}><List size={16} /></button>
+              <button onClick={() => setView("instagram")} title="Instagram: metricas" aria-label="Instagram: metricas" className={`p-2 rounded ${view === "instagram" ? "bg-gray-700 text-white" : "text-gray-400"}`}><BarChart3 size={16} /></button>
             </div>
-            <button
-              onClick={() => { setEditingPost(null); setShowModal(true); }}
-              className="flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-semibold text-sm hover:bg-yellow-400 transition"
-            >
-              <Plus size={16} /> Novo Post
-            </button>
+            {view !== "instagram" && (
+              <button
+                onClick={() => { setEditingPost(null); setShowModal(true); }}
+                className="flex items-center gap-2 bg-yellow-500 text-black px-3 md:px-4 py-2 rounded-lg font-semibold text-sm hover:bg-yellow-400 transition"
+              >
+                <Plus size={16} /> <span className="hidden sm:inline">Novo Post</span>
+              </button>
+            )}
           </div>
         </header>
 
-        {view === "calendar" ? (
+        {view === "instagram" ? (
+          <InstagramPanel
+            projects={projects}
+            selectedProject={selectedProject}
+            onSelectProject={selectProject}
+            onConnect={(pid) => openSettings(pid, true)}
+          />
+        ) : view === "calendar" ? (
           <div className="flex-1 overflow-auto p-4">
             <div className="grid grid-cols-7 gap-px bg-gray-800 rounded-xl overflow-hidden">
               {DAYS_PT.map((day) => (
@@ -989,15 +1084,15 @@ export default function Home() {
 
               {socialAccounts.map((acc) => (
                 <div key={acc._id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
                       <span className="text-gray-300">{PLATFORM_ICONS[acc.platform]}</span>
-                      <div>
-                        <div className="text-sm font-semibold text-gray-200">{acc.accountName}</div>
-                        <div className="text-xs text-gray-500">{PLATFORM_FIELDS[acc.platform]?.label || acc.platform}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-200 truncate" title={acc.accountName}>{acc.accountName}</div>
+                        <div className="text-xs text-gray-500 truncate">{PLATFORM_FIELDS[acc.platform]?.label || acc.platform}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs px-2 py-0.5 rounded ${acc.active ? "bg-green-500/20 text-green-400" : "bg-gray-600/20 text-gray-500"}`}>
                         {acc.active ? "Ativo" : "Inativo"}
                       </span>
@@ -1008,16 +1103,52 @@ export default function Home() {
                       <button onClick={() => handleDeleteAccount(acc._id)} className="p-1 hover:bg-red-500/20 rounded text-red-400"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  {acc.accountId && <div className="text-xs text-gray-600 mt-1">ID: {acc.accountId}</div>}
-                  {acc.tokenExpiresAt && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      Token expira: {new Date(acc.tokenExpiresAt).toLocaleDateString("pt-BR")}
-                    </div>
+                  {acc.platform === "instagram" ? (
+                    <InstagramAccountStatus
+                      account={acc}
+                      onChange={() => loadSocialAccounts(settingsProject || undefined)}
+                    />
+                  ) : (
+                    <>
+                      {acc.accountId && <div className="text-xs text-gray-600 mt-1">ID: {acc.accountId}</div>}
+                      {acc.tokenExpiresAt && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          Token expira: {new Date(acc.tokenExpiresAt).toLocaleDateString("pt-BR")}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
 
-              {editingAccount && (
+              {editingAccount && formPlatform === "instagram" && (
+                <div className="space-y-2">
+                  {editingAccount === "new" && (
+                    <div>
+                      <label className="text-xs text-gray-400">Plataforma</label>
+                      <select
+                        value={formPlatform}
+                        onChange={(e) => setFormPlatform(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
+                      >
+                        {Object.entries(PLATFORM_FIELDS).map(([key, val]) => (
+                          <option key={key} value={key}>{key === "instagram" ? "Instagram (API oficial da Meta)" : val.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <InstagramConnectForm
+                    key={editingAccount}
+                    projects={projects}
+                    defaultProject={settingsProject}
+                    account={editingAccount !== "new" ? socialAccounts.find((a) => a._id === editingAccount) : null}
+                    onDone={() => { setEditingAccount(null); loadSocialAccounts(settingsProject || undefined); }}
+                    onCancel={() => setEditingAccount(null)}
+                  />
+                </div>
+              )}
+
+              {editingAccount && formPlatform !== "instagram" && (
                 <div className="bg-gray-800/50 rounded-xl p-4 border border-yellow-500/30">
                   <h4 className="text-sm font-semibold text-yellow-400 mb-3">
                     {editingAccount === "new" ? "Nova Conta" : "Editar Conta"}
@@ -1087,7 +1218,7 @@ export default function Home() {
                             name={`cred_${field.key}`}
                             type={field.secret && !showSecrets[editingAccount!] ? "password" : "text"}
                             defaultValue={editingAccount !== "new" ? socialAccounts.find(a => a._id === editingAccount)?.credentials?.[field.key] || "" : ""}
-                            placeholder={field.label}
+                            placeholder={editingAccount !== "new" && socialAccounts.find(a => a._id === editingAccount)?.credentialsFilled?.[field.key] && field.secret ? "Ja preenchido: deixe em branco para manter" : field.label}
                             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
                           />
                         </div>
@@ -1138,7 +1269,7 @@ export default function Home() {
                     <div>
                       <div className="text-sm font-semibold text-gray-200">{API_SERVICES[api.service]?.label || api.label}</div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {Object.keys(api.credentials || {}).length} campo(s) configurado(s)
+                        {Object.keys(api.credentialsFilled || api.credentials || {}).length} campo(s) configurado(s)
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1193,7 +1324,7 @@ export default function Home() {
                             name={`api_${field.key}`}
                             type={field.secret && !showApiSecrets ? "password" : "text"}
                             defaultValue={editingApi !== "new" ? apiCredentials.find(a => a.service === editingApi)?.credentials?.[field.key] || "" : ""}
-                            placeholder={field.label}
+                            placeholder={editingApi !== "new" && apiCredentials.find(a => a.service === editingApi)?.credentialsFilled?.[field.key] && field.secret ? "Ja preenchido: deixe em branco para manter" : field.label}
                             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100"
                           />
                         </div>

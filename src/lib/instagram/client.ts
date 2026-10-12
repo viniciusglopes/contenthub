@@ -1,0 +1,288 @@
+// Cliente da "Instagram API com login do Instagram" (host graph.instagram.com).
+// Conferido na documentação oficial em 12/10/2026: versão v25.0.
+// Nunca registrar a URL em log: ela carrega o token.
+
+export const IG_HOST = "https://graph.instagram.com";
+export const IG_API_VERSION = process.env.IG_API_VERSION || "v25.0";
+
+export interface FetchResponseLike {
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+}
+export type FetchLike = (
+  url: string,
+  init?: { method?: string; body?: string; headers?: Record<string, string> }
+) => Promise<FetchResponseLike>;
+
+export type IgErrorKind =
+  | "token_invalido"
+  | "permissao"
+  | "conta_nao_profissional"
+  | "limite"
+  | "temporario"
+  | "parametro"
+  | "rede"
+  | "desconhecido";
+
+const FRIENDLY: Record<IgErrorKind, string> = {
+  token_invalido:
+    "O token não é válido ou já venceu. Gere um novo no painel do app da Meta e cole aqui.",
+  permissao:
+    "O token não tem a permissão necessária. Gere de novo marcando: instagram_business_basic, instagram_business_manage_insights e instagram_business_content_publish.",
+  conta_nao_profissional:
+    "Essa conta do Instagram não é profissional. Mude para Empresa ou Criador de conteúdo no app do Instagram e gere o token de novo.",
+  limite: "O Instagram pediu para esperar (limite de chamadas atingido). Tente de novo em alguns minutos.",
+  temporario: "O Instagram está instável agora. Tente de novo em alguns minutos.",
+  parametro: "O Instagram recusou o pedido (dado inválido).",
+  rede: "Não foi possível falar com o Instagram. Confira a conexão do servidor e tente de novo.",
+  desconhecido: "O Instagram devolveu um erro inesperado.",
+};
+
+export class InstagramApiError extends Error {
+  kind: IgErrorKind;
+  code?: number;
+  subcode?: number;
+  status?: number;
+  metaMessage?: string;
+  constructor(kind: IgErrorKind, opts: { code?: number; subcode?: number; status?: number; metaMessage?: string } = {}) {
+    super(FRIENDLY[kind]);
+    this.name = "InstagramApiError";
+    this.kind = kind;
+    Object.assign(this, opts);
+  }
+  /** Mensagem para a tela: em português, com o código da Meta entre parênteses quando ajuda. */
+  get friendly(): string {
+    const detail =
+      (this.kind === "parametro" || this.kind === "desconhecido") && this.metaMessage
+        ? ` Detalhe: ${this.metaMessage}`
+        : "";
+    return `${this.message}${detail}${this.code ? ` (código ${this.code})` : ""}`;
+  }
+}
+
+export function classifyError(
+  err: { code?: number; error_subcode?: number; type?: string; message?: string } | undefined,
+  status: number
+): InstagramApiError {
+  const code = err?.code;
+  const msg = err?.message || "";
+  const opts = { code, subcode: err?.error_subcode, status, metaMessage: msg };
+  if (code === 190 || code === 102 || code === 463 || code === 467)
+    return new InstagramApiError("token_invalido", opts);
+  if (code === 10 || code === 3 || (code !== undefined && code >= 200 && code <= 299))
+    return new InstagramApiError("permissao", opts);
+  if (code === 4 || code === 17 || code === 32 || code === 613 || status === 429)
+    return new InstagramApiError("limite", opts);
+  if (code === 1 || code === 2 || status >= 500) return new InstagramApiError("temporario", opts);
+  if (code === 100) return new InstagramApiError("parametro", opts);
+  return new InstagramApiError("desconhecido", opts);
+}
+
+function qs(params: Record<string, string | number | boolean | undefined>): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") p.set(k, String(v));
+  return p.toString();
+}
+
+export interface IgProfile {
+  userId: string;
+  username: string;
+  name?: string;
+  accountType?: string;
+  followersCount?: number;
+  followsCount?: number;
+  mediaCount?: number;
+  profilePictureUrl?: string;
+}
+
+export interface RawMedia {
+  id: string;
+  caption?: string;
+  media_type?: string;
+  media_product_type?: string;
+  permalink?: string;
+  timestamp?: string;
+  thumbnail_url?: string;
+  media_url?: string;
+  like_count?: number;
+  comments_count?: number;
+}
+
+export interface RawInsight {
+  name: string;
+  values?: { value?: number | Record<string, number>; end_time?: string }[];
+  total_value?: { value?: number };
+}
+
+const MEDIA_FIELDS_FULL =
+  "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count";
+// Conjunto mínimo, caso a Meta recuse algum campo do conjunto completo.
+const MEDIA_FIELDS_SAFE = "id,media_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count";
+
+export class InstagramClient {
+  constructor(
+    private token: string,
+    private fetchImpl: FetchLike = getDefaultFetch(),
+    private version: string = IG_API_VERSION
+  ) {}
+
+  private async call<T>(
+    path: string,
+    params: Record<string, string | number | boolean | undefined> = {},
+    method: "GET" | "POST" = "GET",
+    versioned = true
+  ): Promise<T> {
+    const base = `${IG_HOST}${versioned ? `/${this.version}` : ""}${path}`;
+    const all = { ...params, access_token: this.token };
+    let res: FetchResponseLike;
+    try {
+      res =
+        method === "GET"
+          ? await this.fetchImpl(`${base}?${qs(all)}`)
+          : await this.fetchImpl(base, {
+              method: "POST",
+              body: qs(all),
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            });
+    } catch {
+      throw new InstagramApiError("rede");
+    }
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* corpo vazio */
+    }
+    const b = body as { error?: Parameters<typeof classifyError>[0] } | null;
+    if (!res.ok || b?.error) throw classifyError(b?.error, res.status);
+    return body as T;
+  }
+
+  async getMe(): Promise<IgProfile> {
+    const r = await this.call<Record<string, unknown> & { data?: Record<string, unknown>[] }>("/me", {
+      fields: "user_id,username,name,account_type,followers_count,follows_count,media_count,profile_picture_url",
+    });
+    const d = (Array.isArray(r.data) ? r.data[0] : r) as Record<string, unknown>;
+    return {
+      userId: String(d.user_id ?? d.id ?? ""),
+      username: String(d.username ?? ""),
+      name: d.name as string | undefined,
+      accountType: d.account_type as string | undefined,
+      followersCount: d.followers_count as number | undefined,
+      followsCount: d.follows_count as number | undefined,
+      mediaCount: d.media_count as number | undefined,
+      profilePictureUrl: d.profile_picture_url as string | undefined,
+    };
+  }
+
+  /** Troca token curto (1h) por longo (60 dias). Só no servidor: usa o segredo do app. */
+  async exchangeForLongLived(appSecret: string): Promise<{ accessToken: string; expiresIn: number }> {
+    const r = await this.call<{ access_token: string; expires_in: number }>(
+      "/access_token",
+      { grant_type: "ig_exchange_token", client_secret: appSecret },
+      "GET",
+      false
+    );
+    return { accessToken: r.access_token, expiresIn: r.expires_in };
+  }
+
+  /** Renova token longo. A Meta exige: token com mais de 24h e ainda não vencido. */
+  async refreshLongLived(): Promise<{ accessToken: string; expiresIn: number }> {
+    const r = await this.call<{ access_token: string; expires_in: number }>(
+      "/refresh_access_token",
+      { grant_type: "ig_refresh_token" },
+      "GET",
+      false
+    );
+    return { accessToken: r.access_token, expiresIn: r.expires_in };
+  }
+
+  /** Lista mídias da mais nova para a mais antiga, parando em `sinceMs` ou em `max`. */
+  async listMedia(igUserId: string, opts: { sinceMs?: number; max?: number } = {}): Promise<RawMedia[]> {
+    const max = opts.max ?? 200;
+    const out: RawMedia[] = [];
+    let after: string | undefined;
+    let fields = MEDIA_FIELDS_FULL;
+    for (let page = 0; page < 20 && out.length < max; page++) {
+      let r: { data?: RawMedia[]; paging?: { cursors?: { after?: string }; next?: string } };
+      try {
+        r = await this.call(`/${igUserId}/media`, { fields, limit: 50, after });
+      } catch (e) {
+        if (e instanceof InstagramApiError && e.kind === "parametro" && fields === MEDIA_FIELDS_FULL) {
+          fields = MEDIA_FIELDS_SAFE;
+          page--;
+          continue;
+        }
+        throw e;
+      }
+      const items = r.data || [];
+      let reachedOld = false;
+      for (const m of items) {
+        if (opts.sinceMs && m.timestamp && new Date(m.timestamp).getTime() < opts.sinceMs) {
+          reachedOld = true;
+          break;
+        }
+        out.push(m);
+        if (out.length >= max) break;
+      }
+      after = r.paging?.cursors?.after;
+      if (reachedOld || !r.paging?.next || !after || items.length === 0) break;
+    }
+    return out;
+  }
+
+  async getMediaInsights(mediaId: string, metrics: string[]): Promise<RawInsight[]> {
+    const r = await this.call<{ data?: RawInsight[] }>(`/${mediaId}/insights`, { metric: metrics.join(",") });
+    return r.data || [];
+  }
+
+  /** Totais da conta num intervalo (um dia por chamada para montar o histórico diário). */
+  async getAccountTotals(igUserId: string, sinceUnix: number, untilUnix: number): Promise<RawInsight[]> {
+    const r = await this.call<{ data?: RawInsight[] }>(`/${igUserId}/insights`, {
+      metric: "reach,views",
+      period: "day",
+      metric_type: "total_value",
+      since: sinceUnix,
+      until: untilUnix,
+    });
+    return r.data || [];
+  }
+
+  // ---- Publicação (container -> publish) ----
+
+  async createContainer(igUserId: string, params: Record<string, string | boolean | undefined>): Promise<string> {
+    const r = await this.call<{ id: string }>(`/${igUserId}/media`, params, "POST");
+    return r.id;
+  }
+
+  async getContainerStatus(containerId: string): Promise<string> {
+    const r = await this.call<{ status_code?: string }>(`/${containerId}`, { fields: "status_code" });
+    return r.status_code || "IN_PROGRESS";
+  }
+
+  async publishContainer(igUserId: string, creationId: string): Promise<string> {
+    const r = await this.call<{ id: string }>(`/${igUserId}/media_publish`, { creation_id: creationId }, "POST");
+    return r.id;
+  }
+
+  async getPublishingLimit(igUserId: string): Promise<{ used: number; total: number }> {
+    const r = await this.call<{ data?: { quota_usage?: number; config?: { quota_total?: number } }[] }>(
+      `/${igUserId}/content_publishing_limit`,
+      { fields: "quota_usage,config" }
+    );
+    const d = r.data?.[0];
+    // A documentação cita 100 e, em outro trecho, 50 por 24h; vale o que a própria API informar.
+    return { used: d?.quota_usage ?? 0, total: d?.config?.quota_total ?? 50 };
+  }
+}
+
+let overrideFetch: FetchLike | null = null;
+/** Usado pelo modo de demonstração (IG_MOCK=1) e pelos testes. */
+export function setFetchOverride(f: FetchLike | null) {
+  overrideFetch = f;
+}
+export function getDefaultFetch(): FetchLike {
+  if (overrideFetch) return overrideFetch;
+  return (url, init) => fetch(url, { ...init, cache: "no-store" }) as Promise<FetchResponseLike>;
+}

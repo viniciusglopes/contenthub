@@ -14,7 +14,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   await connectDB();
   const { id } = await params;
   const body = await req.json();
-  const post = await Post.findByIdAndUpdate(id, body, { new: true }).populate(
+  const post = await Post.findByIdAndUpdate(id, body, { returnDocument: "after" }).populate(
     "project",
     "name slug color icon"
   );

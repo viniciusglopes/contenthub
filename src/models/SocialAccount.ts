@@ -21,6 +21,15 @@ export interface ISocialAccount extends Document {
   active: boolean;
   lastSync: Date | null;
   tokenExpiresAt: Date | null;
+  tokenObtainedAt: Date | null;
+  tokenExpiryEstimated: boolean;
+  username: string;
+  accountType: string;
+  followersCount: number | null;
+  mediaCount: number | null;
+  profilePictureUrl: string;
+  lastSyncError: string;
+  lastSyncStats: { media?: number; matchedPosts?: number; days?: number } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +60,16 @@ const SocialAccountSchema = new Schema<ISocialAccount>(
     active: { type: Boolean, default: true },
     lastSync: { type: Date, default: null },
     tokenExpiresAt: { type: Date, default: null },
+    // Instagram (API oficial): dados da conexão. O token fica em credentials.accessToken, criptografado.
+    tokenObtainedAt: { type: Date, default: null },
+    tokenExpiryEstimated: { type: Boolean, default: false },
+    username: { type: String, default: "" },
+    accountType: { type: String, default: "" },
+    followersCount: { type: Number, default: null },
+    mediaCount: { type: Number, default: null },
+    profilePictureUrl: { type: String, default: "" },
+    lastSyncError: { type: String, default: "" },
+    lastSyncStats: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );
