@@ -23,7 +23,13 @@ import {
   PanelLeftOpen,
   LogOut,
   BarChart3,
+  Building2,
+  UserCog,
 } from "lucide-react";
+import AdminClients from "@/components/admin/AdminClients";
+import Onboarding from "@/components/Onboarding";
+import TeamPanel, { type Me } from "@/components/team/TeamPanel";
+import { BrandMark, DEFAULT_BRAND, rememberBrand, varsStyle } from "@/components/brand";
 import InstagramPanel from "@/components/instagram/InstagramPanel";
 import { InstagramAccountStatus, InstagramConnectForm } from "@/components/instagram/InstagramAccounts";
 import type { PublicAccount } from "@/components/instagram/shared";
@@ -55,6 +61,8 @@ interface Post {
 }
 
 type SocialAccount = PublicAccount;
+type View = "calendar" | "list" | "instagram" | "clientes" | "conta";
+const VIEW_TITLE: Record<string, string> = { instagram: "Instagram", clientes: "Clientes", conta: "Minha conta" };
 
 const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
   instagram: {
@@ -135,9 +143,9 @@ const PLATFORM_ICONS: Record<string, React.ReactNode> = {
   tiktok: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.87a8.16 8.16 0 004.77 1.52V7a4.84 4.84 0 01-1.01-.31z"/></svg>,
 };
 
-const DAYS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+const DAYS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS_PT = [
-  "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
@@ -160,7 +168,13 @@ export default function Home() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [view, setViewState] = useState<"calendar" | "list" | "instagram">("calendar");
+  const [view, setViewState] = useState<View>("calendar");
+  const [me, setMe] = useState<Me | null>(null);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [igAccounts, setIgAccounts] = useState<SocialAccount[] | null>(null);
+  const [onboardingClosed, setOnboardingClosed] = useState(false);
+  const [onboardingSticky, setOnboardingSticky] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "ok" | "bad"; msg: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false); // celular: menu como gaveta
   const [menuCollapsed, setMenuCollapsed] = useState(false); // desktop: recolhido, lembrando a escolha
   const [showModal, setShowModal] = useState(false);
@@ -184,7 +198,18 @@ export default function Home() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const v = p.get("view");
-    if (v === "instagram" || v === "list") setViewState(v);
+    if (v === "instagram" || v === "list" || v === "clientes" || v === "conta") setViewState(v);
+    // Volta do login pelo Instagram: o resultado vem no link e sai dele depois de lido.
+    const igOk = p.get("ig_ok");
+    const igErro = p.get("ig_erro");
+    if (igOk) setNotice({ tone: "ok", msg: `Instagram @${igOk} conectado. Clique em Sincronizar agora para trazer os números.` });
+    else if (igErro) setNotice({ tone: "bad", msg: igErro });
+    if (igOk || igErro) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("ig_ok");
+      url.searchParams.delete("ig_erro");
+      window.history.replaceState(null, "", url);
+    }
     const proj = p.get("project");
     if (proj) setSelectedProject(proj);
     try {
@@ -198,7 +223,7 @@ export default function Home() {
     else url.searchParams.delete(key);
     window.history.replaceState(null, "", url);
   }
-  function setView(v: "calendar" | "list" | "instagram") {
+  function setView(v: View) {
     setViewState(v);
     setUrl("view", v === "calendar" ? null : v);
   }
@@ -233,8 +258,47 @@ export default function Home() {
 
   const loadProjects = useCallback(async () => {
     const res = await fetch("/api/projects");
-    if (res.ok) setProjects(await res.json());
+    if (res.ok) {
+      setProjects(await res.json());
+      setProjectsLoaded(true);
+    }
   }, []);
+
+  // Quem sou eu, de qual cliente e com que marca (a cor entra por variáveis CSS).
+  const loadMe = useCallback(async () => {
+    const res = await fetch("/api/me");
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!res.ok) return;
+    const data: Me = await res.json();
+    setMe(data);
+    document.title = `${data.brand.displayName} — Gestão de Conteúdo`;
+    if (!data.impersonating) rememberBrand(data.organization.slug, data.brand, data.vars);
+    try {
+      setOnboardingClosed(window.localStorage.getItem(`ch-passos-fechado-${data.organization._id}`) === "1");
+    } catch { /* navegação privada */ }
+  }, []);
+
+  const loadIgAccounts = useCallback(async () => {
+    const res = await fetch("/api/social-accounts");
+    if (res.ok) setIgAccounts(await res.json());
+  }, []);
+
+  useEffect(() => { loadMe(); loadIgAccounts(); }, [loadMe, loadIgAccounts]);
+
+  async function leaveImpersonation() {
+    await fetch("/api/admin/impersonate", { method: "DELETE" });
+    window.location.href = "/?view=clientes";
+  }
+  function closeOnboarding() {
+    setOnboardingClosed(true);
+    setOnboardingSticky(false);
+    try {
+      if (me) window.localStorage.setItem(`ch-passos-fechado-${me.organization._id}`, "1");
+    } catch { /* navegação privada */ }
+  }
 
   const loadPosts = useCallback(async () => {
     const start = new Date(currentYear, currentMonth, 1);
@@ -588,8 +652,31 @@ export default function Home() {
     return acc;
   }, {});
 
+  const brand = me?.brand || DEFAULT_BRAND;
+  const calendarViews = view === "calendar" || view === "list";
+  const igReady = (igAccounts || []).some((a) => a.platform === "instagram" && a.connected && a.lastSync);
+  // Primeiros passos: sempre que não há projeto; depois, até conectar e sincronizar (ou fechar no X).
+  const onboardingDue =
+    Boolean(me) && projectsLoaded && igAccounts !== null && !igReady && (projects.length === 0 || !onboardingClosed);
+  // Uma vez aberto nesta visita, fica até a pessoa concluir ("Ver meus números") ou fechar.
+  const showOnboarding = (onboardingDue || onboardingSticky) && (calendarViews || (view === "instagram" && projects.length === 0));
+
+  if (onboardingDue && !onboardingSticky && !onboardingClosed) setOnboardingSticky(true);
+
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="flex flex-col h-dvh overflow-hidden" style={varsStyle(me?.vars)}>
+      {me?.impersonating && (
+        <div className="shrink-0 flex items-center justify-center gap-3 px-3 py-1.5 bg-fuchsia-600 text-white text-sm" role="status" data-testid="impersonation-bar">
+          <span className="truncate">
+            Você está vendo como <strong className="font-bold">{me.organization.name}</strong>
+          </span>
+          <span aria-hidden>·</span>
+          <button type="button" onClick={leaveImpersonation} className="font-bold underline underline-offset-2 whitespace-nowrap hover:text-fuchsia-100">
+            sair
+          </button>
+        </div>
+      )}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Sidebar: gaveta no celular, recolhível no desktop */}
       {menuOpen && <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setMenuOpen(false)} />}
       <aside
@@ -598,9 +685,9 @@ export default function Home() {
         } ${menuCollapsed ? "md:hidden" : "md:flex"}`}
       >
         <div className="p-4 border-b border-gray-800 flex items-start justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-yellow-400">ContentHub</h1>
-            <p className="text-xs text-gray-500 mt-1">Gestao de Conteudo</p>
+          <div className="min-w-0">
+            <h1 className="min-w-0"><BrandMark brand={brand} /></h1>
+            <p className="text-xs text-gray-500 mt-1 truncate" title={me?.organization.name}>{me && me.organization.name !== brand.displayName ? me.organization.name : "Gestão de Conteúdo"}</p>
           </div>
           <button onClick={() => setMenuOpen(false)} className="p-1 hover:bg-gray-800 rounded md:hidden" aria-label="Fechar menu"><X size={18} /></button>
           <button onClick={toggleMenuCollapsed} className="p-1 hover:bg-gray-800 rounded text-gray-400 hidden md:block" aria-label="Recolher menu" title="Recolher menu"><PanelLeftClose size={18} /></button>
@@ -609,7 +696,7 @@ export default function Home() {
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Projetos</span>
-            <button onClick={() => setShowNewProject(true)} className="text-yellow-400 hover:text-yellow-300">
+            <button onClick={() => setShowNewProject(true)} className="text-brand-400 hover:text-brand-300">
               <Plus size={16} />
             </button>
           </div>
@@ -637,7 +724,7 @@ export default function Home() {
         </div>
 
         <div className="p-4 border-b border-gray-800">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filtro Status</span>
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filtro de status</span>
           <div className="mt-2 space-y-1">
             <button
               onClick={() => setSelectedStatus("all")}
@@ -670,12 +757,30 @@ export default function Home() {
             <BarChart3 size={16} />
             <span>Instagram</span>
           </button>
+          {me?.isAdmin && (
+            <button
+              onClick={() => { setView("clientes"); setMenuOpen(false); }}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "clientes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+              data-testid="menu-clientes"
+            >
+              <Building2 size={16} />
+              <span>Clientes</span>
+            </button>
+          )}
+          <button
+            onClick={() => { setView("conta"); setMenuOpen(false); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "conta" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            data-testid="menu-conta"
+          >
+            <UserCog size={16} />
+            <span>{me?.canManage ? "Minha conta e equipe" : "Minha conta"}</span>
+          </button>
           <button
             onClick={() => openSettings()}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
           >
             <Settings size={16} />
-            <span>Configuracoes</span>
+            <span>Configurações</span>
           </button>
           <button
             onClick={logout}
@@ -689,7 +794,7 @@ export default function Home() {
         <div className="p-4 mt-auto border-t border-gray-800">
           <div className="text-xs text-gray-500 space-y-1">
             <div className="flex justify-between">
-              <span>Total do mes</span>
+              <span>Total do mês</span>
               <span className="text-white font-semibold">{totalPosts}</span>
             </div>
             {Object.entries(byStatus).map(([status, count]) => (
@@ -710,16 +815,16 @@ export default function Home() {
             {menuCollapsed && (
               <button onClick={toggleMenuCollapsed} className="p-2 hover:bg-gray-800 rounded text-gray-400 hidden md:block" aria-label="Mostrar menu" title="Mostrar menu"><PanelLeftOpen size={20} /></button>
             )}
-            {view === "instagram" ? (
-              <h2 className="text-lg font-bold truncate">Instagram</h2>
+            {!calendarViews ? (
+              <h2 className="text-lg font-bold truncate">{VIEW_TITLE[view]}{view === "conta" && me?.canManage ? " e equipe" : ""}</h2>
             ) : (
               <>
-                <button onClick={prevMonth} className="p-1 hover:bg-gray-800 rounded" aria-label="Mes anterior"><ChevronLeft size={20} /></button>
+                <button onClick={prevMonth} className="p-1 hover:bg-gray-800 rounded" aria-label="Mês anterior"><ChevronLeft size={20} /></button>
                 <h2 className="text-base md:text-lg font-bold md:min-w-[200px] text-center truncate">{MONTHS_PT[currentMonth]} {currentYear}</h2>
-                <button onClick={nextMonth} className="p-1 hover:bg-gray-800 rounded" aria-label="Proximo mes"><ChevronRight size={20} /></button>
+                <button onClick={nextMonth} className="p-1 hover:bg-gray-800 rounded" aria-label="Próximo mês"><ChevronRight size={20} /></button>
                 <button
                   onClick={() => { setCurrentMonth(new Date().getMonth()); setCurrentYear(new Date().getFullYear()); }}
-                  className="text-xs text-yellow-400 hover:text-yellow-300 px-2 py-1 border border-yellow-400/30 rounded hidden sm:block"
+                  className="text-xs text-brand-400 hover:text-brand-300 px-2 py-1 border border-brand-400/30 rounded hidden sm:block"
                 >
                   Hoje
                 </button>
@@ -732,10 +837,10 @@ export default function Home() {
               <button onClick={() => setView("list")} title="Lista" aria-label="Lista" className={`p-2 rounded ${view === "list" ? "bg-gray-700 text-white" : "text-gray-400"}`}><List size={16} /></button>
               <button onClick={() => setView("instagram")} title="Instagram: metricas" aria-label="Instagram: metricas" className={`p-2 rounded ${view === "instagram" ? "bg-gray-700 text-white" : "text-gray-400"}`}><BarChart3 size={16} /></button>
             </div>
-            {view !== "instagram" && (
+            {calendarViews && projects.length > 0 && (
               <button
                 onClick={() => { setEditingPost(null); setShowModal(true); }}
-                className="flex items-center gap-2 bg-yellow-500 text-black px-3 md:px-4 py-2 rounded-lg font-semibold text-sm hover:bg-yellow-400 transition"
+                className="flex items-center gap-2 bg-brand-500 text-brand-ink px-3 md:px-4 py-2 rounded-lg font-semibold text-sm hover:bg-brand-400 transition"
               >
                 <Plus size={16} /> <span className="hidden sm:inline">Novo Post</span>
               </button>
@@ -743,7 +848,33 @@ export default function Home() {
           </div>
         </header>
 
-        {view === "instagram" ? (
+        {notice && (
+          <div className={`shrink-0 flex items-start gap-3 px-3 md:px-6 py-2 text-sm border-b border-gray-800 ${notice.tone === "ok" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`} role={notice.tone === "ok" ? "status" : "alert"} data-testid="notice">
+            <p className="flex-1">{notice.msg}</p>
+            <button type="button" onClick={() => setNotice(null)} aria-label="Fechar aviso" className="p-1 -m-1 opacity-80 hover:opacity-100"><X size={16} /></button>
+          </div>
+        )}
+        {view === "clientes" && me?.isAdmin ? (
+          <AdminClients homeOrgId={me.impersonating ? "" : me.organization._id} />
+        ) : view === "conta" && me ? (
+          <TeamPanel me={me} onChanged={loadMe} />
+        ) : !calendarViews && view !== "instagram" ? (
+          <p className="text-sm text-gray-400 py-16 text-center">{me ? "Essa área é só do administrador." : "Carregando..."}</p>
+        ) : showOnboarding && projects.length === 0 ? (
+          <div className="flex-1 overflow-auto p-3 md:p-8">
+            <Onboarding
+              projects={projects}
+              accounts={igAccounts || []}
+              igOauth={Boolean(me?.features.igOauth)}
+              isAdmin={Boolean(me?.isAdmin)}
+              brandName={brand.displayName}
+              onProjectCreated={loadProjects}
+              onAccountsChanged={loadIgAccounts}
+              onFinish={(pid) => { setOnboardingSticky(false); if (pid) selectProject(pid); setView("instagram"); }}
+              onDismiss={closeOnboarding}
+            />
+          </div>
+        ) : view === "instagram" ? (
           <InstagramPanel
             projects={projects}
             selectedProject={selectedProject}
@@ -751,7 +882,20 @@ export default function Home() {
             onConnect={(pid) => openSettings(pid, true)}
           />
         ) : view === "calendar" ? (
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {showOnboarding && (
+              <Onboarding
+                projects={projects}
+                accounts={igAccounts || []}
+                igOauth={Boolean(me?.features.igOauth)}
+                isAdmin={Boolean(me?.isAdmin)}
+                brandName={brand.displayName}
+                onProjectCreated={loadProjects}
+                onAccountsChanged={loadIgAccounts}
+                onFinish={(pid) => { setOnboardingSticky(false); if (pid) selectProject(pid); setView("instagram"); }}
+                onDismiss={closeOnboarding}
+              />
+            )}
             <div className="grid grid-cols-7 gap-px bg-gray-800 rounded-xl overflow-hidden">
               {DAYS_PT.map((day) => (
                 <div key={day} className="bg-gray-900 p-2 text-center text-xs font-semibold text-gray-400">{day}</div>
@@ -765,8 +909,8 @@ export default function Home() {
                 const dayPosts = postsByDate[dateStr] || [];
                 const isToday = day === new Date().getDate() && currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear();
                 return (
-                  <div key={day} className={`bg-gray-900 min-h-[120px] p-1.5 ${isToday ? "ring-2 ring-yellow-500/50 ring-inset" : ""}`}>
-                    <div className={`text-xs font-semibold mb-1 ${isToday ? "text-yellow-400" : "text-gray-500"}`}>{day}</div>
+                  <div key={day} className={`bg-gray-900 min-h-[120px] p-1.5 ${isToday ? "ring-2 ring-brand-500/50 ring-inset" : ""}`}>
+                    <div className={`text-xs font-semibold mb-1 ${isToday ? "text-brand-400" : "text-gray-500"}`}>{day}</div>
                     <div className="space-y-1">
                       {dayPosts.slice(0, 4).map((post) => (
                         <button key={post._id} onClick={() => setShowDetail(post)} className="w-full text-left">
@@ -802,7 +946,7 @@ export default function Home() {
                         {post.platforms.map((p) => <span key={p} className="text-gray-500">{PLATFORM_ICONS[p]}</span>)}
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded ${STATUS_COLORS[post.status]}`}>{STATUS_LABELS[post.status]}</span>
-                      <button onClick={(e) => { e.stopPropagation(); copyCaption(post.caption, post._id); }} className="text-gray-500 hover:text-yellow-400" title="Copiar legenda">
+                      <button onClick={(e) => { e.stopPropagation(); copyCaption(post.caption, post._id); }} className="text-gray-500 hover:text-brand-400" title="Copiar legenda">
                         {copied === post._id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                       </button>
                     </div>
@@ -812,8 +956,8 @@ export default function Home() {
               {posts.length === 0 && (
                 <div className="text-center py-20 text-gray-600">
                   <CalendarIcon size={48} className="mx-auto mb-4 opacity-30" />
-                  <p>Nenhum post nesse periodo</p>
-                  <button onClick={() => { setEditingPost(null); setShowModal(true); }} className="mt-4 text-yellow-400 text-sm hover:underline">Criar primeiro post</button>
+                  <p>Nenhum post nesse período</p>
+                  <button onClick={() => { setEditingPost(null); setShowModal(true); }} className="mt-4 text-brand-400 text-sm hover:underline">Criar primeiro post</button>
                 </div>
               )}
             </div>
@@ -849,7 +993,7 @@ export default function Home() {
               <div className="flex gap-2 flex-wrap">
                 {(["draft", "approved", "scheduled", "posted"] as const).map((s) => (
                   <button key={s} onClick={() => handleStatusChange(showDetail._id, s)}
-                    className={`text-xs px-3 py-1 rounded border transition ${showDetail.status === s ? "border-yellow-500 text-yellow-400" : "border-gray-700 text-gray-500 hover:border-gray-500"}`}>
+                    className={`text-xs px-3 py-1 rounded border transition ${showDetail.status === s ? "border-brand-500 text-brand-400" : "border-gray-700 text-gray-500 hover:border-gray-500"}`}>
                     {STATUS_LABELS[s]}
                   </button>
                 ))}
@@ -857,12 +1001,12 @@ export default function Home() {
               {showDetail.content && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Texto do Reel</div>
-                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-100 border-l-2 border-yellow-500">{showDetail.content}</div>
+                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-100 border-l-2 border-brand-500">{showDetail.content}</div>
                 </div>
               )}
               {showDetail.productionNotes && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Notas de Producao</div>
+                  <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Notas de Produção</div>
                   <div className="text-sm text-gray-400">{showDetail.productionNotes}</div>
                 </div>
               )}
@@ -870,7 +1014,7 @@ export default function Home() {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <div className="text-xs text-gray-500 uppercase tracking-wider">Legenda</div>
-                    <button onClick={() => copyCaption(showDetail.caption, showDetail._id)} className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1">
+                    <button onClick={() => copyCaption(showDetail.caption, showDetail._id)} className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
                       {copied === showDetail._id ? <><Check size={12} /> Copiado!</> : <><Copy size={12} /> Copiar</>}
                     </button>
                   </div>
@@ -907,7 +1051,7 @@ export default function Home() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-400">Titulo</label>
+                <label className="text-xs text-gray-400">Título</label>
                 <input name="title" defaultValue={editingPost?.title || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -934,7 +1078,7 @@ export default function Home() {
                   <input type="date" name="scheduledDate" defaultValue={editingPost?.scheduledDate?.split("T")[0] || ""} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400">Horario</label>
+                  <label className="text-xs text-gray-400">Horário</label>
                   <input type="time" name="scheduledTime" defaultValue={editingPost?.scheduledTime || "09:00"} required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
                 </div>
               </div>
@@ -950,7 +1094,7 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-400">Texto do Conteudo</label>
+                <label className="text-xs text-gray-400">Texto do Conteúdo</label>
                 <textarea name="content" rows={2} defaultValue={editingPost?.content || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
@@ -958,7 +1102,7 @@ export default function Home() {
                 <textarea name="caption" rows={4} defaultValue={editingPost?.caption || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
-                <label className="text-xs text-gray-400">Notas de Producao</label>
+                <label className="text-xs text-gray-400">Notas de Produção</label>
                 <textarea name="productionNotes" rows={2} defaultValue={editingPost?.productionNotes || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
@@ -966,11 +1110,11 @@ export default function Home() {
                 <input name="cta" defaultValue={editingPost?.cta || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
               </div>
               <div>
-                <label className="text-xs text-gray-400">Hashtags (separadas por espaco)</label>
+                <label className="text-xs text-gray-400">Hashtags (separadas por espaço)</label>
                 <input name="hashtags" defaultValue={editingPost?.hashtags?.join(" ") || ""} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="#HoraDeMudarOJogo #Mindset" />
               </div>
-              <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-2.5 rounded-lg hover:bg-yellow-400 transition">
-                {editingPost ? "Salvar Alteracoes" : "Criar Post"}
+              <button type="submit" className="w-full bg-brand-500 text-brand-ink font-bold py-2.5 rounded-lg hover:bg-brand-400 transition">
+                {editingPost ? "Salvar Alterações" : "Criar Post"}
               </button>
             </form>
           </div>
@@ -991,7 +1135,7 @@ export default function Home() {
                 <input name="name" required className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="Hora de Mudar o Jogo" />
               </div>
               <div>
-                <label className="text-xs text-gray-400">Descricao</label>
+                <label className="text-xs text-gray-400">Descrição</label>
                 <input name="description" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" placeholder="Perfil motivacional no Instagram" />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1000,7 +1144,7 @@ export default function Home() {
                   <input type="color" name="color" defaultValue="#f5c518" className="w-full h-10 bg-gray-800 border border-gray-700 rounded-lg mt-1 cursor-pointer" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400">Icone (emoji)</label>
+                  <label className="text-xs text-gray-400">Ícone (emoji)</label>
                   <input name="icon" defaultValue="" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mt-1 text-gray-100" />
                 </div>
               </div>
@@ -1015,7 +1159,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-              <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-2.5 rounded-lg hover:bg-yellow-400 transition">
+              <button type="submit" className="w-full bg-brand-500 text-brand-ink font-bold py-2.5 rounded-lg hover:bg-brand-400 transition">
                 Criar Projeto
               </button>
             </form>
@@ -1028,8 +1172,8 @@ export default function Home() {
           <div className="bg-gray-900 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-gray-800">
               <div className="flex items-center gap-2">
-                <Plug size={20} className="text-yellow-400" />
-                <h3 className="font-bold text-white">Configuracoes de Redes Sociais</h3>
+                <Plug size={20} className="text-brand-400" />
+                <h3 className="font-bold text-white">Configurações</h3>
               </div>
               <button onClick={() => { setShowSettings(false); setEditingAccount(null); setEditingApi(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
             </div>
@@ -1038,15 +1182,15 @@ export default function Home() {
             <div className="flex border-b border-gray-800">
               <button
                 onClick={() => setSettingsTab("social")}
-                className={`flex-1 py-3 text-sm font-semibold transition-colors ${settingsTab === "social" ? "text-yellow-400 border-b-2 border-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
+                className={`flex-1 py-3 text-sm font-semibold transition-colors ${settingsTab === "social" ? "text-brand-400 border-b-2 border-brand-400" : "text-gray-500 hover:text-gray-300"}`}
               >
                 <Plug size={14} className="inline mr-1.5" /> Redes Sociais
               </button>
               <button
                 onClick={() => { setSettingsTab("apis"); loadApiCredentials(); }}
-                className={`flex-1 py-3 text-sm font-semibold transition-colors ${settingsTab === "apis" ? "text-yellow-400 border-b-2 border-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
+                className={`flex-1 py-3 text-sm font-semibold transition-colors ${settingsTab === "apis" ? "text-brand-400 border-b-2 border-brand-400" : "text-gray-500 hover:text-gray-300"}`}
               >
-                🔧 APIs de Producao
+                🔧 APIs de Produção
               </button>
             </div>
 
@@ -1068,7 +1212,7 @@ export default function Home() {
                 <span className="text-sm font-semibold text-gray-300">Contas Conectadas</span>
                 <button
                   onClick={() => setEditingAccount("new")}
-                  className="flex items-center gap-1 text-xs bg-yellow-500 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-400 transition"
+                  className="flex items-center gap-1 text-xs bg-brand-500 text-brand-ink px-3 py-1.5 rounded-lg font-semibold hover:bg-brand-400 transition"
                 >
                   <Plus size={14} /> Adicionar Conta
                 </button>
@@ -1141,16 +1285,18 @@ export default function Home() {
                     key={editingAccount}
                     projects={projects}
                     defaultProject={settingsProject}
+                    oauth={Boolean(me?.features.igOauth)}
+                    isAdmin={Boolean(me?.isAdmin)}
                     account={editingAccount !== "new" ? socialAccounts.find((a) => a._id === editingAccount) : null}
-                    onDone={() => { setEditingAccount(null); loadSocialAccounts(settingsProject || undefined); }}
+                    onDone={() => { setEditingAccount(null); loadSocialAccounts(settingsProject || undefined); loadIgAccounts(); }}
                     onCancel={() => setEditingAccount(null)}
                   />
                 </div>
               )}
 
               {editingAccount && formPlatform !== "instagram" && (
-                <div className="bg-gray-800/50 rounded-xl p-4 border border-yellow-500/30">
-                  <h4 className="text-sm font-semibold text-yellow-400 mb-3">
+                <div className="bg-gray-800/50 rounded-xl p-4 border border-brand-500/30">
+                  <h4 className="text-sm font-semibold text-brand-400 mb-3">
                     {editingAccount === "new" ? "Nova Conta" : "Editar Conta"}
                   </h4>
                   <form onSubmit={handleSaveSocialAccount} className="space-y-3">
@@ -1225,7 +1371,7 @@ export default function Home() {
                       ))}
                     </div>
                     <div className="flex gap-2 pt-2">
-                      <button type="submit" className="flex-1 bg-yellow-500 text-black font-bold py-2 rounded-lg hover:bg-yellow-400 transition text-sm">
+                      <button type="submit" className="flex-1 bg-brand-500 text-brand-ink font-bold py-2 rounded-lg hover:bg-brand-400 transition text-sm">
                         Salvar
                       </button>
                       <button type="button" onClick={() => setEditingAccount(null)} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition text-sm">
@@ -1242,13 +1388,13 @@ export default function Home() {
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-sm font-semibold text-gray-300">APIs de Producao de Video</span>
+                  <span className="text-sm font-semibold text-gray-300">APIs de Produção de Video</span>
                   <p className="text-xs text-gray-600 mt-0.5">Credenciais para geracao de roteiros, audio, imagens e corte de video</p>
                 </div>
                 {!editingApi && (
                   <button
                     onClick={() => { setEditingApi("new"); setFormApiService(""); }}
-                    className="flex items-center gap-1 text-xs bg-yellow-500 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-400 transition"
+                    className="flex items-center gap-1 text-xs bg-brand-500 text-brand-ink px-3 py-1.5 rounded-lg font-semibold hover:bg-brand-400 transition"
                   >
                     <Plus size={14} /> Adicionar API
                   </button>
@@ -1284,8 +1430,8 @@ export default function Home() {
               ))}
 
               {editingApi && (
-                <div className="bg-gray-800/50 rounded-xl p-4 border border-yellow-500/30">
-                  <h4 className="text-sm font-semibold text-yellow-400 mb-3">
+                <div className="bg-gray-800/50 rounded-xl p-4 border border-brand-500/30">
+                  <h4 className="text-sm font-semibold text-brand-400 mb-3">
                     {editingApi === "new" ? "Nova API" : `Editar ${API_SERVICES[editingApi]?.label || editingApi}`}
                   </h4>
                   <form onSubmit={handleSaveApiCredential} className="space-y-3">
@@ -1332,7 +1478,7 @@ export default function Home() {
                     </div>
                     )}
                     <div className="flex gap-2 pt-2">
-                      <button type="submit" className="flex-1 bg-yellow-500 text-black font-bold py-2 rounded-lg hover:bg-yellow-400 transition text-sm">
+                      <button type="submit" className="flex-1 bg-brand-500 text-brand-ink font-bold py-2 rounded-lg hover:bg-brand-400 transition text-sm">
                         Salvar
                       </button>
                       <button type="button" onClick={() => setEditingApi(null)} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition text-sm">
@@ -1347,6 +1493,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

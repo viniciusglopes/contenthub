@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ContentHub — Gestão de Conteúdo",
   description: "Gerencie seus conteúdos para múltiplas redes sociais",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({

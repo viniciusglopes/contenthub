@@ -191,7 +191,7 @@ function ReportBox({ projectId }: { projectId: string }) {
       alive = false;
     };
   }, [projectId, tipo]);
-  const chip = (active: boolean) => `text-xs px-3 py-1.5 rounded-full border transition ${active ? "border-yellow-500 text-yellow-400 bg-yellow-500/10" : "border-gray-700 text-gray-400 hover:border-gray-500"}`;
+  const chip = (active: boolean) => `text-xs px-3 py-1.5 rounded-full border transition ${active ? "border-brand-500 text-brand-400 bg-brand-500/10" : "border-gray-700 text-gray-400 hover:border-gray-500"}`;
   return (
     <section className="bg-gray-900 border border-gray-800 rounded-xl p-3 md:p-4" data-testid="ig-report">
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -320,7 +320,7 @@ export default function InstagramPanel({
   const account = data?.account;
   const project = projects.find((p) => p._id === projectId);
   const chip = (active: boolean) =>
-    `shrink-0 text-xs px-3 py-1.5 rounded-full border transition whitespace-nowrap ${active ? "border-yellow-500 text-yellow-400 bg-yellow-500/10" : "border-gray-700 text-gray-300 hover:border-gray-500"}`;
+    `shrink-0 text-xs px-3 py-1.5 rounded-full border transition whitespace-nowrap ${active ? "border-brand-500 text-brand-400 bg-brand-500/10" : "border-gray-700 text-gray-300 hover:border-gray-500"}`;
 
   return (
     <div className="flex-1 overflow-auto" data-testid="ig-panel">
@@ -350,12 +350,12 @@ export default function InstagramPanel({
               {project ? `${project.name} ainda não tem Instagram conectado` : "Nenhum Instagram conectado"}
             </h3>
             <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-              Conecte a conta colando o token gerado no painel do app da Meta. Depois disso aparecem aqui os seguidores, o alcance e o desempenho de cada post.
+              Conecte a conta do Instagram desse projeto. Depois disso aparecem aqui os seguidores, o alcance e o desempenho de cada post.
             </p>
             <button
               type="button"
               onClick={() => onConnect(projectId)}
-              className="mt-5 bg-yellow-500 text-black font-bold px-5 py-2.5 rounded-lg hover:bg-yellow-400 transition text-sm"
+              className="mt-5 bg-brand-500 text-brand-ink font-bold px-5 py-2.5 rounded-lg hover:bg-brand-400 transition text-sm"
             >
               Conectar Instagram
             </button>
@@ -388,7 +388,7 @@ export default function InstagramPanel({
                 type="button"
                 onClick={syncNow}
                 disabled={syncing}
-                className="flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-lg font-semibold text-sm hover:bg-yellow-400 transition disabled:opacity-60"
+                className="flex items-center gap-2 bg-brand-500 text-brand-ink px-4 py-2 rounded-lg font-semibold text-sm hover:bg-brand-400 transition disabled:opacity-60"
               >
                 <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
                 {syncing ? "Sincronizando..." : "Sincronizar agora"}
@@ -462,7 +462,7 @@ export default function InstagramPanel({
                           >
                             <div className="relative">
                               <Thumb m={m} size={128} />
-                              <span className="absolute top-1 left-1 bg-black/70 text-yellow-400 text-xs font-bold rounded px-1.5 py-0.5">{i + 1}º</span>
+                              <span className="absolute top-1 left-1 bg-black/70 text-brand-400 text-xs font-bold rounded px-1.5 py-0.5">{i + 1}º</span>
                               <span className={`absolute bottom-1 left-1 text-[10px] rounded px-1.5 py-0.5 bg-black/70 ${KIND[m.kind]?.cls.split(" ")[1]}`}>{KIND[m.kind]?.label}</span>
                             </div>
                             <div className="text-xs text-gray-300 truncate mt-2">{title(m)}</div>
@@ -492,7 +492,7 @@ export default function InstagramPanel({
                               <th className="text-left font-medium px-3 py-2 sticky left-0 bg-gray-900 z-10">Post</th>
                               {COLUMNS.map((c) => (
                                 <th key={c.key} className="text-right font-medium px-2 py-2" aria-sort={sort.key === c.key ? (sort.dir === -1 ? "descending" : "ascending") : undefined}>
-                                  <button type="button" title={c.title} onClick={() => changeSort(c.key)} className={`inline-flex items-center gap-0.5 hover:text-white ${sort.key === c.key ? "text-yellow-400" : ""}`}>
+                                  <button type="button" title={c.title} onClick={() => changeSort(c.key)} className={`inline-flex items-center gap-0.5 hover:text-white ${sort.key === c.key ? "text-brand-400" : ""}`}>
                                     {c.label}
                                     {sort.key === c.key && (sort.dir === -1 ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
                                   </button>
@@ -511,7 +511,7 @@ export default function InstagramPanel({
                                     <span className="truncate text-gray-100" title={title(m)}>{title(m)}</span>
                                   </div>
                                 </td>
-                                <td className="text-right px-2 tabular-nums font-bold text-yellow-400">{fmt(ss(m.metrics))}</td>
+                                <td className="text-right px-2 tabular-nums font-bold text-brand-400">{fmt(ss(m.metrics))}</td>
                                 <td className="text-right px-2 text-gray-300 tabular-nums">{fmtDay(m.timestamp)}</td>
                                 <td className="text-right px-2 tabular-nums">{fmt(m.metrics.reach)}</td>
                                 <td className="text-right px-2 tabular-nums">{fmt(m.metrics.views)}</td>

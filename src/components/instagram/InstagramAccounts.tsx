@@ -10,21 +10,30 @@ interface ProjectOpt {
   icon?: string;
 }
 
-const inputCls = "w-full bg-gray-800 border rounded-lg px-3 py-2 text-sm mt-1 text-gray-100 outline-none focus:border-yellow-500";
+const inputCls = "w-full bg-gray-800 border rounded-lg px-3 py-2 text-sm mt-1 text-gray-100 outline-none focus:border-brand-500";
 
 /** Colar o token -> validar -> salvar. Um botão só. */
 export function InstagramConnectForm({
   projects,
   defaultProject,
   account,
+  oauth = false,
+  isAdmin = false,
+  bare = false,
   onDone,
   onCancel,
 }: {
   projects: ProjectOpt[];
   defaultProject?: string;
   account?: PublicAccount | null;
+  /** login pelo Instagram liberado (IG_OAUTH_ENABLED): vira o caminho principal */
+  oauth?: boolean;
+  /** só o administrador vê o passo a passo de gerar token no painel da Meta */
+  isAdmin?: boolean;
+  /** sem moldura nem título (dentro dos primeiros passos) */
+  bare?: boolean;
   onDone: (a: PublicAccount) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 }) {
   const accountProject = account ? (typeof account.project === "string" ? account.project : account.project?._id) : "";
   const [project, setProject] = useState(accountProject || defaultProject || (projects.length === 1 ? projects[0]._id : ""));
@@ -32,6 +41,9 @@ export function InstagramConnectForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ msg: string; field?: string } | null>(null);
   const [help, setHelp] = useState(false);
+  // Com o login liberado, colar token vira a alternativa (escondida atrás de um link).
+  const useOauth = oauth && !account;
+  const [paste, setPaste] = useState(!useOauth);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,10 +56,12 @@ export function InstagramConnectForm({
   }
 
   return (
-    <form onSubmit={submit} className="bg-gray-800/50 rounded-xl p-4 border border-yellow-500/30 space-y-3" data-testid="ig-connect-form">
-      <h4 className="text-sm font-semibold text-yellow-400">
-        {account ? `Trocar o token de ${account.accountName}` : "Conectar Instagram"}
-      </h4>
+    <form onSubmit={submit} className={bare ? "space-y-3" : "bg-gray-800/50 rounded-xl p-4 border border-brand-500/30 space-y-3"} data-testid="ig-connect-form">
+      {!bare && (
+        <h4 className="text-sm font-semibold text-brand-400">
+          {account ? `Trocar o token de ${account.accountName}` : "Conectar Instagram"}
+        </h4>
+      )}
       <div>
         <label htmlFor="ig-project" className="text-xs text-gray-400">Projeto</label>
         <select
@@ -65,8 +79,41 @@ export function InstagramConnectForm({
         </select>
         {error?.field === "project" && <p className="text-xs text-red-400 mt-1" role="alert">{error.msg}</p>}
       </div>
+      {useOauth && (
+        <div className="space-y-2" data-testid="ig-oauth">
+          <p className="text-xs text-gray-400">
+            Você vai para o Instagram, entra com a conta da empresa (precisa ser Empresa ou Criador de conteúdo) e autoriza a leitura dos seus posts e números. Nada é publicado.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={project ? `/api/instagram/oauth/start?project=${project}` : undefined}
+              aria-disabled={!project}
+              className={`bg-brand-500 text-brand-ink font-bold px-4 py-2.5 rounded-lg hover:bg-brand-400 transition text-sm ${project ? "" : "opacity-50 pointer-events-none"}`}
+            >
+              Conectar com o Instagram
+            </a>
+            {!paste && (
+              <button type="button" onClick={() => setPaste(true)} className="text-sm text-gray-400 hover:text-gray-200 underline underline-offset-2">
+                Tenho um token: colar
+              </button>
+            )}
+            {!paste && onCancel && (
+              <button type="button" onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-200 underline-offset-2 hover:underline">Cancelar</button>
+            )}
+          </div>
+        </div>
+      )}
+      {!useOauth && !account && (
+        <p className="text-xs text-gray-400 bg-gray-800/60 border border-gray-700 rounded-lg p-3" data-testid="ig-token-only">
+          Por enquanto a conexão é por token. O login direto pelo Instagram depende de uma análise do nosso aplicativo pela Meta, que ainda está em andamento.{" "}
+          {isAdmin
+            ? "Até lá, cadastre o Instagram do cliente como testador no app da Meta, gere o token e cole abaixo."
+            : "Até lá, o suporte cadastra o seu Instagram, gera o token e envia para você colar abaixo."}
+        </p>
+      )}
+      {paste && (<>
       <div>
-        <label htmlFor="ig-token" className="text-xs text-gray-400">Token de acesso (gerado no painel do app da Meta)</label>
+        <label htmlFor="ig-token" className="text-xs text-gray-400">Token de acesso{isAdmin ? " (gerado no painel do app da Meta)" : " (enviado pelo suporte)"}</label>
         <textarea
           id="ig-token"
           value={token}
@@ -83,10 +130,12 @@ export function InstagramConnectForm({
           O nome da conta vem do próprio Instagram. O token fica guardado criptografado e não aparece mais na tela.
         </p>
       </div>
-      <button type="button" onClick={() => setHelp(!help)} className="text-xs text-gray-400 hover:text-gray-200 flex items-center gap-1">
-        {help ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Onde eu gero esse token?
-      </button>
-      {help && (
+      {isAdmin && (
+        <button type="button" onClick={() => setHelp(!help)} className="text-xs text-gray-400 hover:text-gray-200 flex items-center gap-1">
+          {help ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Onde eu gero esse token?
+        </button>
+      )}
+      {isAdmin && help && (
         <ol className="text-xs text-gray-400 list-decimal pl-5 space-y-1">
           <li>Abra developers.facebook.com, entre em Meus apps e escolha o app do ContentHub.</li>
           <li>No menu da esquerda: Instagram, depois Configuração da API com login do Instagram (em inglês: API setup with Instagram login).</li>
@@ -99,14 +148,17 @@ export function InstagramConnectForm({
         <button
           type="submit"
           disabled={busy || !token.trim() || !project}
-          className="flex-1 bg-yellow-500 text-black font-bold py-2 rounded-lg hover:bg-yellow-400 transition text-sm disabled:opacity-50"
+          className="flex-1 bg-brand-500 text-brand-ink font-bold py-2 rounded-lg hover:bg-brand-400 transition text-sm disabled:opacity-50"
         >
           {busy ? "Conferindo com o Instagram..." : account ? "Validar e trocar token" : "Validar e conectar"}
         </button>
-        <button type="button" onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-200 underline-offset-2 hover:underline">
-          Cancelar
-        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-200 underline-offset-2 hover:underline">
+            Cancelar
+          </button>
+        )}
       </div>
+      </>)}
     </form>
   );
 }

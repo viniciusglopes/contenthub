@@ -5,6 +5,11 @@
   --background: #030712;
   --foreground: #f3f4f6;
   color-scheme: dark;
+  /* Cor de destaque: a do cliente (marca por organização) entra por estas variáveis. */
+  --brand-500: #eab308;
+  --brand-400: #facc15;
+  --brand-300: #fde047;
+  --brand-ink: #000000;
 }
 
 @theme inline {
@@ -12,6 +17,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-brand-500: var(--brand-500);
+  --color-brand-400: var(--brand-400);
+  --color-brand-300: var(--brand-300);
+  --color-brand-ink: var(--brand-ink);
 }
 
 body {
