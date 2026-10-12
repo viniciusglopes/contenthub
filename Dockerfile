@@ -1,6 +1,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
+# o banco em memória é só para teste local: não baixar o binário no build
+ENV MONGOMS_DISABLE_POSTINSTALL=1
 RUN npm ci
 COPY . .
 RUN npm run build
