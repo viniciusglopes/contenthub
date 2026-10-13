@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- marca lida do link e do navegador */
 
 import { useEffect, useState } from "react";
-import { type BrandInfo, BrandMark, DEFAULT_BRAND, fieldCls, primaryBtn, recallBrand, varsStyle } from "@/components/brand";
+import { type BrandInfo, BrandMark, DEFAULT_BRAND, fieldCls, primaryBtn, varsStyle } from "@/components/brand";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,17 +13,13 @@ export default function LoginPage() {
   const [brand, setBrand] = useState<BrandInfo>(DEFAULT_BRAND);
   const [vars, setVars] = useState<Record<string, string>>({});
 
-  // Marca do cliente: pelo link (/login?c=<cliente>) ou pela última usada neste aparelho.
+  // White label: /login puro mostra SEMPRE a marca do ContentHub. A marca do cliente só
+  // aparece no link dele (/login?c=<cliente>); nunca "lembramos" a última marca vista no
+  // aparelho, senão o admin que entrou como um cliente passa a ver a marca dele no login geral.
   useEffect(() => {
     const slug = new URLSearchParams(window.location.search).get("c");
-    const remembered = recallBrand();
-    if (!slug && remembered) {
-      setBrand(remembered.brand);
-      setVars(remembered.vars);
-    }
-    const wanted = slug || remembered?.slug;
-    if (!wanted) return;
-    fetch(`/api/auth/brand?slug=${encodeURIComponent(wanted)}`)
+    if (!slug) return;
+    fetch(`/api/auth/brand?slug=${encodeURIComponent(slug)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.brand) {
