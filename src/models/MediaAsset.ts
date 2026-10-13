@@ -7,7 +7,9 @@ import { tenantPlugin } from "@/lib/tenant";
 const MediaAssetSchema = new Schema(
   {
     post: { type: Schema.Types.ObjectId, ref: "Post", default: null, index: true },
-    kind: { type: String, enum: ["image", "video"], required: true },
+    kind: { type: String, enum: ["image", "video", "audio"], required: true },
+    /** guardada de propósito fora de post (logo do kit, trilha): a limpeza de órfãs não apaga */
+    keep: { type: Boolean, default: false },
     file: { type: String, required: true },
     mime: { type: String, required: true },
     bytes: { type: Number, required: true },

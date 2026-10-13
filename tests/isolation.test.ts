@@ -21,6 +21,12 @@ import MediaAsset from "@/models/MediaAsset";
 import Post from "@/models/Post";
 import Project from "@/models/Project";
 import SocialAccount from "@/models/SocialAccount";
+import AiUsage from "@/models/AiUsage";
+import BrandKit from "@/models/BrandKit";
+import StudioJob from "@/models/StudioJob";
+import { setStudioFetch } from "@/lib/studio/providers";
+import { setAutoKick } from "@/lib/studio/jobs";
+import { PALETTE, REEL_CURTO, ROTEIRO_CURTO, studioFake } from "./studio-fake";
 import { type Call, call, cookieFor, makeOrg, makeUser, setCookieValue, setTestEnv } from "./helpers";
 
 // PROVA DE ISOLAMENTO ENTRE CLIENTES.
@@ -39,7 +45,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const NOW = Date.now();
 
 interface Side {
-  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any;
+  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -350,6 +356,87 @@ const CASES: Record<string, Case> = {
     attack: () => [{ path: `/api/instagram/oauth/callback?code=codigo-qualquer&state=${encodeURIComponent(oauthState.state)}`, headers: { cookie2: oauthState.cookie }, expect: 307 }],
     own: () => ({ path: "/api/instagram/oauth/callback?error=access_denied&error_reason=user_denied", expect: 307 }),
   },
+
+  // ---- Estúdio (chaves de IA, kit de marca, carrossel, Reel, uso)
+  "GET /api/estudio/chaves": { access: "org", attack: (t) => [{ path: `/api/estudio/chaves?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/estudio/chaves" }) },
+  "PUT /api/estudio/chaves": {
+    access: "owner",
+    // a chave e a ordem vão sempre para a organização da sessão, diga o corpo o que disser
+    attack: (t) => [{ method: "PUT", path: "/api/estudio/chaves", body: { organization: String(t.org._id), service: "openai", apiKey: "chave-de-ataque-000001", chains: { texto: ["openai"] } }, expect: 200 }],
+    own: () => ({ method: "PUT", path: "/api/estudio/chaves", body: { service: "anthropic", apiKey: "chave-de-controle-000001" } }),
+  },
+  "DELETE /api/estudio/chaves": {
+    access: "owner",
+    // a BETA tem chave "openai": apagar "openai" pela ALFA não pode tocar nela (o banco da BETA é conferido)
+    attack: (t) => [{ method: "DELETE", path: `/api/estudio/chaves?service=openai&organization=${t.org._id}`, expect: 200 }],
+    own: () => ({ method: "DELETE", path: "/api/estudio/chaves?service=anthropic" }),
+  },
+  "POST /api/estudio/chaves/testar": {
+    access: "owner",
+    attack: (t) => [{ method: "POST", path: "/api/estudio/chaves/testar", body: { service: "openai", organization: String(t.org._id) }, expect: [200, 404] }],
+    own: () => ({ method: "POST", path: "/api/estudio/chaves/testar", body: { service: "anthropic" } }),
+  },
+  "GET /api/estudio/kit": { access: "org", attack: (t) => [{ path: `/api/estudio/kit?project=${t.project._id}` }], own: (t) => ({ path: `/api/estudio/kit?project=${t.project._id}` }) },
+  "PUT /api/estudio/kit": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/estudio/kit", body: { project: String(t.project._id), organization: String(t.org._id), name: "Invasor", palette: PALETTE } }],
+    own: (t) => ({ method: "PUT", path: "/api/estudio/kit", body: { project: String(t.project._id), name: "Marca Alfa", handle: "@alfaoficial", palette: PALETTE } }),
+  },
+  "POST /api/estudio/arquivo": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: `/api/estudio/arquivo?tipo=logo&project=${t.project._id}`, body: { nada: true } }],
+    own: () => ({ method: "POST", path: "/api/estudio/arquivo?tipo=trilha", body: { nada: true }, expect: 415 }),
+  },
+  "DELETE /api/estudio/arquivo": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: `/api/estudio/arquivo?id=${t.logo._id}` }, { method: "DELETE", path: `/api/estudio/arquivo?id=${t.asset._id}` }],
+    own: (t) => ({ method: "DELETE", path: `/api/estudio/arquivo?id=${t.logo._id}` }),
+  },
+  "POST /api/estudio/previa": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/estudio/previa", body: { project: String(t.project._id), modelo: "editorial" } }],
+    own: (t) => ({ method: "POST", path: "/api/estudio/previa", body: { project: String(t.project._id), kit: { name: "Marca Alfa", handle: "@alfaoficial", palette: PALETTE }, modelo: "editorial" } }),
+  },
+  "POST /api/estudio/roteiro": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/estudio/roteiro", body: { project: String(t.project._id), tipo: "temas", organization: String(t.org._id) } }],
+    own: (t) => ({ method: "POST", path: "/api/estudio/roteiro", body: { project: String(t.project._id), tipo: "temas" } }),
+  },
+  "POST /api/estudio/carrossel": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/estudio/carrossel", body: { project: String(t.project._id), script: ROTEIRO_CURTO } },
+      // rascunho no próprio projeto, mas com as mídias da BETA
+      { method: "POST", path: "/api/estudio/carrossel", body: { project: String(me.project._id), script: ROTEIRO_CURTO, acao: "salvar", assets: [String(t.asset._id), String(t.logo._id), String(t.asset._id)] }, expect: [404, 409] },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/estudio/carrossel", body: { project: String(t.project._id), script: ROTEIRO_CURTO } }),
+  },
+  "GET /api/estudio/trabalhos": { access: "org", attack: (t) => [{ path: `/api/estudio/trabalhos?project=${t.project._id}`, expect: 200 }], own: (t) => ({ path: `/api/estudio/trabalhos?project=${t.project._id}` }) },
+  "POST /api/estudio/trabalhos": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(t.project._id), kind: "reel_montado", script: REEL_CURTO } },
+      // cena com a imagem da BETA e trilha da BETA, no próprio projeto
+      { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(me.project._id), kind: "reel_montado", script: { ...REEL_CURTO, cenas: REEL_CURTO.cenas.map((c) => ({ ...c, imagem: String(t.asset._id) })) } } },
+      { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(me.project._id), kind: "reel_montado", script: REEL_CURTO, trilha: String(t.logo._id) } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/estudio/trabalhos", body: { project: String(t.project._id), kind: "reel_montado", script: REEL_CURTO, simular: true } }),
+  },
+  "GET /api/estudio/trabalhos/[id]": { access: "org", attack: (t) => [{ path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) } }], own: (t) => ({ path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) } }) },
+  "PUT /api/estudio/trabalhos/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) }, body: { seen: true } }],
+    own: (t) => ({ method: "PUT", path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) }, body: { seen: true } }),
+  },
+  "DELETE /api/estudio/trabalhos/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) } }),
+  },
+  "GET /api/estudio/uso": { access: "org", attack: (t) => [{ path: `/api/estudio/uso?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/estudio/uso" }) },
+  "POST /api/estudio/worker": { access: "cron", why: "fila do Estúdio: só com o token de rotina; cada trabalho é processado dentro da organização dele" },
+  "GET /api/admin/estudio": { access: "admin", why: "chaves da casa, teto padrão e teto de cada cliente" },
+  "PUT /api/admin/estudio": { access: "admin", why: "chaves da casa, teto padrão e teto de cada cliente" },
 };
 
 const MEDIA_ID = "1800000000000100";
@@ -406,7 +493,14 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   await syncComments(o, String(account._id), { mediaIgId: MEDIA_ID }, { now: NOW - 1_700_000 });
   const comment = await InstagramComment.findOne({ organization: o, account: account._id, parentIgId: null, own: false });
   expect(comment, "o simulador devolveu comentários").toBeTruthy();
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment };
+  // Estúdio: kit de marca, um trabalho na fila, um logo guardado e uma linha de uso
+  const logoFile = `${(tag === "beta" ? "d" : "c").repeat(48)}.png`;
+  writeFileSync(path.join(mediaDir, String(o), logoFile), `logo-da-${tag}`);
+  const logo = await MediaAsset.create({ organization: o, kind: "image", keep: true, file: logoFile, mime: "image/png", bytes: 12, originalName: `logo-${tag}.png` });
+  const kit = await BrandKit.create({ organization: o, project: project._id, name: `Kit secreto ${label}`, handle: `@kit${tag}`, logo: logo._id });
+  const job = await StudioJob.create({ organization: o, project: project._id, kind: "reel_montado", title: `Reel secreto ${label}`, input: { script: REEL_CURTO }, runAfter: new Date(NOW + 86_400_000) });
+  const usage = await AiUsage.create({ organization: o, at: new Date(NOW), purpose: "texto", service: "anthropic", what: `uso-${tag}`, costUsd: 0.01, costBrl: 0.05, fxRate: 5 });
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -428,6 +522,7 @@ function markers(side: Side): string[] {
     side.org.name, side.org.slug, "Marca Beta", side.project.name, side.post.title, "legenda-beta", "betaoficial", "@beta-tiktok",
     side.owner.email, side.member.email, "convidado@beta.test", "Chave Beta", "OpenAI Beta", side.inviteToken,
     String(side.asset._id), side.asset.file, "foto-beta.jpg", String(side.comment._id),
+    String(side.kit._id), "Kit secreto Beta", "@kitbeta", String(side.job._id), "Reel secreto Beta", String(side.logo._id), side.logo.file, "logo-beta.png", String(side.usage._id), "uso-beta",
   ];
 }
 
@@ -437,6 +532,11 @@ beforeAll(async () => {
   process.env.MEDIA_DIR = mediaDir;
   Object.assign(process.env, { IG_OAUTH_ENABLED: "true", IG_APP_ID: "1234567890", IG_APP_SECRET: "segredo-do-app-de-teste", APP_URL: "https://contenthub.exemplo.test" });
   setFetchOverride(mockFetch(() => NOW));
+  // Estúdio: provedores de IA simulados e fila parada (nenhum trabalho roda neste teste)
+  const ai = studioFake();
+  ai.text["*"] = JSON.stringify({ temas: ["Como cuidar da escova de dentes", "O que observar antes de clarear", "Por que a gengiva sangra ao escovar"] });
+  setStudioFetch(ai.fetch);
+  setAutoKick(false);
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri("isolamento"));
   w.adminOrg = await makeOrg("Vínculo Digital", "vinculo-digital");
@@ -459,6 +559,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   setFetchOverride(null);
+  setStudioFetch(null);
   await mongoose.disconnect();
   await mongo.stop();
   delete process.env.MEDIA_DIR;
@@ -496,7 +597,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["ApiCredential", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AiUsage", "ApiCredential", "BrandKit", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

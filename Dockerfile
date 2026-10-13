@@ -11,6 +11,11 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+# Estúdio: ffmpeg (montagem do Reel) e Python + Pillow (motor de arte do carrossel e das camadas do Reel).
+# As fontes (SIL OFL) vão junto em /app/estudio/fontes.
+RUN apk add --no-cache ffmpeg python3 py3-pillow
+COPY --chown=nextjs:nodejs estudio ./estudio
+ENV ESTUDIO_DIR=/app/estudio
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

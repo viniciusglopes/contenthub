@@ -9,7 +9,7 @@ import { resolveMedia } from "@/lib/media/store";
 // Sem login de propósito. A proteção é o nome: 192 bits sorteados, dentro da pasta da
 // organização. Não existe listagem; o caminho só aceita a forma exata <24 hex>/<48 hex>.<ext>
 // (nada de "..", barras ou outros nomes). Só leitura: apagar é por /api/posts e /api/uploads.
-const TYPES: Record<string, string> = { jpg: "image/jpeg", mp4: "video/mp4", mov: "video/quicktime" };
+const TYPES: Record<string, string> = { jpg: "image/jpeg", mp4: "video/mp4", mov: "video/quicktime", png: "image/png", mp3: "audio/mpeg", m4a: "audio/mp4" };
 const gone = () => new NextResponse("Não encontrado.", { status: 404, headers: { "Cache-Control": "no-store" } });
 
 export const GET = route("public", async ({ params, req }) => {

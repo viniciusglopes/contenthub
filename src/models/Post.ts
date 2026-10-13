@@ -23,6 +23,8 @@ export interface IPost extends Document {
   review: { requestedByName: string; requestedAt: Date | null; note: string; noteByName: string; noteAt: Date | null };
   publish: PublishState;
   history: { at: Date; type: string; by: string; note: string }[];
+  origin: string;
+  blockers: string[];
   externalIds: Record<string, string>;
   metrics: {
     views?: number;
@@ -122,6 +124,9 @@ const PostSchema = new Schema<IPost>(
       waitNote: { type: String, default: "" },
     },
     history: { type: [{ _id: false, at: Date, type: { type: String }, by: String, note: String }], default: [] },
+    /** "estudio" = gerado no Estúdio; blockers = o que impede aprovar (ex.: falta o registro profissional na arte) */
+    origin: { type: String, default: "" },
+    blockers: { type: [String], default: [] },
     externalIds: { type: Map, of: String, default: {} },
     metrics: {
       views: Number,

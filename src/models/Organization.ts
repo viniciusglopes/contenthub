@@ -20,6 +20,16 @@ const OrganizationSchema = new Schema(
     ai: {
       commentProviders: { type: [String], default: [] },
       enabled: { type: Boolean, default: false },
+      // Estúdio: ordem de preferência dos provedores por finalidade ({ texto: ["anthropic", "google"], ... })
+      chains: { type: Schema.Types.Mixed, default: {} },
+    },
+    // Estúdio: teto mensal de gasto com IA em dólar (null = o padrão da plataforma; só o
+    // administrador altera) e se pode usar as chaves da casa quando não tem a própria.
+    studio: {
+      capUsd: { type: Number, default: null },
+      useHouse: { type: Boolean, default: true },
+      /** setor regulado: libera imagem e vídeo gerados por IA para esta conta (só o administrador) */
+      aiVisuals: { type: Boolean, default: false },
     },
   },
   { timestamps: true }

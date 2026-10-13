@@ -202,6 +202,7 @@ export async function workflowAction(
   if (action === "approve") {
     ownerOnly("aprovar");
     if (!["draft", "pending", "approved"].includes(post.status)) throw new FriendlyError("Esse post não está aguardando aprovação.", 409);
+    if (post.blockers?.length) throw new FriendlyError(`Ainda não dá para aprovar. ${post.blockers.join(" ")}`, 400);
     const check = await checkPost(org, post, { now, probe: true });
     if (!check.ok) throw new FriendlyError(`Ainda não dá para aprovar. Falta: ${check.missing.join(" ")}`, 400);
     const at = publishAtOf(post)!;

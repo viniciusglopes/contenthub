@@ -140,7 +140,7 @@ export function checkCronToken(authorization: string | null | undefined): boolea
 }
 
 // Rotas que aceitam o token de rotina além do login.
-export const CRON_PATHS = ["/api/instagram/sync", "/api/instagram/report", "/api/instagram/publish-due"];
+export const CRON_PATHS = ["/api/instagram/sync", "/api/instagram/report", "/api/instagram/publish-due", "/api/estudio/worker"];
 
 // ---------- freio de tentativas (em memória) ----------
 // A chave é o IP e também o e-mail: trocar de IP não libera insistir na mesma conta.

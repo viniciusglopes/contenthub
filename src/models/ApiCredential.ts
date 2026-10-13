@@ -7,6 +7,11 @@ const ApiCredentialSchema = new mongoose.Schema(
     label: { type: String, required: true },
     credentials: { type: Map, of: String, default: {} },
     active: { type: Boolean, default: true },
+    // Estúdio: para que a chave serve (texto, voz, imagem, video, musica), modelo por finalidade
+    // (vazio = o padrão do catálogo) e o resultado do último "Testar chave".
+    purposes: { type: [String], default: [] },
+    models: { type: Map, of: String, default: {} },
+    lastTest: { at: { type: Date, default: null }, ok: { type: Boolean, default: false }, message: { type: String, default: "" } },
   },
   { timestamps: true }
 );

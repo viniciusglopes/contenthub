@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
   Building2,
   UserCog,
+  Wand2,
 } from "lucide-react";
 import AdminClients from "@/components/admin/AdminClients";
 import Onboarding from "@/components/Onboarding";
@@ -36,6 +37,7 @@ import type { PublicAccount } from "@/components/instagram/shared";
 import ApprovalQueue from "@/components/posts/ApprovalQueue";
 import PostDetail from "@/components/posts/PostDetail";
 import PostForm from "@/components/posts/PostForm";
+import StudioPanel from "@/components/studio/StudioPanel";
 import { type PostT, STATUS, STATUS_ORDER, flowStatus, stateLine, statusOf } from "@/components/posts/flow";
 
 interface Project {
@@ -50,8 +52,8 @@ interface Project {
 type Post = PostT;
 
 type SocialAccount = PublicAccount;
-type View = "calendar" | "list" | "aprovacoes" | "instagram" | "clientes" | "conta";
-const VIEW_TITLE: Record<string, string> = { instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações" };
+type View = "calendar" | "list" | "aprovacoes" | "instagram" | "estudio" | "clientes" | "conta";
+const VIEW_TITLE: Record<string, string> = { estudio: "Estúdio", instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações" };
 
 const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
   instagram: {
@@ -173,7 +175,7 @@ export default function Home() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const v = p.get("view");
-    if (v === "instagram" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes") setViewState(v);
+    if (v === "instagram" || v === "estudio" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes") setViewState(v);
     // Volta do login pelo Instagram: o resultado vem no link e sai dele depois de lido.
     const igOk = p.get("ig_ok");
     const igErro = p.get("ig_erro");
@@ -347,6 +349,12 @@ export default function Home() {
     } catch { /* navegação privada */ }
   }
   const refreshPosts = () => { loadPosts(); loadQueue(); };
+  // Estúdio: abre o rascunho recém-criado no painel de detalhe (sobre a tela, sem sair do Estúdio)
+  async function openPostById(id: string) {
+    const res = await fetch(`/api/posts/${id}`);
+    if (res.ok) setShowDetail(await res.json());
+    refreshPosts();
+  }
   // @usuario do Instagram de cada projeto, para a prévia do post
   const usernames = (igAccounts || []).reduce<Record<string, string>>((acc, a) => {
     const pid = typeof a.project === "string" ? a.project : a.project?._id;
@@ -712,6 +720,14 @@ export default function Home() {
             <BarChart3 size={16} />
             <span>Instagram</span>
           </button>
+          <button
+            onClick={() => { setView("estudio"); setMenuOpen(false); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "estudio" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            data-testid="menu-estudio"
+          >
+            <Wand2 size={16} />
+            <span>Estúdio</span>
+          </button>
           {me?.isAdmin && (
             <button
               onClick={() => { setView("clientes"); setMenuOpen(false); }}
@@ -825,7 +841,16 @@ export default function Home() {
           <AdminClients homeOrgId={me.impersonating ? "" : me.organization._id} />
         ) : view === "conta" && me ? (
           <TeamPanel me={me} onChanged={loadMe} />
-        ) : !calendarViews && view !== "instagram" ? (
+        ) : view === "estudio" && me ? (
+          <StudioPanel
+            projects={projects}
+            selectedProject={selectedProject}
+            onSelectProject={selectProject}
+            isAdmin={me.isAdmin && !me.impersonating}
+            onDraft={() => refreshPosts()}
+            onOpenPost={openPostById}
+          />
+        ) : !calendarViews && view !== "instagram" && view !== "estudio" ? (
           <p className="text-sm text-gray-400 py-16 text-center">{me ? "Essa área é só do administrador." : "Carregando..."}</p>
         ) : showOnboarding && projects.length === 0 ? (
           <div className="flex-1 overflow-auto p-3 md:p-8">

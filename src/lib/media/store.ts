@@ -25,7 +25,7 @@ type Org = Types.ObjectId;
 export function mediaDir(): string {
   return process.env.MEDIA_DIR || (process.env.NODE_ENV === "production" ? "/data/media" : path.join(process.cwd(), ".media"));
 }
-export const FILE_RE = /^[a-f0-9]{48}\.(jpg|mp4|mov)$/;
+export const FILE_RE = /^[a-f0-9]{48}\.(jpg|mp4|mov|png|mp3|m4a)$/;
 const ORG_RE = /^[a-f0-9]{24}$/;
 
 /** Caminho no disco de um arquivo público, ou null se o pedido não tem a forma exata esperada. */
@@ -33,8 +33,8 @@ export function resolveMedia(org: string, file: string): string | null {
   if (!ORG_RE.test(org) || !FILE_RE.test(file)) return null;
   return path.join(mediaDir(), org, file);
 }
-const orgDir = (org: Org) => path.join(mediaDir(), String(org));
-const newName = (ext: string) => `${randomBytes(24).toString("hex")}.${ext}`;
+export const orgDir = (org: Org) => path.join(mediaDir(), String(org));
+export const newName = (ext: string) => `${randomBytes(24).toString("hex")}.${ext}`;
 
 export const mediaPath = (org: unknown, file: string) => `/api/media/${String(org)}/${file}`;
 /** Endereço público completo (o que a Meta baixa). Sem APP_URL https não há como publicar. */
@@ -213,7 +213,7 @@ export async function deleteAssets(org: Org, filter: Record<string, unknown>): P
 
 /** Mídia enviada e nunca ligada a um post (a pessoa desistiu do formulário): some depois de 24h. */
 export async function cleanupOrphans(org: Org, now: number = Date.now()): Promise<number> {
-  return deleteAssets(org, { post: null, createdAt: { $lt: new Date(now - UPLOAD_LIMITS.orphanHours * 3_600_000) } });
+  return deleteAssets(org, { post: null, keep: { $ne: true }, createdAt: { $lt: new Date(now - UPLOAD_LIMITS.orphanHours * 3_600_000) } });
 }
 
 /**
