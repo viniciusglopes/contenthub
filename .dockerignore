@@ -4,3 +4,5 @@ node_modules
 .prints
 .media
 .env*
+estudio/pylib
+**/__pycache__

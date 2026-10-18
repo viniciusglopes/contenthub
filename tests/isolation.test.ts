@@ -24,6 +24,8 @@ import SocialAccount from "@/models/SocialAccount";
 import AiUsage from "@/models/AiUsage";
 import BrandKit from "@/models/BrandKit";
 import StudioJob from "@/models/StudioJob";
+import VideoTemplate from "@/models/VideoTemplate";
+import { SEED_TEMPLATES } from "@/lib/studio/cenas-spec";
 import { setStudioFetch } from "@/lib/studio/providers";
 import { setAutoKick } from "@/lib/studio/jobs";
 import { PALETTE, REEL_CURTO, ROTEIRO_CURTO, studioFake } from "./studio-fake";
@@ -53,7 +55,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const NOW = Date.now();
 
 interface Side {
-  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any; adAccount: any; adSpare: any; competitor: any; competitorSpare: any; product: any;
+  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any; adAccount: any; adSpare: any; competitor: any; competitorSpare: any; product: any; scene: any; template: any; cenasJob: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -427,6 +429,8 @@ const CASES: Record<string, Case> = {
       // cena com a imagem da BETA e trilha da BETA, no próprio projeto
       { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(me.project._id), kind: "reel_montado", script: { ...REEL_CURTO, cenas: REEL_CURTO.cenas.map((c) => ({ ...c, imagem: String(t.asset._id) })) } } },
       { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(me.project._id), kind: "reel_montado", script: REEL_CURTO, trilha: String(t.logo._id) } },
+      { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(t.project._id), kind: "reel_cenas", script: REEL_CURTO, simular: true } },
+      { method: "POST", path: "/api/estudio/trabalhos", body: { project: String(me.project._id), kind: "reel_cenas", template: String(t.template._id), script: REEL_CURTO, simular: true } },
     ],
     own: (t) => ({ method: "POST", path: "/api/estudio/trabalhos", body: { project: String(t.project._id), kind: "reel_montado", script: REEL_CURTO, simular: true } }),
   },
@@ -440,6 +444,66 @@ const CASES: Record<string, Case> = {
     access: "org",
     attack: (t) => [{ method: "DELETE", path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) } }],
     own: (t) => ({ method: "DELETE", path: "/api/estudio/trabalhos/x", params: { id: String(t.job._id) } }),
+  },
+  // ---- Ajuda: conteúdo igual para todos; artigo de administrador some para cliente; andamento por projeto
+  "GET /api/ajuda": { access: "org", attack: (t) => [{ path: `/api/ajuda?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/ajuda" }) },
+  "GET /api/ajuda/[id]": {
+    access: "org",
+    attack: () => [{ path: "/api/ajuda/x", params: { id: "admin-clientes" } }, { path: "/api/ajuda/x", params: { id: "../../package.json" } }],
+    own: () => ({ path: "/api/ajuda/x", params: { id: "primeiros-passos" } }),
+  },
+  "GET /api/ajuda/checklist": { access: "org", attack: (t) => [{ path: `/api/ajuda/checklist?project=${t.project._id}` }], own: (t) => ({ path: `/api/ajuda/checklist?project=${t.project._id}` }) },
+  // ---- Reel com cenas: biblioteca, Pexels, padrões de vídeo e roteiro
+  "GET /api/estudio/cenas": { access: "org", attack: (t) => [{ path: `/api/estudio/cenas?organization=${t.org._id}&categoria=mar/praia`, expect: 200 }], own: () => ({ path: "/api/estudio/cenas" }) },
+  "POST /api/estudio/cenas": {
+    access: "org",
+    // o envio cai SEMPRE na pasta da organização da sessão; o corpo aqui não é vídeo (o envio real está em cenas.test.ts)
+    attack: (t) => [{ method: "POST", path: `/api/estudio/cenas?categoria=mar&licenca=proprio&autor=Invasor&organization=${t.org._id}`, body: { organization: String(t.org._id) }, expect: 415 }],
+    own: () => ({ method: "POST", path: "/api/estudio/cenas?categoria=mar&licenca=proprio&autor=Alfa", body: { nada: true }, expect: 415 }),
+  },
+  "PUT /api/estudio/cenas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/estudio/cenas/x", params: { id: String(t.scene._id) }, body: { category: "invadida", active: false } }, { method: "PUT", path: "/api/estudio/cenas/x", params: { id: String(t.asset._id) }, body: { category: "invadida" } }],
+    own: (t) => ({ method: "PUT", path: "/api/estudio/cenas/x", params: { id: String(t.scene._id) }, body: { category: "praia", tags: "sol, mar" } }),
+  },
+  "DELETE /api/estudio/cenas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/estudio/cenas/x", params: { id: String(t.scene._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/estudio/cenas/x", params: { id: String(t.scene._id) } }),
+  },
+  "GET /api/estudio/cenas/pexels": { access: "org", attack: (t) => [{ path: `/api/estudio/cenas/pexels?q=ocean&organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/estudio/cenas/pexels?q=ocean" }) },
+  "POST /api/estudio/cenas/pexels": {
+    access: "org",
+    // sem a chave da casa do Pexels: 400 para todos (a importação real, com chave simulada, está em cenas.test.ts)
+    attack: (t) => [{ method: "POST", path: "/api/estudio/cenas/pexels", body: { id: 123, categoria: "mar", organization: String(t.org._id) }, expect: 400 }],
+    own: () => ({ method: "POST", path: "/api/estudio/cenas/pexels", body: { id: 123, categoria: "mar" }, expect: 400 }),
+  },
+  "POST /api/estudio/cenas/roteiro": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/estudio/cenas/roteiro", body: { project: String(t.project._id), modo: "prompt", texto: "Frase de ataque um. Frase de ataque dois." } },
+      { method: "POST", path: "/api/estudio/cenas/roteiro", body: { project: String(me.project._id), template: String(t.template._id), modo: "prompt", texto: "Frase um. Frase dois." } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/estudio/cenas/roteiro", body: { project: String(t.project._id), template: String(t.template._id), modo: "prompt", texto: "Frase um aqui. Frase dois aqui." } }),
+  },
+  "GET /api/estudio/padroes": { access: "org", attack: (t) => [{ path: `/api/estudio/padroes?project=${t.project._id}` }], own: (t) => ({ path: `/api/estudio/padroes?project=${t.project._id}` }) },
+  "POST /api/estudio/padroes": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/estudio/padroes", body: { project: String(t.project._id), name: "Padrão invasor" } },
+      { method: "POST", path: "/api/estudio/padroes", body: { project: String(me.project._id), name: "Copiado da Beta", fromJob: String(t.cenasJob._id) } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/estudio/padroes", body: { project: String(t.project._id), name: "Salvo do vídeo", fromJob: String(t.cenasJob._id) }, expect: 201 }),
+  },
+  "PUT /api/estudio/padroes/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/estudio/padroes/x", params: { id: String(t.template._id) }, body: { name: "Invadido", isDefault: true, settings: { cutSeconds: 2 } } }],
+    own: (t) => ({ method: "PUT", path: "/api/estudio/padroes/x", params: { id: String(t.template._id) }, body: { settings: { cutSeconds: 3 } } }),
+  },
+  "DELETE /api/estudio/padroes/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/estudio/padroes/x", params: { id: String(t.template._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/estudio/padroes/x", params: { id: String(t.template._id) } }),
   },
   "GET /api/estudio/uso": { access: "org", attack: (t) => [{ path: `/api/estudio/uso?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/estudio/uso" }) },
   "POST /api/estudio/worker": { access: "cron", why: "fila do Estúdio: só com o token de rotina; cada trabalho é processado dentro da organização dele" },
@@ -622,6 +686,13 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   const logo = await MediaAsset.create({ organization: o, kind: "image", keep: true, file: logoFile, mime: "image/png", bytes: 12, originalName: `logo-${tag}.png` });
   const kit = await BrandKit.create({ organization: o, project: project._id, name: `Kit secreto ${label}`, handle: `@kit${tag}`, logo: logo._id });
   const job = await StudioJob.create({ organization: o, project: project._id, kind: "reel_montado", title: `Reel secreto ${label}`, input: { script: REEL_CURTO }, runAfter: new Date(NOW + 86_400_000) });
+  // Reel com cenas: uma cena na biblioteca (arquivo + capa no disco), um padrão e um vídeo feito
+  const sceneFile = `${(tag === "beta" ? "e" : "f").repeat(48)}.mp4`;
+  writeFileSync(path.join(mediaDir, String(o), sceneFile), `cena-da-${tag}`);
+  writeFileSync(path.join(mediaDir, String(o), `${(tag === "beta" ? "e" : "f").repeat(47)}1.jpg`), `capa-da-${tag}`);
+  const scene = await MediaAsset.create({ organization: o, kind: "cena", keep: true, file: sceneFile, mime: "video/mp4", bytes: 10, width: 1080, height: 1920, durationMs: 8000, scene: { category: "mar/praia", tags: [], title: `Cena secreta ${label}`, license: "proprio", licenseLabel: "Gravação própria", sourceUrl: "", author: `Autor ${label}`, provider: "proprio", poster: `${(tag === "beta" ? "e" : "f").repeat(47)}1.jpg`, active: true } });
+  const template = await VideoTemplate.create({ organization: o, project: project._id, name: `Padrão secreto ${label}`, settings: SEED_TEMPLATES[0].settings, isDefault: true });
+  const cenasJob = await StudioJob.create({ organization: o, project: project._id, kind: "reel_cenas", status: "done", title: `Vídeo com cenas ${label}`, input: { script: REEL_CURTO, settings: { ...SEED_TEMPLATES[1].settings, ctaText: `chamada-${tag}` }, templateName: `Padrão secreto ${label}` } });
   const usage = await AiUsage.create({ organization: o, at: new Date(NOW), purpose: "texto", service: "anthropic", what: `uso-${tag}`, costUsd: 0.01, costBrl: 0.05, fxRate: 5 });
   // Tráfego e concorrentes: conta de anúncio sincronizada, uma sobrando (para o controle do DELETE),
   // concorrentes lidos (Instagram pelo Business Discovery simulado, YouTube simulado) e um produto
@@ -632,7 +703,7 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   await refreshCompetitor(o, competitor, NOW - 1_500_000);
   const competitorSpare = await Competitor.create({ organization: o, project: project._id, name: `Concorrente sobrando ${label}`, instagram: "mentora_b" });
   const product = await CompetitorProduct.create({ organization: o, project: project._id, competitor: competitor._id, name: `Produto secreto ${label}`, price: 97 });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product };
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -656,6 +727,7 @@ function markers(side: Side): string[] {
     String(side.asset._id), side.asset.file, "foto-beta.jpg", String(side.comment._id),
     String(side.kit._id), "Kit secreto Beta", "@kitbeta", String(side.job._id), "Reel secreto Beta", String(side.logo._id), side.logo.file, "logo-beta.png", String(side.usage._id), "uso-beta",
     String(side.adAccount._id), String(side.adSpare._id), `${ADS_TOKEN}beta`, String(side.competitor._id), "Concorrente secreto Beta", String(side.competitorSpare._id), "Concorrente sobrando Beta", "Pagina Beta", String(side.product._id), "Produto secreto Beta",
+    String(side.scene._id), side.scene.file, "Cena secreta Beta", "Autor Beta", String(side.template._id), "Padrão secreto Beta", String(side.cenasJob._id), "Vídeo com cenas Beta", "chamada-beta",
   ];
 }
 
@@ -667,7 +739,8 @@ beforeAll(async () => {
   setFetchOverride(mockFetch(() => NOW));
   // Estúdio: provedores de IA simulados e fila parada (nenhum trabalho roda neste teste)
   const ai = studioFake();
-  ai.text["*"] = JSON.stringify({ temas: ["Como cuidar da escova de dentes", "O que observar antes de clarear", "Por que a gengiva sangra ao escovar"] });
+  // a mesma resposta serve ao pedido de temas e ao roteiro do Reel com cenas (com um ajuste do padrão)
+  ai.text["*"] = JSON.stringify({ temas: ["Como cuidar da escova de dentes", "O que observar antes de clarear", "Por que a gengiva sangra ao escovar"], ...REEL_CURTO, ajustes: { musica: false } });
   setStudioFetch(ai.fetch);
   setMetaFetch(metaMockFetch(() => NOW));
   setYoutubeFetch(youtubeMockFetch(() => NOW));
@@ -736,7 +809,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "BrandKit", "Competitor", "CompetitorDaily", "CompetitorProduct", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "BrandKit", "Competitor", "CompetitorDaily", "CompetitorProduct", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob", "VideoTemplate"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

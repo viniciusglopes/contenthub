@@ -20,6 +20,7 @@ import { IMAGE, VIDEO, VOICE, downloadVideo } from "./providers";
 import { type ReelScript, captionChunks, finalCaption, imagePrompt, readSeconds, validateReel } from "./script";
 import { sectorOf } from "./sectors";
 import { createDraft, sceneSeconds, speechSeconds } from "./studio";
+import { runCenasJob } from "./cenas";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -46,7 +47,7 @@ export function publicJob(j: any) {
   return {
     _id: String(j._id), project: String(j.project), kind: j.kind, status: j.status, title: j.title, progress: j.progress, step: j.step, attempts: j.attempts, error: j.error,
     estimateUsd: j.estimateUsd, spentUsd: j.spentUsd, providers: j.providers || [], post: j.post ? String(j.post) : null, seen: Boolean(j.seen),
-    createdAt: j.createdAt, startedAt: j.startedAt, finishedAt: j.finishedAt, createdByName: j.createdByName, seconds: j.state?.seconds ?? null,
+    createdAt: j.createdAt, startedAt: j.startedAt, finishedAt: j.finishedAt, createdByName: j.createdByName, seconds: j.state?.seconds ?? null, templateName: j.input?.templateName ?? null,
   };
 }
 
@@ -55,6 +56,29 @@ const workDir = (job: any) => path.join(orgDir(job.organization), `.trabalho-${j
 async function finish(job: any, lock: string, set: Record<string, unknown>): Promise<void> {
   await StudioJob.updateOne({ _id: job._id, organization: job.organization, lockId: lock }, { $set: { ...set, lockId: "", lockedAt: null, finishedAt: new Date(nowMs()), runAfter: null } });
   await rm(workDir(job), { recursive: true, force: true });
+}
+
+
+interface DraftIn { title: string; caption: string; hashtags: string[]; content: string; notes: string; blockers: string[]; origName: string }
+/** Guarda o MP4 como mídia da organização e cria o RASCUNHO do post (nada é publicado sem aprovação). */
+async function saveReel(job: any, lock: string, st: any, mark: (p: number, step: string) => Promise<void>, out: string, d: DraftIn, used: Set<string>): Promise<void> {
+  const org: Types.ObjectId = job.organization;
+  await mark(97, "Guardando o vídeo");
+  const file = newName("mp4");
+  const final = path.join(orgDir(org), file);
+  await rename(out, final);
+  const bytes = (await stat(final)).size;
+  const meta = await probeVideo(final);
+  const asset: any = await MediaAsset.create({ organization: org, kind: "video", file, mime: "video/mp4", bytes, width: meta.width, height: meta.height, durationMs: meta.durationMs, fps: meta.fps, videoCodec: meta.videoCodec, audioCodec: meta.audioCodec, originalName: d.origName, originalFormat: "mp4", problems: videoProblems(meta, bytes), createdBy: job.createdBy });
+  let post: any;
+  try {
+    post = await createDraft({ org, name: job.createdByName || "Estúdio" }, job.project, { title: d.title, format: "reel", caption: d.caption, hashtags: d.hashtags, content: d.content, notes: d.notes, media: [asset._id], blockers: d.blockers });
+  } catch (e) {
+    await MediaAsset.deleteOne({ _id: asset._id, organization: org });
+    await rm(final, { force: true });
+    throw e;
+  }
+  await finish(job, lock, { status: "done", progress: 100, step: "Pronto: o Reel está nos rascunhos", state: st, post: post._id, asset: asset._id, providers: [...used], error: "" });
 }
 
 /** Processa UM trabalho já travado por nós. Nunca lança. */
@@ -68,15 +92,22 @@ async function work(job: any, lock: string): Promise<void> {
     if (!r.matchedCount) throw new Stop();
     if (job.deadlineAt && nowMs() > new Date(job.deadlineAt).getTime()) throw new FriendlyError("O trabalho passou do tempo máximo e foi encerrado. Gere de novo; se repetir, avise o suporte.", 504);
   };
+  const used = new Set<string>(job.providers || []);
   try {
     const dir = workDir(job);
     await mkdir(dir, { recursive: true });
+    if (job.kind === "reel_cenas") {
+      // Reel com cenas: voz edge-tts + cenas da biblioteca + motor estudio/cenas.py
+      const r = await runCenasJob(job, dir, st, mark);
+      st.seconds = Math.round(r.seconds * 10) / 10;
+      await saveReel(job, lock, st, mark, r.out, { ...r.post, origName: "estudio-reel-cenas.mp4" }, used);
+      return;
+    }
     const { kit, logoFile } = await loadKit(org, job.project);
     const sector = sectorOf(kit.sector);
     const script: ReelScript = validateReel(job.input.script, sector);
     const n = script.cenas.length;
     const chainCtx = { org, job: job._id, project: job.project, by: job.createdByName };
-    const used = new Set<string>(job.providers || []);
     await mark(3, "Preparando");
 
     // 1) narração (uma por cena; o que já foi pago fica guardado)
@@ -198,26 +229,11 @@ async function work(job: any, lock: string): Promise<void> {
     st.captions = scenes.reduce((s, c) => s + c.legendas.length, 0);
 
     // 5) guarda o vídeo como mídia da organização e cria o RASCUNHO (nada é publicado sem aprovação)
-    await mark(97, "Guardando o vídeo");
-    const file = newName("mp4");
-    const final = path.join(orgDir(org), file);
-    await rename(out, final);
-    const bytes = (await stat(final)).size;
-    const meta = await probeVideo(final);
-    const asset: any = await MediaAsset.create({ organization: org, kind: "video", file, mime: "video/mp4", bytes, width: meta.width, height: meta.height, durationMs: meta.durationMs, fps: meta.fps, videoCodec: meta.videoCodec, audioCodec: meta.audioCodec, originalName: "estudio-reel.mp4", originalFormat: "mp4", problems: videoProblems(meta, bytes), createdBy: job.createdBy });
-    let post: any;
-    try {
-      post = await createDraft({ org, name: job.createdByName || "Estúdio" }, job.project, {
-        title: script.cenas[0].titulo, format: "reel", caption: finalCaption(script, kitText(kit), sector), hashtags: script.hashtags,
-        content: script.cenas.map((c, i) => `Cena ${i + 1}: ${c.titulo.replace(/\*/g, "")}${c.narracao ? `\n${c.narracao}` : ""}`).join("\n\n"),
-        notes: `Gerado no Estúdio (${job.kind === "reel_ia" ? "Reel com vídeo de IA" : "Reel montado"}, ${st.seconds} s${job.input.voz ? ", com narração" : ", sem voz"}).`, media: [asset._id], blockers: kitBlockers(kit),
-      });
-    } catch (e) {
-      await MediaAsset.deleteOne({ _id: asset._id, organization: org });
-      await rm(final, { force: true });
-      throw e;
-    }
-    await finish(job, lock, { status: "done", progress: 100, step: "Pronto: o Reel está nos rascunhos", state: st, post: post._id, asset: asset._id, providers: [...used], error: "" });
+    await saveReel(job, lock, st, mark, out, {
+      title: script.cenas[0].titulo, caption: finalCaption(script, kitText(kit), sector), hashtags: script.hashtags,
+      content: script.cenas.map((c, i) => `Cena ${i + 1}: ${c.titulo.replace(/\*/g, "")}${c.narracao ? `\n${c.narracao}` : ""}`).join("\n\n"),
+      notes: `Gerado no Estúdio (${job.kind === "reel_ia" ? "Reel com vídeo de IA" : "Reel montado"}, ${st.seconds} s${job.input.voz ? ", com narração" : ", sem voz"}).`, blockers: kitBlockers(kit), origName: "estudio-reel.mp4",
+    }, used);
   } catch (e) {
     if (e instanceof Stop || e instanceof Waiting) return;
     const permanent = (e instanceof FriendlyError && e.status !== 500) || (e as any)?.name === "ScriptInvalid";
@@ -266,6 +282,8 @@ export async function drain(opts: { wait?: boolean; max?: number } = {}): Promis
     }
     if ((await StudioJob.countDocuments(runningNow).setOptions(cross)) >= cfg.maxJobsGlobal) { skipped++; break; }
     if ((await StudioJob.countDocuments({ ...runningNow, organization: c.organization })) >= cfg.maxJobsPerOrg) { skipped++; continue; }
+    // Reel com cenas: um por vez na plataforma inteira (memória do container)
+    if (c.kind === "reel_cenas" && !resumed && (await StudioJob.countDocuments({ ...runningNow, kind: "reel_cenas" }).setOptions(cross)) >= 1) { skipped++; continue; }
     const lock = `${WORKER}-${randomBytes(6).toString("hex")}`;
     const first = !c.startedAt;
     const job: any = await StudioJob.findOneAndUpdate(

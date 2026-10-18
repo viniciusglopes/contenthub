@@ -1,0 +1,224 @@
+{
+ "bg": "jng",
+ "voice": "es-MX-JorgeNeural",
+ "rate": "-6%",
+ "pitch": "-2Hz",
+ "pad": [
+  146.83,
+  220,
+  293.66,
+  369.99
+ ],
+ "pad_vol": 0.32,
+ "bar": [
+  216,
+  178,
+  106
+ ],
+ "gap": 46,
+ "brand": {
+  "text": "JESÚS NOS GUÍA",
+  "font": "Manrope-wght.ttf",
+  "var": "SemiBold",
+  "size": 30,
+  "color": [
+   216,
+   178,
+   106
+  ],
+  "rule": true
+ },
+ "handle": {
+  "text": "@jesusnosguia.es",
+  "font": "Manrope-wght.ttf",
+  "var": "Medium",
+  "size": 32,
+  "color": [
+   170,
+   170,
+   185
+  ]
+ },
+ "styles": {
+  "hook": {
+   "font": "CormorantGaramond-wght.ttf",
+   "var": "Bold",
+   "size": 120,
+   "color": [
+    250,
+    244,
+    232
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 1.05,
+   "shadow": true
+  },
+  "body": {
+   "font": "Manrope-wght.ttf",
+   "var": "Bold",
+   "size": 66,
+   "color": [
+    245,
+    240,
+    230
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 1.25,
+   "shadow": true
+  },
+  "big": {
+   "font": "CormorantGaramond-wght.ttf",
+   "var": "Bold",
+   "size": 98,
+   "color": [
+    250,
+    244,
+    232
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 1.08,
+   "shadow": true
+  },
+  "verse": {
+   "font": "CormorantGaramond-wght.ttf",
+   "var": "Bold",
+   "size": 78,
+   "color": [
+    250,
+    244,
+    232
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 1.16,
+   "shadow": true
+  },
+  "ref": {
+   "font": "Manrope-wght.ttf",
+   "var": "SemiBold",
+   "size": 40,
+   "color": [
+    216,
+    178,
+    106
+   ],
+   "hl": [
+    216,
+    178,
+    106
+   ],
+   "lh": 1.3,
+   "upper": true
+  },
+  "num": {
+   "font": "CormorantGaramond-wght.ttf",
+   "var": "Bold",
+   "size": 160,
+   "color": [
+    232,
+    196,
+    120
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 0.95
+  },
+  "small": {
+   "font": "Manrope-wght.ttf",
+   "var": "Medium",
+   "size": 48,
+   "color": [
+    215,
+    210,
+    205
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 1.3
+  },
+  "cta": {
+   "font": "Manrope-wght.ttf",
+   "var": "ExtraBold",
+   "size": 62,
+   "color": [
+    255,
+    255,
+    255
+   ],
+   "hl": [
+    232,
+    196,
+    120
+   ],
+   "lh": 1.22
+  }
+ },
+ "cap": {
+  "font": "Manrope-wght.ttf",
+  "var": "ExtraBold",
+  "size": 84,
+  "color": [
+   255,
+   250,
+   240
+  ],
+  "hl": [
+   240,
+   200,
+   120
+  ],
+  "lh": 1.16,
+  "stroke": 6,
+  "stroke_col": [
+   40,
+   25,
+   10
+  ],
+  "max_words": 4
+ },
+ "grade": {
+  "dim": 0.66,
+  "top": 0.45,
+  "bottom": 0.55,
+  "tint": [
+   1.04,
+   0.97,
+   0.86
+  ]
+ },
+ "zoom": [
+  1.0,
+  1.06
+ ],
+ "card_boost": {
+  "cta": 1.45,
+  "small": 1.3,
+  "big": 1.15
+ },
+ "num_overlay": {
+  "font": "Manrope-wght.ttf",
+  "var": "ExtraBold",
+  "size": 150
+ }
+}

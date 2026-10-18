@@ -28,6 +28,7 @@ import {
   Wand2,
   Megaphone,
   Swords,
+  HelpCircle,
 } from "lucide-react";
 import AdminClients from "@/components/admin/AdminClients";
 import Onboarding from "@/components/Onboarding";
@@ -40,6 +41,8 @@ import ApprovalQueue from "@/components/posts/ApprovalQueue";
 import PostDetail from "@/components/posts/PostDetail";
 import PostForm from "@/components/posts/PostForm";
 import StudioPanel from "@/components/studio/StudioPanel";
+import HelpPanel from "@/components/help/HelpPanel";
+import { helpFor } from "@/lib/help/map";
 import TrafficPanel from "@/components/trafego/TrafficPanel";
 import CompetitorsPanel from "@/components/concorrentes/CompetitorsPanel";
 import { type PostT, STATUS, STATUS_ORDER, flowStatus, stateLine, statusOf } from "@/components/posts/flow";
@@ -56,8 +59,8 @@ interface Project {
 type Post = PostT;
 
 type SocialAccount = PublicAccount;
-type View = "calendar" | "list" | "aprovacoes" | "instagram" | "estudio" | "trafego" | "concorrentes" | "clientes" | "conta";
-const VIEW_TITLE: Record<string, string> = { estudio: "Estúdio", trafego: "Tráfego", concorrentes: "Concorrentes", instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações" };
+type View = "calendar" | "list" | "aprovacoes" | "instagram" | "estudio" | "trafego" | "concorrentes" | "clientes" | "conta" | "ajuda";
+const VIEW_TITLE: Record<string, string> = { estudio: "Estúdio", trafego: "Tráfego", concorrentes: "Concorrentes", instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações", ajuda: "Ajuda" };
 
 const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
   instagram: {
@@ -179,7 +182,7 @@ export default function Home() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const v = p.get("view");
-    if (v === "instagram" || v === "estudio" || v === "trafego" || v === "concorrentes" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes") setViewState(v);
+    if (v === "instagram" || v === "estudio" || v === "trafego" || v === "concorrentes" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes" || v === "ajuda") setViewState(v);
     // Volta do login pelo Instagram: o resultado vem no link e sai dele depois de lido.
     const igOk = p.get("ig_ok");
     const igErro = p.get("ig_erro");
@@ -207,6 +210,18 @@ export default function Home() {
   function setView(v: View) {
     setViewState(v);
     setUrl("view", v === "calendar" ? null : v);
+  }
+  /** "?" de cada tela: abre na Ajuda o artigo daquela tela (o Estúdio e o Instagram olham a aba do link). */
+  function openHelp(article?: string) {
+    const p = new URLSearchParams(window.location.search);
+    const id = article || helpFor(view, p.get("aba"));
+    const url = new URL(window.location.href);
+    url.searchParams.set("artigo", id);
+    url.searchParams.delete("aba");
+    window.history.replaceState(null, "", url);
+    setShowSettings(false);
+    setView("ajuda");
+    setMenuOpen(false);
   }
   function selectProject(id: string) {
     setSelectedProject(id);
@@ -454,6 +469,12 @@ export default function Home() {
       fields: [
         { key: "apiKey", label: "API Key", secret: true },
         { key: "model", label: "Modelo (gpt-4o)" },
+      ],
+    },
+    youtube: {
+      label: "YouTube Data API (concorrentes)",
+      fields: [
+        { key: "apiKey", label: "Chave de API (começa com AIza)", secret: true },
       ],
     },
     anthropic: {
@@ -748,6 +769,14 @@ export default function Home() {
             <Swords size={16} />
             <span>Concorrentes</span>
           </button>
+          <button
+            onClick={() => openHelp("primeiros-passos")}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "ajuda" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            data-testid="menu-ajuda"
+          >
+            <HelpCircle size={16} />
+            <span>Ajuda</span>
+          </button>
           {me?.isAdmin && (
             <button
               onClick={() => { setView("clientes"); setMenuOpen(false); }}
@@ -823,6 +852,9 @@ export default function Home() {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {view !== "ajuda" && (
+              <button onClick={() => openHelp()} title="Ajuda desta tela" aria-label="Ajuda desta tela" className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800" data-testid="ajuda-tela"><HelpCircle size={18} /></button>
+            )}
             <div className="flex bg-gray-800 rounded-lg p-0.5">
               <button onClick={() => setView("calendar")} title="Calendario" aria-label="Calendario" className={`p-2 rounded ${view === "calendar" ? "bg-gray-700 text-white" : "text-gray-400"}`}><CalendarIcon size={16} /></button>
               <button onClick={() => setView("list")} title="Lista" aria-label="Lista" className={`p-2 rounded ${view === "list" ? "bg-gray-700 text-white" : "text-gray-400"}`}><List size={16} /></button>
@@ -872,6 +904,8 @@ export default function Home() {
           />
         ) : view === "trafego" && me ? (
           <TrafficPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} canManage={me.canManage} />
+        ) : view === "ajuda" && me ? (
+          <HelpPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
         ) : view === "concorrentes" && me ? (
           <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
         ) : !calendarViews && view !== "instagram" && view !== "estudio" ? (
@@ -1058,6 +1092,7 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <Plug size={20} className="text-brand-400" />
                 <h3 className="font-bold text-white">Configurações</h3>
+                <button type="button" onClick={() => openHelp(settingsTab === "social" ? "token-instagram" : "chaves-e-integracoes")} title="Ajuda" aria-label="Ajuda das configurações" className="p-1 text-gray-400 hover:text-white"><HelpCircle size={16} /></button>
               </div>
               <button onClick={() => { setShowSettings(false); setEditingAccount(null); setEditingApi(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
             </div>

@@ -7,7 +7,7 @@ export const JOB_STATUSES = ["queued", "running", "waiting", "done", "failed", "
 const StudioJobSchema = new Schema(
   {
     project: { type: Schema.Types.ObjectId, ref: "Project", required: true },
-    kind: { type: String, enum: ["reel_montado", "reel_ia"], required: true },
+    kind: { type: String, enum: ["reel_montado", "reel_ia", "reel_cenas"], required: true },
     status: { type: String, enum: JOB_STATUSES, default: "queued", index: true },
     title: { type: String, default: "" },
     progress: { type: Number, default: 0 },

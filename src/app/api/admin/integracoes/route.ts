@@ -5,15 +5,21 @@ import { YT_SERVICE, fetchYoutubeChannel } from "@/lib/competitors/youtube";
 import { audit } from "@/lib/orgs";
 import { clientIp } from "@/lib/session";
 import { HouseCredential } from "@/models/Platform";
+import { PEXELS_SERVICE } from "@/lib/studio/cenas";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// CHAVES DA CASA de dados públicos (hoje: YouTube Data API, para concorrentes). Só administrador.
+// CHAVES DA CASA de dados públicos (YouTube Data API, para concorrentes; Pexels, para as cenas). Só administrador.
 // A chave nunca volta: só "tem chave" e o resultado do último teste.
 async function state() {
   const yt: any = await HouseCredential.findOne({ service: YT_SERVICE }).lean();
   const creds = yt?.credentials instanceof Map ? Object.fromEntries(yt.credentials) : yt?.credentials || {};
-  return { youtube: { hasKey: Boolean(creds.apiKey), active: yt ? yt.active !== false : false, lastTest: yt?.lastTest?.at ? yt.lastTest : null } };
+  const px: any = await HouseCredential.findOne({ service: PEXELS_SERVICE }).lean();
+  const pcreds = px?.credentials instanceof Map ? Object.fromEntries(px.credentials) : px?.credentials || {};
+  return {
+    youtube: { hasKey: Boolean(creds.apiKey), active: yt ? yt.active !== false : false, lastTest: yt?.lastTest?.at ? yt.lastTest : null },
+    pexels: { hasKey: Boolean(pcreds.apiKey), active: px ? px.active !== false : false },
+  };
 }
 
 export const GET = route("admin", async () => json(await state()));
@@ -45,6 +51,15 @@ export const PUT = route("admin", async ({ body, session, req }) => {
     }
     doc.lastTest = { at: new Date(), ok, message };
     await doc.save();
+  } else if (b.acao === "pexels") {
+    // Pexels (cenas do Reel com cenas): gratuita, só busca e baixa vídeo com a licença do Pexels
+    const key = String(b.apiKey || "").trim();
+    if (!/^[A-Za-z0-9]{30,80}$/.test(key)) throw new FriendlyError("A chave do Pexels parece incompleta. Copie de novo, inteira e sem espaços.", 400, "apiKey");
+    await HouseCredential.updateOne({ service: PEXELS_SERVICE }, { $set: { "credentials.apiKey": encrypt(key), active: true, purposes: [] }, $setOnInsert: { service: PEXELS_SERVICE } }, { upsert: true });
+    await audit({ action: "integracoes.pexels_chave_salva", actor: session!.user, ip: clientIp(req) });
+  } else if (b.acao === "apagar_pexels") {
+    await HouseCredential.deleteOne({ service: PEXELS_SERVICE });
+    await audit({ action: "integracoes.pexels_chave_apagada", actor: session!.user, ip: clientIp(req) });
   } else if (b.acao === "apagar_youtube") {
     await HouseCredential.deleteOne({ service: YT_SERVICE });
     await audit({ action: "integracoes.youtube_chave_apagada", actor: session!.user, ip: clientIp(req) });

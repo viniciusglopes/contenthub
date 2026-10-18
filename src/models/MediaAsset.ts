@@ -7,7 +7,7 @@ import { tenantPlugin } from "@/lib/tenant";
 const MediaAssetSchema = new Schema(
   {
     post: { type: Schema.Types.ObjectId, ref: "Post", default: null, index: true },
-    kind: { type: String, enum: ["image", "video", "audio"], required: true },
+    kind: { type: String, enum: ["image", "video", "audio", "cena"], required: true },
     /** guardada de propósito fora de post (logo do kit, trilha): a limpeza de órfãs não apaga */
     keep: { type: Boolean, default: false },
     file: { type: String, required: true },
@@ -26,11 +26,33 @@ const MediaAssetSchema = new Schema(
     /** o que impede (level "erro") ou pode atrapalhar (level "aviso") a publicação */
     problems: { type: [{ _id: false, code: String, level: String, message: String }], default: [] },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    /**
+     * Só em kind "cena" (biblioteca de cenas do Reel com cenas): clipe já normalizado em 1080x1920,
+     * 30 fps, sem áudio. Licença e origem são obrigatórias (ver src/lib/studio/cenas.ts).
+     */
+    scene: {
+      type: {
+        _id: false,
+        category: String,
+        tags: [String],
+        title: String,
+        license: String,
+        licenseLabel: String,
+        sourceUrl: String,
+        author: String,
+        provider: String,
+        externalId: String,
+        poster: String,
+        active: { type: Boolean, default: true },
+      },
+      default: undefined,
+    },
   },
   { timestamps: true }
 );
 
 MediaAssetSchema.plugin(tenantPlugin, { model: "MediaAsset" });
 MediaAssetSchema.index({ organization: 1, file: 1 }, { unique: true });
+MediaAssetSchema.index({ organization: 1, kind: 1, "scene.category": 1 });
 
 export default mongoose.models.MediaAsset || mongoose.model("MediaAsset", MediaAssetSchema);

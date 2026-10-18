@@ -21,18 +21,28 @@ export const studioDir = () => process.env.ESTUDIO_DIR || path.join(/* turbopack
 
 export interface ProcResult { code: number | null; stdout: string; stderr: string; timedOut: boolean }
 /** Roda um programa (sem shell) com entrada opcional e tempo máximo. Encerra pelo PID do filho. */
-export function runProcess(cmd: string, args: string[], opts: { input?: string; timeoutMs?: number; cwd?: string } = {}): Promise<ProcResult> {
+export function runProcess(cmd: string, args: string[], opts: { input?: string; timeoutMs?: number; cwd?: string; onStderrLine?: (line: string) => void; signal?: AbortSignal } = {}): Promise<ProcResult> {
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { cwd: opts.cwd, stdio: ["pipe", "pipe", "pipe"], env: { PATH: process.env.PATH || "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", LANG: "C.UTF-8", PYTHONDONTWRITEBYTECODE: "1" } as unknown as NodeJS.ProcessEnv });
     let stdout = "";
     let stderr = "";
+    let pending = "";
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGKILL");
     }, opts.timeoutMs ?? 120_000);
+    // cancelado por quem chamou (ex.: trabalho cancelado): encerra pelo PID do filho
+    opts.signal?.addEventListener("abort", () => child.kill("SIGKILL"), { once: true });
     child.stdout.on("data", (d) => { if (stdout.length < 4_000_000) stdout += d; });
-    child.stderr.on("data", (d) => { stderr = (stderr + d).slice(-6000); });
+    child.stderr.on("data", (d) => {
+      stderr = (stderr + d).slice(-6000);
+      if (!opts.onStderrLine) return;
+      pending += d;
+      const lines = pending.split("\n");
+      pending = lines.pop() || "";
+      for (const l of lines) opts.onStderrLine(l);
+    });
     child.on("error", (e) => { clearTimeout(timer); resolve({ code: -1, stdout, stderr: String(e.message), timedOut }); });
     child.on("close", (code) => { clearTimeout(timer); resolve({ code, stdout, stderr, timedOut }); });
     child.stdin.on("error", () => {});

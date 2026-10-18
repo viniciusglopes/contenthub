@@ -2,14 +2,17 @@
 /* eslint-disable react-hooks/set-state-in-effect -- aba lida do link e carga inicial */
 
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Clapperboard, GalleryHorizontalEnd, KeyRound, Palette } from "lucide-react";
+import { BarChart3, Clapperboard, Film, GalleryHorizontalEnd, KeyRound, LayoutTemplate, Library, Palette } from "lucide-react";
 import { send } from "@/components/http";
 import type { PostT, ProjectLite } from "@/components/posts/flow";
 import { PURPOSE_KEYS } from "@/lib/studio/catalog";
 import type { CarouselScript } from "@/lib/studio/script";
 import CarouselTab from "./CarouselTab";
 import KeysTab from "./KeysTab";
+import BibliotecaTab from "./BibliotecaTab";
+import CenasTab from "./CenasTab";
 import KitTab from "./KitTab";
+import PadroesTab from "./PadroesTab";
 import ReelTab, { JOB_ACTIVE, type JobT } from "./ReelTab";
 import UsageTab from "./UsageTab";
 import { Notice, linkBtn } from "./shared";
@@ -17,6 +20,9 @@ import { Notice, linkBtn } from "./shared";
 const TABS = [
   { id: "carrossel", label: "Carrossel", icon: GalleryHorizontalEnd },
   { id: "reel", label: "Reel", icon: Clapperboard },
+  { id: "cenas", label: "Reel com cenas", icon: Film },
+  { id: "padroes", label: "Padrões de vídeo", icon: LayoutTemplate },
+  { id: "biblioteca", label: "Biblioteca de cenas", icon: Library },
   { id: "kit", label: "Kit de marca", icon: Palette },
   { id: "chaves", label: "Chaves de IA", icon: KeyRound },
   { id: "uso", label: "Uso e custos", icon: BarChart3 },
@@ -37,6 +43,10 @@ export default function StudioPanel({ projects, selectedProject, onSelectProject
     const a = new URLSearchParams(window.location.search).get("aba");
     if (TABS.some((t) => t.id === a)) setTabState(a as Tab);
   }, []);
+  // no celular as abas rolam de lado: a aba aberta fica à vista
+  useEffect(() => {
+    document.querySelector(`[data-testid="aba-${tab}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [tab]);
   function setTab(t: Tab) {
     setTabState(t);
     const url = new URL(window.location.href);
@@ -102,6 +112,9 @@ export default function StudioPanel({ projects, selectedProject, onSelectProject
 
         {tab === "carrossel" && <CarouselTab key={project} project={project} hasText={Boolean(ai.texto)} script={carousel} setScript={setCarousel} onDraft={(p) => { setSavedPost(p); onDraft(p); }} goKeys={() => setTab("chaves")} />}
         {tab === "reel" && <ReelTab key={project} project={project} ai={ai} carousel={carousel} jobs={jobs} onJobs={loadJobs} onOpenPost={onOpenPost} goKeys={() => setTab("chaves")} />}
+        {tab === "cenas" && <CenasTab key={project} project={project} ai={ai} jobs={jobs} onJobs={loadJobs} onOpenPost={onOpenPost} goTab={setTab} />}
+        {tab === "padroes" && <PadroesTab key={project} project={project} />}
+        {tab === "biblioteca" && <BibliotecaTab />}
         {tab === "kit" && <KitTab key={project} project={project} />}
         {tab === "chaves" && <KeysTab isAdmin={isAdmin} />}
         {tab === "uso" && <UsageTab />}

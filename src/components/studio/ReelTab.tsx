@@ -8,7 +8,7 @@ import { type CarouselScript, LIMITS, type ReelScript, type Scene, carouselToRee
 import { type Confirm, askScript } from "./CarouselTab";
 import { Card, Count, Field, Notice, fmtBrl, fmtUsd, linkBtn, uploadRaw } from "./shared";
 
-export interface JobT { _id: string; kind: string; status: string; title: string; progress: number; step: string; error: string; estimateUsd: number; spentUsd: number; post: string | null; seen: boolean; createdAt: string; seconds: number | null; providers: string[] }
+export interface JobT { _id: string; kind: string; status: string; title: string; progress: number; step: string; error: string; estimateUsd: number; spentUsd: number; post: string | null; seen: boolean; createdAt: string; seconds: number | null; providers: string[]; templateName?: string | null }
 interface Sim { needsConfirm: boolean; message: string; estimateUsd: number; estimateBrl: number; lines: { what: string; usd: number; provider: string }[]; seconds: number; blockers: string[] }
 type Kind = "reel_montado" | "reel_ia";
 export const JOB_ACTIVE = ["queued", "running", "waiting"];
@@ -203,7 +203,7 @@ export default function ReelTab({ project, ai, carousel, jobs, onJobs, onOpenPos
               <li key={j._id} className="py-2 flex items-center gap-3 text-sm">
                 <span className="text-xs text-gray-500 w-24 shrink-0 hidden md:block">{fmtWhen(j.createdAt)}</span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-gray-100 truncate" title={j.title}>{j.title || "Reel"} <span className="text-gray-500 text-xs">· {j.kind === "reel_ia" ? "vídeo de IA" : "montado"}{j.seconds ? ` · ${j.seconds.toLocaleString("pt-BR")} s` : ""}{j.spentUsd > 0 ? ` · ${fmtUsd(j.spentUsd)}` : ""}</span></span>
+                  <span className="block text-gray-100 truncate" title={j.title}>{j.title || "Reel"} <span className="text-gray-500 text-xs">· {j.kind === "reel_ia" ? "vídeo de IA" : j.kind === "reel_cenas" ? "com cenas" : "montado"}{j.seconds ? ` · ${j.seconds.toLocaleString("pt-BR")} s` : ""}{j.spentUsd > 0 ? ` · ${fmtUsd(j.spentUsd)}` : ""}</span></span>
                   {JOB_ACTIVE.includes(j.status) ? (
                     <span className="flex items-center gap-2 mt-1"><span className="h-1.5 flex-1 bg-gray-800 rounded-full overflow-hidden"><span className="block h-full bg-brand-500 transition-all" style={{ width: `${Math.max(4, j.progress)}%` }} /></span><span className="text-xs text-gray-400 whitespace-nowrap">{j.step}</span></span>
                   ) : j.status === "failed" ? <span className="block text-xs text-red-300 truncate" title={j.error}>{j.error}</span> : null}

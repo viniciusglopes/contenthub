@@ -71,7 +71,7 @@ export function sniff(head: Buffer): Sniffed {
 }
 
 /** Grava o corpo do pedido num arquivo temporário da organização, cortando no limite de bytes. */
-async function receive(body: ReadableStream<Uint8Array> | null, org: Org, maxBytes: number): Promise<{ tmp: string; bytes: number }> {
+export async function receive(body: ReadableStream<Uint8Array> | null, org: Org, maxBytes: number): Promise<{ tmp: string; bytes: number }> {
   if (!body) throw new FriendlyError("Nenhum arquivo chegou. Tente de novo.", 400);
   await mkdir(orgDir(org), { recursive: true });
   const tmp = path.join(orgDir(org), `.envio-${randomBytes(12).toString("hex")}`);

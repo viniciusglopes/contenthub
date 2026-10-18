@@ -8,6 +8,11 @@ export const FONT_PAIRS: Record<string, { label: string; titulo: { arquivo: stri
     titulo: { arquivo: "CormorantGaramond-wght.ttf", italico: "CormorantGaramond-Italic-wght.ttf", peso: 600 },
     corpo: { arquivo: "Manrope-wght.ttf", peso: 500 },
   },
+  impacto: {
+    label: "Impacto (Montserrat)",
+    titulo: { arquivo: "Montserrat-wght.ttf", italico: "Montserrat-wght.ttf", peso: 800 },
+    corpo: { arquivo: "Montserrat-wght.ttf", peso: 500 },
+  },
   sem_serifa: {
     label: "Sem serifa forte (Manrope)",
     titulo: { arquivo: "Manrope-wght.ttf", italico: "Manrope-wght.ttf", peso: 700 },

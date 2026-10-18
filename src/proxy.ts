@@ -41,7 +41,8 @@ export function proxy(request: NextRequest) {
 
 // Fora do proxy (o corpo/arquivo não pode ser guardado na memória pelo proxy, que corta em 10 MB):
 //  - /api/uploads  envio de mídia; a sessão é conferida no banco pela própria rota (route("org"))
+//  - /api/estudio/cenas  envio de cena (até 300 MB); mesma conferência pela rota
 //  - /api/media/   arquivo público de mídia (o que a Meta baixa); nome sorteado, sem login
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/uploads$|api/media/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/uploads$|api/estudio/cenas$|api/media/).*)"],
 };

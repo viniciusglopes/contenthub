@@ -43,3 +43,6 @@ next-env.d.ts
 # prints de tela locais
 /.prints/
 /.media/
+
+# Estúdio: bibliotecas Python locais (na imagem vêm do pip)
+/estudio/pylib

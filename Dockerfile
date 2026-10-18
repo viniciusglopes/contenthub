@@ -13,7 +13,12 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 # Estúdio: ffmpeg (montagem do Reel) e Python + Pillow (motor de arte do carrossel e das camadas do Reel).
 # As fontes (SIL OFL) vão junto em /app/estudio/fontes.
-RUN apk add --no-cache ffmpeg python3 py3-pillow
+# Reel com cenas: numpy (escurecimento do fundo) e edge-tts FIXO em 7.3.1 (a 7.2.8 levou 403 da
+# Microsoft em 18/10/2026), instalado só para o motor em /app/estudio/pylib (cenas.py acrescenta ao path).
+RUN apk add --no-cache ffmpeg python3 py3-pillow py3-numpy py3-pip \
+ && pip install --no-cache-dir --break-system-packages --target /app/estudio/pylib edge-tts==7.3.1 \
+ && apk del py3-pip \
+ && python3 -c "import sys; sys.path.insert(0, '/app/estudio/pylib'); import edge_tts, numpy; print('edge-tts', edge_tts.__version__)"
 COPY --chown=nextjs:nodejs estudio ./estudio
 ENV ESTUDIO_DIR=/app/estudio
 COPY --from=builder /app/public ./public

@@ -1,0 +1,182 @@
+{
+ "bg": "hdmoj",
+ "voice": "pt-BR-AntonioNeural",
+ "rate": "-4%",
+ "pitch": "-6Hz",
+ "pad": [
+  110,
+  164.81,
+  220,
+  261.63
+ ],
+ "pad_vol": 0.3,
+ "bar": [
+  245,
+  197,
+  24
+ ],
+ "gap": 50,
+ "brand": {
+  "text": "HORA DE MUDAR O JOGO",
+  "font": "Montserrat-wght.ttf",
+  "var": "SemiBold",
+  "size": 30,
+  "color": [
+   245,
+   197,
+   24
+  ],
+  "rule": true
+ },
+ "handle": {
+  "text": "@horademudarojogo",
+  "font": "Montserrat-wght.ttf",
+  "var": "Medium",
+  "size": 32,
+  "color": [
+   150,
+   150,
+   150
+  ]
+ },
+ "styles": {
+  "hook": {
+   "font": "Montserrat-wght.ttf",
+   "var": "Black",
+   "size": 112,
+   "color": [
+    255,
+    255,
+    255
+   ],
+   "hl": [
+    245,
+    197,
+    24
+   ],
+   "lh": 1.12,
+   "upper": true,
+   "shadow": true
+  },
+  "body": {
+   "font": "Montserrat-wght.ttf",
+   "var": "Bold",
+   "size": 74,
+   "color": [
+    245,
+    245,
+    245
+   ],
+   "hl": [
+    245,
+    197,
+    24
+   ],
+   "lh": 1.22,
+   "shadow": true
+  },
+  "big": {
+   "font": "Montserrat-wght.ttf",
+   "var": "ExtraBold",
+   "size": 92,
+   "color": [
+    255,
+    255,
+    255
+   ],
+   "hl": [
+    245,
+    197,
+    24
+   ],
+   "lh": 1.15,
+   "shadow": true
+  },
+  "num": {
+   "font": "Montserrat-wght.ttf",
+   "var": "Black",
+   "size": 170,
+   "color": [
+    245,
+    197,
+    24
+   ],
+   "hl": [
+    245,
+    197,
+    24
+   ],
+   "lh": 1.0
+  },
+  "small": {
+   "font": "Montserrat-wght.ttf",
+   "var": "Medium",
+   "size": 50,
+   "color": [
+    200,
+    200,
+    200
+   ],
+   "hl": [
+    245,
+    197,
+    24
+   ],
+   "lh": 1.3
+  },
+  "cta": {
+   "font": "Montserrat-wght.ttf",
+   "var": "ExtraBold",
+   "size": 66,
+   "color": [
+    255,
+    255,
+    255
+   ],
+   "hl": [
+    245,
+    197,
+    24
+   ],
+   "lh": 1.22
+  }
+ },
+ "cap": {
+  "font": "Montserrat-wght.ttf",
+  "var": "Black",
+  "size": 104,
+  "color": [
+   255,
+   255,
+   255
+  ],
+  "hl": [
+   245,
+   197,
+   24
+  ],
+  "lh": 1.12,
+  "upper": true,
+  "stroke": 7,
+  "max_words": 3
+ },
+ "grade": {
+  "dim": 0.62,
+  "top": 0.5,
+  "bottom": 0.6,
+  "tint": [
+   1.0,
+   0.96,
+   0.88
+  ]
+ },
+ "zoom": [
+  1.0,
+  1.09
+ ],
+ "card_boost": {
+  "cta": 1.45,
+  "small": 1.3,
+  "big": 1.15
+ }
+}

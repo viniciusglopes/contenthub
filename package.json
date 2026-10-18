@@ -10,7 +10,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "demo:db": "tsx scripts/demo-db.mts",
-    "demo:seed": "tsx scripts/demo-seed.ts"
+    "demo:seed": "tsx scripts/demo-seed.ts",
+    "prebuild": "node scripts/build-help.mjs",
+    "help:build": "node scripts/build-help.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
