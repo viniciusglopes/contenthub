@@ -15,6 +15,9 @@ const OrganizationSchema = new Schema(
     publishEnabled: { type: Boolean, default: false },
     // Responder comentário pelo ContentHub: desligado por padrão; só o administrador da plataforma liga.
     commentReplyEnabled: { type: Boolean, default: false },
+    // Tráfego: pausar, mudar orçamento e criar anúncio pela Meta. Desligado por padrão; só o
+    // administrador da plataforma liga, e só vale com a env TRAFEGO_WRITE_ENABLED=true também.
+    adsWriteEnabled: { type: Boolean, default: false },
     // Classificação por IA (etapa seguinte): ordem dos provedores a tentar, em sequência.
     // As chaves ficam em ApiCredential (criptografadas, uma por serviço por organização).
     ai: {

@@ -29,6 +29,8 @@ interface OrgDetail {
   publishGlobal: boolean;
   commentReplyEnabled: boolean;
   commentReplyGlobal: boolean;
+  adsWriteEnabled: boolean;
+  adsWriteGlobal: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
   invites: PendingInvite[];
@@ -243,6 +245,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [active, setActive] = useState(true);
   const [publishOn, setPublishOn] = useState(false);
   const [replyOn, setReplyOn] = useState(false);
+  const [adsOn, setAdsOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -257,6 +260,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setActive(r.data.active);
     setPublishOn(r.data.publishEnabled);
     setReplyOn(r.data.commentReplyEnabled);
+    setAdsOn(r.data.adsWriteEnabled === true);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -265,7 +269,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -331,6 +335,18 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                     ? "Ligada: a equipe deste cliente pode responder comentários em público daqui (com confirmação e registro de quem respondeu)."
                     : "Desligada: os comentários aparecem para leitura e estudo; responder, só pelo Instagram."}
                   {!d.commentReplyGlobal && " A chave geral do sistema (IG_COMMENT_REPLY_ENABLED) está desligada: mesmo ligando aqui, nenhuma resposta é enviada."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="ads-write-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={adsOn} onChange={(e) => setAdsOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Ações nos anúncios da Meta (Tráfego)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {adsOn
+                    ? "Ligada: o dono deste cliente pode pausar, ativar, mudar orçamento diário e criar anúncio pausado a partir de um post (com confirmação e registro)."
+                    : "Desligada: Tráfego é só leitura para este cliente."}
+                  {!d.adsWriteGlobal && " A chave geral do sistema (TRAFEGO_WRITE_ENABLED) está desligada: mesmo ligando aqui, nada é alterado na Meta."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

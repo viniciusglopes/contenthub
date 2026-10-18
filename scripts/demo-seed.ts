@@ -21,6 +21,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { storeUpload } from "../src/lib/media/store";
 import { historyEntry } from "../src/lib/workflow";
+import { connectAdAccount, syncAdAccount } from "../src/lib/ads/accounts";
+import { refreshCompetitor } from "../src/lib/competitors/competitors";
+import { encrypt } from "../src/lib/crypto";
+import { Competitor, CompetitorProduct } from "../src/models/Competitor";
+import { HouseCredential } from "../src/models/Platform";
 
 const uri = process.env.MONGODB_URI || "";
 if (!/127\.0\.0\.1|localhost/.test(uri) || process.env.IG_MOCK !== "1") {
@@ -143,6 +148,22 @@ async function main() {
   const hdmoj = await Project.create({ organization: home._id, name: "Hora de Mudar o Jogo", slug: "hora-de-mudar-o-jogo", color: "#f5c518", icon: "🔥", platforms: ["instagram", "tiktok"] });
   await Project.create({ organization: home._id, name: "Compre sem Moderação", slug: "compre-sem-moderacao", color: "#ec4899", icon: "🛍️", platforms: ["instagram"] });
   const r1 = await content(home._id, hdmoj._id, ["Reel: 3 hábitos de manhã", "Carrossel: checklist do sim", "Frase do dia", "Reel: recomeçar", "Carrossel: rotina de 20 min", "Reel: constância"], "IGAA-token-de-demonstracao-0001", 12512);
+
+  // Tráfego (Meta simulada) e concorrentes (Business Discovery e YouTube simulados)
+  const adAcc = await connectAdAccount(home._id, { project: String(hdmoj._id), adAccountId: "act_803239545032201", token: "EAAtoken-de-demonstracao-0000000000000001" });
+  await syncAdAccount(home._id, adAcc._id, { days: 120 });
+  await HouseCredential.create({ service: "youtube", credentials: { apiKey: encrypt("AIzaChaveDeDemonstracao00000000000000000") }, purposes: [] });
+  const rivals = await Competitor.create([
+    { organization: home._id, project: hdmoj._id, name: "Concorrente A", instagram: "concorrente_a", youtube: "@concorrentea", facebookPage: "Concorrente A Oficial", notes: "Posta Reels todo dia; puxa para a mentoria de R$ 997." },
+    { organization: home._id, project: hdmoj._id, name: "Mentora B", instagram: "mentora_b", youtube: "@mentorab" },
+    { organization: home._id, project: hdmoj._id, name: "Marca C", instagram: "marca_c", facebookPage: "123456789012345" },
+  ]);
+  for (const c of rivals) await refreshCompetitor(home._id, c);
+  await CompetitorProduct.create([
+    { organization: home._id, project: hdmoj._id, competitor: rivals[0]._id, name: "Mentoria Virada 90", platform: "Hotmart", price: 997, promise: "Mudar de carreira em 90 dias", link: "https://exemplo.com/virada90" },
+    { organization: home._id, project: hdmoj._id, competitor: rivals[1]._id, name: "Curso Rotina de Ouro", platform: "Kiwify", price: 197, promise: "Rotina produtiva em 21 dias" },
+    { organization: home._id, project: hdmoj._id, competitor: rivals[2]._id, name: "E-book Primeiros Passos", platform: "site próprio", price: 27, promise: "Guia de bolso para recomeçar", notes: "Usa como isca para a lista de e-mail" },
+  ]);
 
   // 2) Cliente com marca própria e dados diferentes
   const bella = await Organization.create({ name: "Studio Bella Forma", slug: "bella-forma", brand: { displayName: "Bella Forma", color: "#ec4899", logo: LOGO("B", "#ec4899") } });

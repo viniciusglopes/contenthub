@@ -1,6 +1,7 @@
 import { json, route } from "@/lib/api";
 import { publicBrand } from "@/lib/brand";
 import { FriendlyError, notFound } from "@/lib/errors";
+import { adsWriteGlobal } from "@/lib/ads/write";
 import { publishEnabled } from "@/lib/instagram/publish";
 import { publicInvite } from "@/lib/invites";
 import { applyBrand, audit, publicUser } from "@/lib/orgs";
@@ -30,6 +31,8 @@ export const GET = route("admin", async ({ params, id }) => {
     publishGlobal: publishEnabled(),
     commentReplyEnabled: organization.commentReplyEnabled === true,
     commentReplyGlobal: process.env.IG_COMMENT_REPLY_ENABLED === "true",
+    adsWriteEnabled: organization.adsWriteEnabled === true,
+    adsWriteGlobal: adsWriteGlobal(),
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -61,9 +64,14 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   // Chave de responder comentários pelo ContentHub: mesma regra (só aqui, só o administrador).
   const replyChanged = b.commentReplyEnabled !== undefined && Boolean(b.commentReplyEnabled) !== (organization.commentReplyEnabled === true);
   if (replyChanged) organization.commentReplyEnabled = Boolean(b.commentReplyEnabled);
+  // Ações nos anúncios da Meta (Tráfego): mesma regra, e só valem com TRAFEGO_WRITE_ENABLED=true.
+  const adsChanged = b.adsWriteEnabled !== undefined && Boolean(b.adsWriteEnabled) !== (organization.adsWriteEnabled === true);
+  if (adsChanged) organization.adsWriteEnabled = Boolean(b.adsWriteEnabled);
   await organization.save();
   if (replyChanged)
     await audit({ action: organization.commentReplyEnabled ? "cliente.resposta_comentario_ligada" : "cliente.resposta_comentario_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
+  if (adsChanged)
+    await audit({ action: organization.adsWriteEnabled ? "cliente.acoes_anuncio_ligadas" : "cliente.acoes_anuncio_desligadas", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (publishChanged)
     await audit({ action: organization.publishEnabled ? "cliente.publicacao_ligada" : "cliente.publicacao_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   await audit({
@@ -72,5 +80,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, brand: publicBrand(organization) });
 });

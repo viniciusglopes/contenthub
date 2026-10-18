@@ -65,6 +65,10 @@ contas, chaves de API e dados do Instagram pertencem a uma organização e nunca
 | `IG_PUBLISH_ENABLED` | `true` liga a publicação. Padrão: desligada |
 | `IG_MOCK` | `1` = modo demonstração (Meta simulada). Nunca em produção |
 | `IG_COMMENT_REPLY_ENABLED` | `true` = chave geral de responder comentário pelo ContentHub (padrão: desligada). Ainda precisa da chave do cliente em Admin › Clientes |
+| `TRAFEGO_WRITE_ENABLED` | `true` = chave geral das ações nos anúncios da Meta (pausar, ativar, orçamento diário, criar anúncio pausado). Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes |
+| `META_API_VERSION` | opcional, padrão `v25.0` (Graph API do Facebook: anúncios, Business Discovery, Biblioteca de Anúncios) |
+
+**Tráfego e Concorrentes** (menu): conta de anúncio por projeto com token colado (login do Facebook, `ads_read`), números por anúncio e por dia no período escolhido, candidatos a anúncio pelos posts orgânicos. Concorrentes: Instagram pelo Business Discovery (só existe no host `graph.facebook.com`, usa o token da conta de anúncio com `instagram_basic`, `instagram_manage_insights`, `pages_read_engagement`; no `graph.instagram.com` a Meta responde "nonexisting field"), YouTube pela Data API v3 (chave do cliente em Configurações › APIs, serviço `youtube`, ou chave da casa em `PUT /api/admin/integracoes`), anúncios pelo link da Biblioteca pública (a API `ads_archive` só traz comercial que alcançou a UE) e produtos numa tabela à mão. Rotinas opcionais com `CRON_TOKEN`: `POST /api/trafego/sync` e `POST /api/concorrentes/atualizar`.
 
 `APP_PASSWORD` deixou de existir (era a senha única).
 

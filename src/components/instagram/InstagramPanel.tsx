@@ -69,7 +69,7 @@ interface Payload {
   totals?: { posts: number; oldestPost: string | null };
   demo: boolean;
 }
-interface Selection {
+export interface Selection {
   preset: PeriodPreset;
   de: string;
   ate: string;
@@ -190,7 +190,7 @@ function FollowersLine({ d, period, since }: { d: Delta | null; period: Period; 
 }
 
 /** Seletor de período: atalhos à vista + "Datas" (de/até) na própria tela. O que vale fica no link. */
-function PeriodBar({
+export function PeriodBar({
   sel,
   period,
   busy,
@@ -366,8 +366,8 @@ function ReportBox({ projectId, periodQuery, periodName }: { projectId: string; 
   );
 }
 
-const PRESET_KEYS = new Set(PERIOD_PRESETS.map((p) => p.key));
-const selectionQuery = (s: Selection) =>
+export const PRESET_KEYS = new Set(PERIOD_PRESETS.map((p) => p.key));
+export const selectionQuery = (s: Selection) =>
   s.preset === "datas" ? `de=${s.de}&ate=${s.ate}` : s.preset === DEFAULT_PRESET ? "" : `periodo=${s.preset}`;
 
 export default function InstagramPanel({

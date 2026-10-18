@@ -27,6 +27,14 @@ import StudioJob from "@/models/StudioJob";
 import { setStudioFetch } from "@/lib/studio/providers";
 import { setAutoKick } from "@/lib/studio/jobs";
 import { PALETTE, REEL_CURTO, ROTEIRO_CURTO, studioFake } from "./studio-fake";
+import { setMetaFetch } from "@/lib/ads/client";
+import { metaMockFetch, youtubeMockFetch } from "@/lib/ads/mock";
+import { connectAdAccount, syncAdAccount } from "@/lib/ads/accounts";
+import { setYoutubeFetch } from "@/lib/competitors/youtube";
+import { refreshCompetitor } from "@/lib/competitors/competitors";
+import { Competitor, CompetitorProduct } from "@/models/Competitor";
+import { HouseCredential } from "@/models/Platform";
+import { encrypt } from "@/lib/crypto";
 import { type Call, call, cookieFor, makeOrg, makeUser, setCookieValue, setTestEnv } from "./helpers";
 
 // PROVA DE ISOLAMENTO ENTRE CLIENTES.
@@ -45,7 +53,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const NOW = Date.now();
 
 interface Side {
-  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any;
+  org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any; adAccount: any; adSpare: any; competitor: any; competitorSpare: any; product: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -436,10 +444,125 @@ const CASES: Record<string, Case> = {
   "GET /api/estudio/uso": { access: "org", attack: (t) => [{ path: `/api/estudio/uso?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/estudio/uso" }) },
   "POST /api/estudio/worker": { access: "cron", why: "fila do Estúdio: só com o token de rotina; cada trabalho é processado dentro da organização dele" },
   "GET /api/admin/estudio": { access: "admin", why: "chaves da casa, teto padrão e teto de cada cliente" },
+  "GET /api/admin/integracoes": { access: "admin", why: "chave da casa do YouTube (dados públicos)" },
+  "PUT /api/admin/integracoes": { access: "admin", why: "chave da casa do YouTube (dados públicos)" },
+
+  // ---- Tráfego (Meta Ads, só leitura) — token de anúncio é segredo do cliente
+  "GET /api/trafego/contas": {
+    access: "org",
+    attack: (t) => [{ path: `/api/trafego/contas?project=${t.project._id}`, expect: 200 }, { path: `/api/trafego/contas?organization=${t.org._id}`, expect: 200 }],
+    own: (t) => ({ path: `/api/trafego/contas?project=${t.project._id}` }),
+  },
+  "POST /api/trafego/contas": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/trafego/contas", body: { project: String(t.project._id), adAccountId: "act_3333333333", token: ADS_TOKEN } },
+      // projeto meu, mas a mesma conta de anúncio da BETA: cria a MINHA, não toca na dela
+      { method: "POST", path: "/api/trafego/contas", body: { project: String(me.project._id), adAccountId: t.adAccount.adAccountId, organization: String(t.org._id), token: ADS_TOKEN }, expect: 201 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/trafego/contas", body: { project: String(t.project._id), adAccountId: "act_4444444444", token: ADS_TOKEN }, expect: 201 }),
+  },
+  "PUT /api/trafego/contas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/trafego/contas/x", params: { id: String(t.adAccount._id) }, body: { active: false, igUserId: "" } }],
+    own: (t) => ({ method: "PUT", path: "/api/trafego/contas/x", params: { id: String(t.adAccount._id) }, body: { active: true } }),
+  },
+  "DELETE /api/trafego/contas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/trafego/contas/x", params: { id: String(t.adAccount._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/trafego/contas/x", params: { id: String(t.adSpare._id) } }),
+  },
+  "POST /api/trafego/sync": {
+    access: "org+cron",
+    attack: (t) => [
+      { method: "POST", path: "/api/trafego/sync", body: { account: String(t.adAccount._id) } },
+      { method: "POST", path: "/api/trafego/sync", body: { account: String(t.adAccount._id), dias: 365 } },
+      // pelo projeto do outro: nenhuma conta é buscada
+      { method: "POST", path: "/api/trafego/sync", body: { project: String(t.project._id), organization: String(t.org._id) }, expect: 200 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/trafego/sync", body: { account: String(t.adAccount._id) } }),
+  },
+  "GET /api/trafego/painel": {
+    access: "org",
+    attack: (t, me) => [
+      { path: `/api/trafego/painel?project=${t.project._id}` },
+      { path: `/api/trafego/painel?project=${me.project._id}&account=${t.adAccount._id}&dias=90` },
+    ],
+    own: (t) => ({ path: `/api/trafego/painel?project=${t.project._id}&dias=7` }),
+  },
+  "POST /api/trafego/acoes": {
+    access: "owner",
+    // duas chaves desligadas: 403 antes de ler qualquer coisa (ligadas, o id do outro dá 404: trafego.test.ts)
+    attack: (t) => [{ method: "POST", path: "/api/trafego/acoes", body: { account: String(t.adAccount._id), level: "campaign", id: "120200000000001", action: "pause", confirm: true }, expect: 403 }],
+    own: (t) => ({ method: "POST", path: "/api/trafego/acoes", body: { account: String(t.adAccount._id), level: "campaign", id: "120200000000001", action: "pause", confirm: true }, expect: 403 }),
+  },
+
+  // ---- Concorrentes
+  "GET /api/concorrentes": {
+    access: "org",
+    attack: (t) => [{ path: `/api/concorrentes?project=${t.project._id}` }],
+    own: (t) => ({ path: `/api/concorrentes?project=${t.project._id}` }),
+  },
+  "POST /api/concorrentes": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/concorrentes", body: { project: String(t.project._id), name: "Intruso", instagram: "intruso" } }],
+    own: (t) => ({ method: "POST", path: "/api/concorrentes", body: { project: String(t.project._id), name: "Concorrente Alfa Dois", instagram: "marca_c" }, expect: 201 }),
+  },
+  "PUT /api/concorrentes/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/concorrentes/x", params: { id: String(t.competitor._id) }, body: { name: "Invadido" } }],
+    own: (t) => ({ method: "PUT", path: "/api/concorrentes/x", params: { id: String(t.competitor._id) }, body: { notes: "ok" } }),
+  },
+  "DELETE /api/concorrentes/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/concorrentes/x", params: { id: String(t.competitor._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/concorrentes/x", params: { id: String(t.competitorSpare._id) } }),
+  },
+  "POST /api/concorrentes/[id]/anuncios": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/concorrentes/x/anuncios", params: { id: String(t.competitor._id) } }],
+    own: (t) => ({ method: "POST", path: "/api/concorrentes/x/anuncios", params: { id: String(t.competitor._id) } }),
+  },
+  "POST /api/concorrentes/atualizar": {
+    access: "org+cron",
+    attack: (t) => [
+      { method: "POST", path: "/api/concorrentes/atualizar", body: { competitor: String(t.competitor._id) } },
+      { method: "POST", path: "/api/concorrentes/atualizar", body: { project: String(t.project._id) }, expect: 200 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/concorrentes/atualizar", body: { competitor: String(t.competitor._id) } }),
+  },
+  "GET /api/concorrentes/produtos": {
+    access: "org",
+    attack: (t) => [{ path: `/api/concorrentes/produtos?project=${t.project._id}` }],
+    own: (t) => ({ path: `/api/concorrentes/produtos?project=${t.project._id}` }),
+  },
+  "POST /api/concorrentes/produtos": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/concorrentes/produtos", body: { project: String(t.project._id), name: "Produto intruso" } },
+      // produto no meu projeto ligado ao concorrente da BETA
+      { method: "POST", path: "/api/concorrentes/produtos", body: { project: String(me.project._id), name: "Produto intruso", competitor: String(t.competitor._id) } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/concorrentes/produtos", body: { project: String(t.project._id), name: "Curso Alfa", price: "197,00", competitor: String(t.competitor._id) }, expect: 201 }),
+  },
+  "PUT /api/concorrentes/produtos/[id]": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "PUT", path: "/api/concorrentes/produtos/x", params: { id: String(t.product._id) }, body: { price: 1 } },
+      { method: "PUT", path: "/api/concorrentes/produtos/x", params: { id: String(me.product._id) }, body: { competitor: String(t.competitor._id) } },
+    ],
+    own: (t) => ({ method: "PUT", path: "/api/concorrentes/produtos/x", params: { id: String(t.product._id) }, body: { price: "297" } }),
+  },
+  "DELETE /api/concorrentes/produtos/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/concorrentes/produtos/x", params: { id: String(t.product._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/concorrentes/produtos/x", params: { id: String(t.product._id) } }),
+  },
   "PUT /api/admin/estudio": { access: "admin", why: "chaves da casa, teto padrão e teto de cada cliente" },
 };
 
 const MEDIA_ID = "1800000000000100";
+const ADS_TOKEN = "EAAtoken-de-teste-do-simulador-0000000000001";
 
 function post(project: string) {
   return { project, title: "Post de ataque", format: "reel", platforms: ["instagram"], scheduledDate: "2026-10-20", scheduledTime: "09:00" };
@@ -500,7 +623,16 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   const kit = await BrandKit.create({ organization: o, project: project._id, name: `Kit secreto ${label}`, handle: `@kit${tag}`, logo: logo._id });
   const job = await StudioJob.create({ organization: o, project: project._id, kind: "reel_montado", title: `Reel secreto ${label}`, input: { script: REEL_CURTO }, runAfter: new Date(NOW + 86_400_000) });
   const usage = await AiUsage.create({ organization: o, at: new Date(NOW), purpose: "texto", service: "anthropic", what: `uso-${tag}`, costUsd: 0.01, costBrl: 0.05, fxRate: 5 });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage };
+  // Tráfego e concorrentes: conta de anúncio sincronizada, uma sobrando (para o controle do DELETE),
+  // concorrentes lidos (Instagram pelo Business Discovery simulado, YouTube simulado) e um produto
+  const adAccount = await connectAdAccount(o, { project: String(project._id), adAccountId: tag === "beta" ? "act_2222222222" : "act_1111111111", token: `${ADS_TOKEN}${tag}` });
+  await syncAdAccount(o, adAccount._id, { now: NOW - 1_600_000 });
+  const adSpare = await connectAdAccount(o, { project: String(project._id), adAccountId: tag === "beta" ? "act_2222222229" : "act_1111111119", token: ADS_TOKEN });
+  const competitor = await Competitor.create({ organization: o, project: project._id, name: `Concorrente secreto ${label}`, instagram: "concorrente_a", youtube: "@concorrentea", facebookPage: `Pagina ${label}` });
+  await refreshCompetitor(o, competitor, NOW - 1_500_000);
+  const competitorSpare = await Competitor.create({ organization: o, project: project._id, name: `Concorrente sobrando ${label}`, instagram: "mentora_b" });
+  const product = await CompetitorProduct.create({ organization: o, project: project._id, competitor: competitor._id, name: `Produto secreto ${label}`, price: 97 });
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -523,6 +655,7 @@ function markers(side: Side): string[] {
     side.owner.email, side.member.email, "convidado@beta.test", "Chave Beta", "OpenAI Beta", side.inviteToken,
     String(side.asset._id), side.asset.file, "foto-beta.jpg", String(side.comment._id),
     String(side.kit._id), "Kit secreto Beta", "@kitbeta", String(side.job._id), "Reel secreto Beta", String(side.logo._id), side.logo.file, "logo-beta.png", String(side.usage._id), "uso-beta",
+    String(side.adAccount._id), String(side.adSpare._id), `${ADS_TOKEN}beta`, String(side.competitor._id), "Concorrente secreto Beta", String(side.competitorSpare._id), "Concorrente sobrando Beta", "Pagina Beta", String(side.product._id), "Produto secreto Beta",
   ];
 }
 
@@ -536,11 +669,15 @@ beforeAll(async () => {
   const ai = studioFake();
   ai.text["*"] = JSON.stringify({ temas: ["Como cuidar da escova de dentes", "O que observar antes de clarear", "Por que a gengiva sangra ao escovar"] });
   setStudioFetch(ai.fetch);
+  setMetaFetch(metaMockFetch(() => NOW));
+  setYoutubeFetch(youtubeMockFetch(() => NOW));
   setAutoKick(false);
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri("isolamento"));
   w.adminOrg = await makeOrg("Vínculo Digital", "vinculo-digital");
   w.admin = await makeUser(w.adminOrg._id, "platform_admin", "admin@plataforma.test");
+  // chave da casa do YouTube (simulado): os concorrentes das duas organizações leem o canal
+  await HouseCredential.create({ service: "youtube", credentials: { apiKey: encrypt("AIzaChaveDeTesteDoSimulador000000000000") }, purposes: [] });
   w.A = await seedSide("alfa", "Alfa");
   w.B = await seedSide("beta", "Beta");
 
@@ -560,6 +697,8 @@ beforeAll(async () => {
 afterAll(async () => {
   setFetchOverride(null);
   setStudioFetch(null);
+  setMetaFetch(null);
+  setYoutubeFetch(null);
   await mongoose.disconnect();
   await mongo.stop();
   delete process.env.MEDIA_DIR;
@@ -597,7 +736,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["AiUsage", "ApiCredential", "BrandKit", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "BrandKit", "Competitor", "CompetitorDaily", "CompetitorProduct", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação
