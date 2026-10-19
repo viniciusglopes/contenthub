@@ -8,4 +8,7 @@ export async function register() {
   // Automações do direct: o laço só trabalha com AUTOMACOES_ENABLED=true (confere a cada volta).
   const { startAutomationLoop } = await import("@/lib/automations/engine");
   startAutomationLoop();
+  // CRM: avisos dos formulários da Meta; só trabalha com CRM_LEAD_ADS_ENABLED=true.
+  const { startLeadAdsLoop } = await import("@/lib/crm/leadads");
+  startLeadAdsLoop();
 }

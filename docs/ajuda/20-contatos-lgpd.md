@@ -42,3 +42,7 @@ Se a pessoa pedir para apagar os dados dela:
 **O que você deve ver:** o contato some da lista e o @ e o texto dele são apagados das execuções.
 
 > Você (o cliente) é quem decide para que usa os contatos; o ContentHub guarda e processa por você. Use os dados só para o que está no texto de consentimento.
+
+## Contatos e CRM
+
+Contato que entra no funil vira **lead** e aparece no [CRM](artigo:crm). Lá ficam também os leads que não vieram do Instagram (formulário da Meta, página de captura, planilha, cadastro à mão). Excluir a pedido em qualquer um dos dois lugares apaga a pessoa dos dois.

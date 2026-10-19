@@ -17,6 +17,7 @@ export interface AutomationT {
   dm: { text: string; buttons: Btn[]; quickReplies: QR[] };
   ask: { enabled: boolean; field: "email" | "phone"; buttonTitle: string; consentText: string; question: string; thanks: string; defaultConsent: string; defaultQuestion: string };
   tags: string[]; active: boolean; dryRun: boolean;
+  crm: { enabled: boolean; pipeline: string; stage: string; owner: string; tags: string[] };
   stats: { matched?: number; publicSent?: number; dmSent?: number; dryRuns?: number; skipped?: number; failed?: number; clicks?: number; leads?: number; lastRunAt?: string | null };
 }
 interface Overview { switch: { global: boolean; org: boolean; on: boolean; message: string }; hourlyCap: number; accounts: { _id: string; username: string; project: string; active: boolean }[]; automations: AutomationT[] }
@@ -47,7 +48,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   partial: { label: "parcial", cls: "bg-amber-500/15 text-amber-200" },
   sent: { label: "enviado", cls: "bg-green-500/15 text-green-300" },
 };
-const STEP_PT: Record<string, string> = { erro: "Erro", public_reply: "Resposta pública", private_reply: "DM do comentário", dm: "Mensagem no direct", tag: "Etiqueta", ask: "Pedido", consent: "Consentimento", lead: "Contato", optout: "Parar" };
+const STEP_PT: Record<string, string> = { erro: "Erro", public_reply: "Resposta pública", private_reply: "DM do comentário", dm: "Mensagem no direct", tag: "Etiqueta", ask: "Pedido", consent: "Consentimento", lead: "Contato", optout: "Parar", crm: "CRM" };
 const TRIGGER_PT: Record<string, string> = { comment: "comentário", dm: "direct", postback: "botão", quick_reply: "resposta rápida", input: "resposta" };
 
 function summary(a: AutomationT): string {
@@ -64,7 +65,9 @@ const blank = (account: string): Form => ({
   account, name: "", trigger: { kind: "comment", scope: "next", mediaIds: [], nextAfter: null, keywords: [], match: "word", anyText: false },
   publicReplies: ["", "", ""], dm: { text: "", buttons: [{ kind: "url", title: "", url: "", replyText: "", tag: "" }], quickReplies: [] },
   ask: { enabled: false, field: "email", buttonTitle: "Quero receber", consentText: "", question: "", thanks: "", defaultConsent: "", defaultQuestion: "" }, tags: [],
+  crm: { enabled: false, pipeline: "", stage: "", owner: "", tags: [] },
 });
+interface CrmOpts { pipelines: { _id: string; name: string; stages: { key: string; name: string; kind: string }[] }[]; team: { _id: string; name: string }[] }
 
 function StepTitle({ n, title, help }: { n: number; title: string; help?: React.ReactNode }) {
   return (
@@ -79,6 +82,10 @@ function AutomationForm({ initial, accounts, onDone, onCancel }: { initial: Form
   const [f, setF] = useState<Form>(() => ({ ...initial, publicReplies: [...initial.publicReplies, "", "", ""].slice(0, 3) }));
   const [kw, setKw] = useState(initial.trigger.keywords.join(", "));
   const [tags, setTags] = useState(initial.tags.join(", "));
+  const [crm, setCrm] = useState({ ...(initial.crm || blank("").crm), tags: (initial.crm?.tags || []).join(", ") });
+  const [crmOpts, setCrmOpts] = useState<CrmOpts | null>(null);
+  useEffect(() => { send<CrmOpts>("GET", "/api/crm/opcoes").then((r) => setCrmOpts(r.ok ? r.data : null)); }, []);
+  const crmPipe = crmOpts?.pipelines.find((p) => p._id === crm.pipeline) || crmOpts?.pipelines[0];
   const [media, setMedia] = useState<Media[] | null>(null);
   const [err, setErr] = useState<{ msg: string; field?: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -101,6 +108,7 @@ function AutomationForm({ initial, accounts, onDone, onCancel }: { initial: Form
       account: f.account, name: f.name, trigger: { ...t, keywords: kw }, publicReplies: f.publicReplies.filter((s) => s.trim()),
       dm: { text: f.dm.text, buttons: f.dm.buttons.filter((b) => b.title || b.url || b.replyText), quickReplies: f.dm.quickReplies.filter((q) => q.title) },
       ask: f.ask, tags,
+      crm: { ...crm, pipeline: crm.pipeline || null, owner: crm.owner || null },
     };
     const r = f._id ? await send("PUT", `/api/automacoes/${f._id}`, body) : await send("POST", "/api/automacoes", body);
     setBusy(false);
@@ -239,6 +247,20 @@ function AutomationForm({ initial, accounts, onDone, onCancel }: { initial: Form
         <section className="space-y-2">
           <StepTitle n={t.kind === "comment" ? 5 : 4} title="Etiqueta no contato" />
           <Field label="Etiquetas (separe por vírgula)" error={fe("tags")}><input className={input} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ebook, lead-quente" /></Field>
+        </section>
+
+        <section className="space-y-2" data-testid="automacao-crm">
+          <StepTitle n={t.kind === "comment" ? 6 : 5} title="Enviar para o CRM (opcional)" help={<HelpDot id="crm-entradas" label="Automação no CRM" />} />
+          <label className="flex items-center gap-2 text-sm text-gray-200"><input type="checkbox" checked={crm.enabled} onChange={(e) => setCrm({ ...crm, enabled: e.target.checked })} className="accent-[var(--brand-500)]" /> Quem disparar esta automação vira lead no funil</label>
+          {crm.enabled && crmOpts && (
+            <div className="grid sm:grid-cols-4 gap-3">
+              {crmOpts.pipelines.length > 1 && <Field label="Funil"><select className={input} value={crmPipe?._id} onChange={(e) => setCrm({ ...crm, pipeline: e.target.value, stage: "" })}>{crmOpts.pipelines.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}</select></Field>}
+              <Field label="Etapa" error={fe("stage")}><select className={input} value={crm.stage} onChange={(e) => setCrm({ ...crm, stage: e.target.value })}><option value="">{crmPipe?.stages.find((x) => x.kind === "open")?.name}</option>{crmPipe?.stages.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}</select></Field>
+              <Field label="Responsável" error={fe("owner")}><select className={input} value={crm.owner} onChange={(e) => setCrm({ ...crm, owner: e.target.value })}><option value="">Ninguém</option>{crmOpts.team.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}</select></Field>
+              <Field label="Etiquetas no CRM"><input className={input} value={crm.tags} onChange={(e) => setCrm({ ...crm, tags: e.target.value })} placeholder="quente" /></Field>
+            </div>
+          )}
+          {crm.enabled && <p className="text-[11px] text-gray-500">Vale também no modo ensaio (não manda nada para o Instagram). Quem já é lead não muda de etapa: só ganha as etiquetas e o último toque.</p>}
         </section>
 
         {err && !err.field && <p className="text-xs text-red-400" role="alert">{err.msg}</p>}

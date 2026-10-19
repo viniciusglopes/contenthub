@@ -179,7 +179,8 @@ describe("comentou PALAVRA", () => {
     expect(m.recipient).toEqual({ comment_id: "17850000000000100" });
     const btn = m.message.attachment.payload.buttons[0];
     expect(m.message.attachment.payload).toMatchObject({ template_type: "button", text: "Aqui está o seu ebook" });
-    expect(btn.url).toMatch(new RegExp(`^https://contenthub\\.exemplo\\.test/api/r/${A.org._id}/[\\w-]{11}$`));
+    // ?k= é a chave opaca do contato (CRM: o clique entra na linha do tempo dele), nunca dado pessoal
+    expect(btn.url).toMatch(new RegExp(`^https://contenthub\\.exemplo\\.test/api/r/${A.org._id}/[\\w-]{11}\\?k=[\\w-]{12}$`));
     // nunca tag de mensagem (HUMAN_AGENT exige análise e humano)
     for (const s of fake.messages) expect(Object.keys(s.params).sort()).toEqual(["access_token", "message", "recipient"]);
     const contact: any = await Contact.findOne({ organization: A.org._id, igsid: "9100" }).lean();
@@ -190,7 +191,7 @@ describe("comentou PALAVRA", () => {
     const stats: any = (await Automation.findOne({ _id: a._id, organization: A.org._id }).lean<any>()).stats;
     expect([stats.matched, stats.publicSent, stats.dmSent]).toEqual([4, 4, 4]);
     // clique no link: conta e redireciona
-    const code = btn.url.split("/").pop();
+    const code = btn.url.split("/").pop().split("?")[0];
     const click = await call(redirect.GET, { path: btn.url.replace("https://contenthub.exemplo.test", ""), params: { org: String(A.org._id), code } });
     expect([click.status, click.headers.get("location")]).toEqual([302, "https://exemplo.com.br/ebook.pdf"]);
     expect((await call(redirect.GET, { path: "/api/r/x/y", params: { org: String(B.org._id), code } })).status).toBe(404);
@@ -384,7 +385,7 @@ describe("telas e permissões", () => {
     expect((await call(assinar.POST, { method: "POST", path: "/api/automacoes/assinar", cookie: A.cookie, body: { account: String(A.account._id) } })).status).toBe(403);
     process.env.AUTOMACOES_ENABLED = "true";
     const sub = await call(assinar.POST, { method: "POST", path: "/api/automacoes/assinar", cookie: A.cookie, body: { account: String(A.account._id) } });
-    expect([sub.status, fake.subscribed.at(-1)]).toEqual([200, "comments,messages,messaging_postbacks"]);
+    expect([sub.status, fake.subscribed.at(-1)]).toEqual([200, "comments,messages,messaging_postbacks,messaging_referral"]);
   });
 
   it("contato: etiquetas, campos e exclusão a pedido (LGPD) que limpa o log", async () => {

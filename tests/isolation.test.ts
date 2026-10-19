@@ -38,6 +38,8 @@ import { Competitor, CompetitorProduct } from "@/models/Competitor";
 import { HouseCredential } from "@/models/Platform";
 import { encrypt } from "@/lib/crypto";
 import { Automation, AutomationCounter, AutomationEvent, AutomationLedger, AutomationRun, Contact, TrackedLink } from "@/models/Automation";
+import { CaptureRate, ConsentLog, LeadAdsEvent, LeadAdsPage, LeadCapture, LeadEvent, LeadTask, Pipeline } from "@/models/Crm";
+import { DEFAULT_STAGES } from "@/lib/crm/pure";
 import { type Call, call, cookieFor, makeOrg, makeUser, setCookieValue, setTestEnv } from "./helpers";
 
 // PROVA DE ISOLAMENTO ENTRE CLIENTES.
@@ -58,6 +60,7 @@ const NOW = Date.now();
 interface Side {
   org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any; adAccount: any; adSpare: any; competitor: any; competitorSpare: any; product: any; scene: any; template: any; cenasJob: any;
   automation: any; automationSpare: any; contact: any; contactSpare: any; run: any; link: any;
+  pipeline: any; pipelineSpare: any; leadSpare: any; task: any; taskSpare: any; capture: any; captureSpare: any; page: any; pageSpare: any; leadDup: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -702,6 +705,167 @@ const CASES: Record<string, Case> = {
     attack: (t) => [{ method: "DELETE", path: "/api/contatos/x", params: { id: String(t.contact._id) } }],
     own: (t) => ({ method: "DELETE", path: "/api/contatos/x", params: { id: String(t.contactSpare._id) } }),
   },
+
+  // ---- CRM de leads
+  "GET /api/captura/[org]/[code]": { access: "public", why: "formulário de captura: código sorteado de 64 bits dentro da organização; devolve só a ficha anti-robô e o texto de consentimento (crm.test.ts)" },
+  "POST /api/captura/[org]/[code]": { access: "public", why: "formulário de captura: ficha assinada, isca, teto por IP, consentimento; responde só ok/erro/para onde ir, nunca dado do cliente (crm.test.ts)" },
+  "GET /api/crm/lead-ads/webhook": { access: "public", why: "verificação da Meta: só devolve o hub.challenge com LEAD_ADS_VERIFY_TOKEN certo (crm.test.ts)" },
+  "POST /api/crm/lead-ads/webhook": { access: "public", why: "quem chama é a Meta: corpo assinado (META_APP_SECRET) conferido antes de tudo; acha a Página pelo page_id e grava na organização dela; não devolve dado de cliente (crm.test.ts)" },
+  "GET /api/crm/leads": {
+    access: "org",
+    attack: (t) => [
+      { path: `/api/crm/leads?funil=${t.pipeline._id}` },
+      { path: `/api/crm/leads?funil=${t.pipeline._id}&formato=csv` },
+      { path: `/api/crm/leads?responsavel=${t.owner._id}&campanha=campbeta&q=Beta`, expect: 200 },
+      { path: `/api/crm/leads?organization=${t.org._id}&etiqueta=cliente-beta`, expect: 200 },
+    ],
+    own: (t) => ({ path: `/api/crm/leads?funil=${t.pipeline._id}` }),
+  },
+  "POST /api/crm/leads": {
+    access: "org",
+    attack: (t) => [
+      { method: "POST", path: "/api/crm/leads", body: { name: "Intruso", pipeline: String(t.pipeline._id) } },
+      { method: "POST", path: "/api/crm/leads", body: { name: "Intruso", owner: String(t.owner._id) }, expect: 400 },
+      // mesmo telefone de um lead da BETA: vira lead NOVO da ALFA (o dedupe nunca cruza clientes)
+      { method: "POST", path: "/api/crm/leads", body: { name: "Mesmo telefone", phone: "11 98888-7777", consent: true, consentBasis: "teste de isolamento", organization: String(t.org._id) }, expect: [200, 201] },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/crm/leads", body: { name: "Lead Alfa Novo", pipeline: String(t.pipeline._id), owner: String(t.member._id) }, expect: 201 }),
+  },
+  "GET /api/crm/leads/[id]": {
+    access: "org",
+    attack: (t) => [{ path: "/api/crm/leads/x", params: { id: String(t.contact._id) } }],
+    own: (t) => ({ path: "/api/crm/leads/x", params: { id: String(t.contact._id) } }),
+  },
+  "PUT /api/crm/leads/[id]": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "PUT", path: "/api/crm/leads/x", params: { id: String(t.contact._id) }, body: { stage: "ganhou" } },
+      { method: "PUT", path: "/api/crm/leads/x", params: { id: String(me.contact._id) }, body: { owner: String(t.owner._id) }, expect: 400 },
+      { method: "PUT", path: "/api/crm/leads/x", params: { id: String(me.contact._id) }, body: { stage: "novo", pipeline: String(t.pipeline._id) } },
+    ],
+    own: (t) => ({ method: "PUT", path: "/api/crm/leads/x", params: { id: String(t.contact._id) }, body: { stage: "ganhou", value: "999", owner: String(t.member._id) } }),
+  },
+  "DELETE /api/crm/leads/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/crm/leads/x", params: { id: String(t.leadSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/crm/leads/x", params: { id: String(t.leadSpare._id) } }),
+  },
+  "GET /api/crm/leads/[id]/exportar": {
+    access: "owner",
+    attack: (t) => [{ path: "/api/crm/leads/x/exportar", params: { id: String(t.contact._id) } }],
+    own: (t) => ({ path: "/api/crm/leads/x/exportar", params: { id: String(t.contact._id) } }),
+  },
+  "POST /api/crm/leads/[id]/notas": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/crm/leads/x/notas", params: { id: String(t.contact._id) }, body: { text: "intrusa" } }],
+    own: (t) => ({ method: "POST", path: "/api/crm/leads/x/notas", params: { id: String(t.contact._id) }, body: { text: "nota da alfa" }, expect: 201 }),
+  },
+  "POST /api/crm/leads/[id]/tarefas": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/crm/leads/x/tarefas", params: { id: String(t.contact._id) }, body: { title: "intrusa" } },
+      { method: "POST", path: "/api/crm/leads/x/tarefas", params: { id: String(me.contact._id) }, body: { title: "para a beta", assignee: String(t.owner._id) }, expect: 400 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/crm/leads/x/tarefas", params: { id: String(t.contact._id) }, body: { title: "Ligar" }, expect: 201 }),
+  },
+  "POST /api/crm/leads/[id]/mesclar": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "POST", path: "/api/crm/leads/x/mesclar", params: { id: String(me.contact._id) }, body: { other: String(t.leadSpare._id) } },
+      { method: "POST", path: "/api/crm/leads/x/mesclar", params: { id: String(t.contact._id) }, body: { other: String(me.contactSpare._id) } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/crm/leads/x/mesclar", params: { id: String(t.contact._id) }, body: { other: String(t.leadDup._id) } }),
+  },
+  "GET /api/crm/tarefas": { access: "org", attack: (t) => [{ path: `/api/crm/tarefas?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/crm/tarefas" }) },
+  "PUT /api/crm/tarefas/[id]": {
+    access: "org",
+    attack: (t, me) => [
+      { method: "PUT", path: "/api/crm/tarefas/x", params: { id: String(t.task._id) }, body: { done: true } },
+      { method: "PUT", path: "/api/crm/tarefas/x", params: { id: String(me.task._id) }, body: { assignee: String(t.owner._id) }, expect: 400 },
+    ],
+    own: (t) => ({ method: "PUT", path: "/api/crm/tarefas/x", params: { id: String(t.task._id) }, body: { done: true } }),
+  },
+  "DELETE /api/crm/tarefas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/crm/tarefas/x", params: { id: String(t.taskSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/crm/tarefas/x", params: { id: String(t.taskSpare._id) } }),
+  },
+  "GET /api/crm/funis": { access: "org", attack: (t) => [{ path: `/api/crm/funis?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/crm/funis" }) },
+  "POST /api/crm/funis": {
+    access: "owner",
+    attack: (t) => [{ method: "POST", path: "/api/crm/funis", body: { name: "Funil da Alfa (ataque)", organization: String(t.org._id) }, expect: [201, 400] }],
+    own: () => ({ method: "POST", path: "/api/crm/funis", body: { name: "Pós-venda Alfa" }, expect: 201 }),
+  },
+  "PUT /api/crm/funis/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "PUT", path: "/api/crm/funis/x", params: { id: String(t.pipeline._id) }, body: { name: "Invadido", stages: [{ name: "Só uma" }] } }],
+    own: (t) => ({ method: "PUT", path: "/api/crm/funis/x", params: { id: String(t.pipelineSpare._id) }, body: { name: "Funil Alfa renomeado" } }),
+  },
+  "DELETE /api/crm/funis/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/crm/funis/x", params: { id: String(t.pipelineSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/crm/funis/x", params: { id: String(t.pipelineSpare._id) } }),
+  },
+  "GET /api/crm/opcoes": { access: "org", attack: (t) => [{ path: `/api/crm/opcoes?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/crm/opcoes" }) },
+  "POST /api/crm/importar": {
+    access: "org",
+    attack: (t) => [
+      { method: "POST", path: "/api/crm/importar", body: { csv: "nome,telefone\nX,11 98888-7777\n", pipeline: String(t.pipeline._id), commit: true } },
+      { method: "POST", path: "/api/crm/importar", body: { csv: "nome\nX\n", owner: String(t.owner._id), commit: true }, expect: 400 },
+      // prévia com o telefone de um lead da BETA: aparece como NOVO (não acha nada do outro cliente)
+      { method: "POST", path: "/api/crm/importar", body: { csv: "nome,telefone\nX,11 98888-7777\n" }, expect: 200 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/crm/importar", body: { csv: "nome,email\nPlanilha Alfa,planilha@alfa.test\n", pipeline: String(t.pipeline._id), consent: true, consentBasis: "inscritos", commit: true } }),
+  },
+  "GET /api/crm/relatorios": {
+    access: "org",
+    attack: (t) => [{ path: `/api/crm/relatorios?agrupar=campanha&organization=${t.org._id}`, expect: 200 }, { path: "/api/crm/relatorios?agrupar=origem&formato=csv", expect: 200 }],
+    own: () => ({ path: "/api/crm/relatorios?agrupar=campanha" }),
+  },
+  "GET /api/crm/capturas": { access: "org", attack: (t) => [{ path: `/api/crm/capturas?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/crm/capturas" }) },
+  "POST /api/crm/capturas": {
+    access: "org",
+    attack: (t) => [
+      { method: "POST", path: "/api/crm/capturas", body: { name: "Intrusa", pipeline: String(t.pipeline._id) } },
+      { method: "POST", path: "/api/crm/capturas", body: { name: "Intrusa", owner: String(t.owner._id) }, expect: 400 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/crm/capturas", body: { name: "Captura Alfa Dois", pipeline: String(t.pipeline._id) }, expect: 201 }),
+  },
+  "PUT /api/crm/capturas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/crm/capturas/x", params: { id: String(t.capture._id) }, body: { name: "Invadida", active: false } }],
+    own: (t) => ({ method: "PUT", path: "/api/crm/capturas/x", params: { id: String(t.capture._id) }, body: { name: "Captura Alfa renomeada" } }),
+  },
+  "DELETE /api/crm/capturas/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/crm/capturas/x", params: { id: String(t.captureSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/crm/capturas/x", params: { id: String(t.captureSpare._id) } }),
+  },
+  "GET /api/crm/lead-ads": { access: "org", attack: (t) => [{ path: `/api/crm/lead-ads?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/crm/lead-ads" }) },
+  "POST /api/crm/lead-ads/paginas": {
+    access: "owner",
+    attack: (t) => [{ method: "POST", path: "/api/crm/lead-ads/paginas", body: { pageId: t.page.pageId, token: "token-colado-pela-alfa-000000", pipeline: String(t.pipeline._id) } }],
+    own: (t) => ({ method: "POST", path: "/api/crm/lead-ads/paginas", body: { pageId: "990000000099", token: "token-colado-pela-alfa-000000", pipeline: String(t.pipeline._id) }, expect: 201 }),
+  },
+  "PUT /api/crm/lead-ads/paginas/[id]": {
+    access: "owner",
+    attack: (t, me) => [
+      { method: "PUT", path: "/api/crm/lead-ads/paginas/x", params: { id: String(t.page._id) }, body: { active: false } },
+      { method: "PUT", path: "/api/crm/lead-ads/paginas/x", params: { id: String(me.page._id) }, body: { owner: String(t.owner._id) }, expect: 400 },
+    ],
+    own: (t) => ({ method: "PUT", path: "/api/crm/lead-ads/paginas/x", params: { id: String(t.page._id) }, body: { tags: ["meta"] } }),
+  },
+  "DELETE /api/crm/lead-ads/paginas/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/crm/lead-ads/paginas/x", params: { id: String(t.pageSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/crm/lead-ads/paginas/x", params: { id: String(t.pageSpare._id) } }),
+  },
+  "POST /api/crm/lead-ads/processar": {
+    access: "org+cron",
+    // chaves desligadas neste mundo: não roda nem para a própria organização
+    attack: (t) => [{ method: "POST", path: "/api/crm/lead-ads/processar", body: { organization: String(t.org._id) }, expect: 200 }],
+    own: () => ({ method: "POST", path: "/api/crm/lead-ads/processar" }),
+  },
 };
 
 const MEDIA_ID = "1800000000000100";
@@ -793,7 +957,24 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   await AutomationEvent.create({ organization: o, account: account._id, key: `c:evento-${tag}`, field: "comments", data: { text: `evento-${tag}` }, eventAt: new Date(NOW), status: "done" });
   await AutomationLedger.create({ organization: o, account: account._id, key: `dm-post:1:${tag}` });
   await AutomationCounter.create({ organization: o, account: account._id, kind: "dm", hour: "2026101800", count: 1, expiresAt: new Date(NOW + 86_400_000) });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link };
+  // CRM: funil padrão + um sobrando, o contato vira lead, outro lead (para o DELETE), tarefas, captura,
+  // Página da Meta (token criptografado), aviso recebido, linha do tempo, consentimento e teto de captura
+  const pipeline = await Pipeline.create({ organization: o, name: `Funil secreto ${label}`, stages: DEFAULT_STAGES, isDefault: true });
+  const pipelineSpare = await Pipeline.create({ organization: o, name: `Funil sobrando ${label}`, stages: DEFAULT_STAGES });
+  await Contact.updateOne({ _id: contact._id, organization: o }, { $set: { lead: true, leadAt: new Date(NOW), pipeline: pipeline._id, stage: "proposta", value: 4321, name: `Lead secreto ${label}`, firstTouch: { at: new Date(NOW), kind: "meta_lead_ads", campaignId: `camp${tag}`, label: `Campanha ${label}` }, origin: { kind: "meta_lead_ads", leadgenId: `lg${tag}` } } });
+  const leadSpare = await Contact.create({ organization: o, name: `Lead sobrando ${label}`, lead: true, leadAt: new Date(NOW), pipeline: pipeline._id, stage: "novo", phone: tag === "beta" ? "+5511988887777" : "+5511988886666", phoneKey: tag === "beta" ? "11988887777" : "11988886666", consent: { given: true, channel: "manual" } });
+  const leadDup = await Contact.create({ organization: o, name: `Lead repetido ${label}`, lead: true, leadAt: new Date(NOW), pipeline: pipeline._id, stage: "novo" });
+  const task = await LeadTask.create({ organization: o, contact: contact._id, title: `Tarefa secreta ${label}`, dueAt: new Date(NOW + 86_400_000), assignee: owner._id });
+  const taskSpare = await LeadTask.create({ organization: o, contact: contact._id, title: `Tarefa sobrando ${label}` });
+  await LeadEvent.create({ organization: o, contact: contact._id, kind: "note", text: `nota-secreta-${tag}` });
+  await ConsentLog.create({ organization: o, contact: contact._id, action: "given", channel: "manual", basis: `base-secreta-${tag}` });
+  const capture = await LeadCapture.create({ organization: o, name: `Captura secreta ${label}`, code: tag === "beta" ? "capturaBeta01" : "capturaAlfa01", pipeline: pipeline._id, stage: "novo", tags: [`captura-${tag}`] });
+  const captureSpare = await LeadCapture.create({ organization: o, name: `Captura sobrando ${label}`, code: tag === "beta" ? "capturaBeta02" : "capturaAlfa02" });
+  await CaptureRate.create({ organization: o, key: `org:${tag}`, count: 1, expiresAt: new Date(NOW + 3_600_000) });
+  const page = await LeadAdsPage.create({ organization: o, pageId: tag === "beta" ? "990000000002" : "990000000001", name: `Página secreta ${label}`, credentials: { accessToken: encrypt(`token-da-pagina-${tag}-0000000000`) } });
+  const pageSpare = await LeadAdsPage.create({ organization: o, pageId: tag === "beta" ? "990000000004" : "990000000003", name: `Página sobrando ${label}`, credentials: { accessToken: encrypt("x".repeat(30)) } });
+  await LeadAdsEvent.create({ organization: o, page: page._id, pageId: page.pageId, leadgenId: `lg${tag}`, status: "done", contact: contact._id, note: `aviso-${tag}` });
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link, pipeline, pipelineSpare, leadSpare, task, taskSpare, capture, captureSpare, page, pageSpare, leadDup };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -820,6 +1001,9 @@ function markers(side: Side): string[] {
     String(side.scene._id), side.scene.file, "Cena secreta Beta", "Autor Beta", String(side.template._id), "Padrão secreto Beta", String(side.cenasJob._id), "Vídeo com cenas Beta", "chamada-beta",
     String(side.automation._id), "Automação secreta Beta", String(side.automationSpare._id), "Automação sobrando Beta", "resposta-publica-beta", "dm-secreta-beta", "beta.exemplo.com.br", "codigoBeta1",
     String(side.contact._id), String(side.contactSpare._id), "contato_beta", "lead@beta.test", "cliente-beta", "8800000000000002", String(side.run._id), "comentario-beta", "evento-beta",
+    String(side.pipeline._id), "Funil secreto Beta", String(side.pipelineSpare._id), "Funil sobrando Beta", "Lead secreto Beta", String(side.leadSpare._id), "Lead sobrando Beta", String(side.leadDup._id), "Lead repetido Beta", "campbeta", "Campanha Beta",
+    String(side.task._id), "Tarefa secreta Beta", String(side.taskSpare._id), "Tarefa sobrando Beta", "nota-secreta-beta", "base-secreta-beta", String(side.capture._id), "Captura secreta Beta", "capturaBeta01", "captura-beta",
+    String(side.captureSpare._id), "Captura sobrando Beta", String(side.page._id), "Página secreta Beta", "990000000002", String(side.pageSpare._id), "Página sobrando Beta", "token-da-pagina-beta", "aviso-beta", "lgbeta",
   ];
 }
 
@@ -901,7 +1085,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "Competitor", "CompetitorDaily", "CompetitorProduct", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob", "TrackedLink", "VideoTemplate"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "CaptureRate", "Competitor", "CompetitorDaily", "CompetitorProduct", "ConsentLog", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "LeadAdsEvent", "LeadAdsPage", "LeadCapture", "LeadEvent", "LeadTask", "MediaAsset", "Pipeline", "Post", "Project", "SocialAccount", "StudioJob", "TrackedLink", "VideoTemplate"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

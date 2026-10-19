@@ -75,6 +75,14 @@ const AutomationSchema = new Schema(
     },
     /** etiquetas postas no contato quando a automação dispara */
     tags: { type: [String], default: [] },
+    /** passo "Enviar para o CRM": o contato vira lead no funil, na etapa, com o responsável e as etiquetas */
+    crm: {
+      enabled: { type: Boolean, default: false },
+      pipeline: { type: Schema.Types.ObjectId, ref: "Pipeline", default: null },
+      stage: { type: String, default: "" },
+      owner: { type: Schema.Types.ObjectId, ref: "User", default: null },
+      tags: { type: [String], default: [] },
+    },
     active: { type: Boolean, default: false },
     dryRun: { type: Boolean, default: true },
     rotation: { type: Number, default: 0 },
@@ -198,13 +206,73 @@ const TrackedLinkSchema = new Schema(
 TrackedLinkSchema.plugin(tenantPlugin, { model: "TrackedLink" });
 TrackedLinkSchema.index({ organization: 1, code: 1 }, { unique: true });
 
+// Toque (atribuição): de onde a pessoa veio numa interação. Primeiro e último ficam no contato.
+const TouchSchema = new Schema(
+  {
+    at: { type: Date, default: null },
+    /** mesmo vocabulário de `origin.kind` */
+    kind: { type: String, default: "" },
+    label: { type: String, default: "" },
+    automation: { type: Schema.Types.ObjectId, ref: "Automation", default: null },
+    campaignId: { type: String, default: "" },
+    adsetId: { type: String, default: "" },
+    adId: { type: String, default: "" },
+    formId: { type: String, default: "" },
+    postIgId: { type: String, default: "" },
+    capture: { type: Schema.Types.ObjectId, default: null },
+    utm: { source: String, medium: String, campaign: String, term: String, content: String },
+  },
+  { _id: false }
+);
+
 const ContactSchema = new Schema(
   {
-    account: { type: Schema.Types.ObjectId, ref: "SocialAccount", required: true },
-    project: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    // Contato do Instagram (automações) tem conta + IGSID. Lead que entrou por outro caminho
+    // (formulário da Meta, página de captura, cadastro à mão, planilha) nasce sem conta, com
+    // `igsid` sintético "x:<id>" (só para o índice único continuar valendo; nunca vai à Meta).
+    account: { type: Schema.Types.ObjectId, ref: "SocialAccount", default: null },
+    project: { type: Schema.Types.ObjectId, ref: "Project", default: null },
     /** id da pessoa no escopo da conta (IGSID), que é o que a Meta manda no webhook */
     igsid: { type: String, required: true },
     username: { type: String, default: "" },
+    name: { type: String, default: "" },
+    /** telefone só com dígitos e sem o 55 (para achar duplicado); o `phone` guarda o formato +55... */
+    phoneKey: { type: String, default: "" },
+    /** chave opaca do link com clique contado (?k=), para o clique entrar na linha do tempo */
+    clickKey: { type: String, default: "" },
+    /** de onde a pessoa entrou pela primeira vez (ver lib/crm/sources.ts) */
+    origin: {
+      kind: { type: String, default: "" },
+      label: { type: String, default: "" },
+      automation: { type: Schema.Types.ObjectId, ref: "Automation", default: null },
+      leadgenId: { type: String, default: "" },
+      formId: { type: String, default: "" },
+      pageId: { type: String, default: "" },
+      adId: { type: String, default: "" },
+      adsetId: { type: String, default: "" },
+      campaignId: { type: String, default: "" },
+      postIgId: { type: String, default: "" },
+      ref: { type: String, default: "" },
+      capture: { type: Schema.Types.ObjectId, default: null },
+      url: { type: String, default: "" },
+    },
+    utm: { source: String, medium: String, campaign: String, term: String, content: String },
+    firstTouch: { type: TouchSchema, default: null },
+    lastTouch: { type: TouchSchema, default: null },
+    /** CRM: entrou no funil? (contato do direct só vira lead pela automação ou à mão) */
+    lead: { type: Boolean, default: false },
+    leadAt: { type: Date, default: null },
+    pipeline: { type: Schema.Types.ObjectId, ref: "Pipeline", default: null },
+    /** chave da etapa dentro do funil */
+    stage: { type: String, default: "" },
+    stageAt: { type: Date, default: null },
+    owner: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    /** valor do negócio em reais */
+    value: { type: Number, default: null },
+    lostReason: { type: String, default: "" },
+    wonAt: { type: Date, default: null },
+    lostAt: { type: Date, default: null },
+    mergedFrom: { type: [Schema.Types.ObjectId], default: [] },
     tags: { type: [String], default: [] },
     fields: { type: Schema.Types.Mixed, default: {} },
     email: { type: String, default: "" },
@@ -217,10 +285,13 @@ const ContactSchema = new Schema(
       version: { type: String, default: "" },
       automation: { type: Schema.Types.ObjectId, ref: "Automation", default: null },
       refusedAt: { type: Date, default: null },
+      /** por onde veio o aceite: dm | meta_lead_form | landing | manual | import */
+      channel: { type: String, default: "" },
     },
     /** pediu para parar: nenhuma mensagem automática sai mais para ele */
     optOutAt: { type: Date, default: null },
-    source: { type: String, enum: ["comment", "dm", "postback"], default: "comment" },
+    /** como o contato foi criado (comment/dm/postback = direct; os outros vêm do CRM) */
+    source: { type: String, enum: ["comment", "dm", "postback", "meta_lead_ads", "landing", "manual", "import"], default: "comment" },
     firstSeenAt: { type: Date, default: () => new Date() },
     /** última mensagem RECEBIDA dele: abre a janela de 24h para responder */
     lastInboundAt: { type: Date, default: null },
@@ -238,6 +309,16 @@ const ContactSchema = new Schema(
 ContactSchema.plugin(tenantPlugin, { model: "Contact" });
 ContactSchema.index({ organization: 1, account: 1, igsid: 1 }, { unique: true });
 ContactSchema.index({ organization: 1, tags: 1 });
+ContactSchema.index({ organization: 1, lead: 1, stage: 1 });
+ContactSchema.index({ organization: 1, email: 1 });
+ContactSchema.index({ organization: 1, phoneKey: 1 });
+ContactSchema.index({ organization: 1, clickKey: 1 });
+ContactSchema.index({ organization: 1, "origin.leadgenId": 1 });
+// Lead sem Instagram: id sintético (não é IGSID; o motor nunca acha ninguém por ele).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ContactSchema.pre("validate", function (this: any) {
+  if (!this.igsid) this.igsid = `x:${String(this._id)}`;
+});
 
 const m = mongoose.models;
 export const Automation = m.Automation || mongoose.model("Automation", AutomationSchema);

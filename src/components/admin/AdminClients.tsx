@@ -32,6 +32,8 @@ interface OrgDetail {
   adsWriteEnabled: boolean;
   adsWriteGlobal: boolean;
   automationsEnabled?: boolean;
+  leadAdsEnabled?: boolean;
+  leadAdsGlobal?: boolean;
   automationsGlobal?: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
@@ -249,6 +251,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [replyOn, setReplyOn] = useState(false);
   const [adsOn, setAdsOn] = useState(false);
   const [autoOn, setAutoOn] = useState(false);
+  const [leadAdsOn, setLeadAdsOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -265,6 +268,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setReplyOn(r.data.commentReplyEnabled);
     setAdsOn(r.data.adsWriteEnabled === true);
     setAutoOn(r.data.automationsEnabled === true);
+    setLeadAdsOn(r.data.leadAdsEnabled === true);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -273,7 +277,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, leadAdsEnabled: leadAdsOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -363,6 +367,18 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                     ? "Ligada: o webhook guarda os comentários e mensagens das contas deste cliente e as automações ativas rodam (cada uma começa em modo ensaio)."
                     : "Desligada: o cliente monta e simula automações, mas nada é recebido nem enviado."}
                   {!d.automationsGlobal && " A chave geral do sistema (AUTOMACOES_ENABLED) está desligada: mesmo ligando aqui, nada é recebido nem enviado."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="leadads-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={leadAdsOn} onChange={(e) => setLeadAdsOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  CRM: leads dos formulários da Meta (Lead Ads)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {leadAdsOn
+                    ? "Ligada: os avisos de formulário das Páginas cadastradas por este cliente entram no CRM (o lead é buscado na Meta só com leitura)."
+                    : "Desligada: o cliente cadastra a Página, mas nenhum aviso é guardado nem lead é buscado."}
+                  {!d.leadAdsGlobal && " A chave geral do sistema (CRM_LEAD_ADS_ENABLED) está desligada: mesmo ligando aqui, nada entra."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

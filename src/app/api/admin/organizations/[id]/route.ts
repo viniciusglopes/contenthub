@@ -3,6 +3,7 @@ import { publicBrand } from "@/lib/brand";
 import { FriendlyError, notFound } from "@/lib/errors";
 import { adsWriteGlobal } from "@/lib/ads/write";
 import { automationsGlobal } from "@/lib/automations/switches";
+import { leadAdsGlobal } from "@/lib/crm/leadads";
 import { publishEnabled } from "@/lib/instagram/publish";
 import { publicInvite } from "@/lib/invites";
 import { applyBrand, audit, publicUser } from "@/lib/orgs";
@@ -36,6 +37,8 @@ export const GET = route("admin", async ({ params, id }) => {
     adsWriteGlobal: adsWriteGlobal(),
     automationsEnabled: organization.automationsEnabled === true,
     automationsGlobal: automationsGlobal(),
+    leadAdsEnabled: organization.leadAdsEnabled === true,
+    leadAdsGlobal: leadAdsGlobal(),
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -73,7 +76,12 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   // Automações do direct: mesma regra, e só valem com AUTOMACOES_ENABLED=true também.
   const autoChanged = b.automationsEnabled !== undefined && Boolean(b.automationsEnabled) !== (organization.automationsEnabled === true);
   if (autoChanged) organization.automationsEnabled = Boolean(b.automationsEnabled);
+  // Formulários da Meta (Lead Ads) entrando no CRM: mesma regra, e só valem com CRM_LEAD_ADS_ENABLED=true.
+  const leadAdsChanged = b.leadAdsEnabled !== undefined && Boolean(b.leadAdsEnabled) !== (organization.leadAdsEnabled === true);
+  if (leadAdsChanged) organization.leadAdsEnabled = Boolean(b.leadAdsEnabled);
   await organization.save();
+  if (leadAdsChanged)
+    await audit({ action: organization.leadAdsEnabled ? "cliente.lead_ads_ligado" : "cliente.lead_ads_desligado", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (autoChanged)
     await audit({ action: organization.automationsEnabled ? "cliente.automacoes_ligadas" : "cliente.automacoes_desligadas", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (replyChanged)
@@ -88,5 +96,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, leadAdsEnabled: organization.leadAdsEnabled === true, brand: publicBrand(organization) });
 });

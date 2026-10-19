@@ -7,8 +7,10 @@ import { CRON_PATHS, SESSION_COOKIE, checkCronToken, verifySessionToken } from "
 // conferidos no banco.
 // /api/instagram/webhook: quem chama é a Meta (assinatura conferida na rota);
 // /api/r/: link da DM que conta o clique (código sorteado, sem dado da pessoa).
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/brand", "/api/instagram/webhook"];
-const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/", "/api/r/"];
+// /api/crm/lead-ads/webhook: quem chama é a Meta (formulário de cadastro; assinatura conferida na rota);
+// /api/captura/: formulário de captura de lead (código sorteado + ficha anti-robô + teto por IP).
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/brand", "/api/instagram/webhook", "/api/crm/lead-ads/webhook"];
+const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/", "/api/r/", "/api/captura/"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

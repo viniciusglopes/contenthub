@@ -68,6 +68,9 @@ contas, chaves de API e dados do Instagram pertencem a uma organização e nunca
 | `TRAFEGO_WRITE_ENABLED` | `true` = chave geral das ações nos anúncios da Meta (pausar, ativar, orçamento diário, criar anúncio pausado). Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes |
 | `AUTOMACOES_ENABLED` | `true` = chave geral das automações do direct (webhook guarda eventos, motor roda). Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes e de cada automação ligada (que nasce em ensaio) |
 | `IG_WEBHOOK_VERIFY_TOKEN` | texto sorteado (16+ caracteres) que se cola no painel da Meta em "Verify token" do webhook do Instagram |
+| `CRM_LEAD_ADS_ENABLED` | `true` = chave geral dos formulários da Meta (Lead Ads) no CRM: webhook guarda avisos e o laço busca o lead. Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes |
+| `META_APP_SECRET` | chave secreta do app da Meta (Facebook) que assina o webhook `leadgen` (aceita também `LEAD_ADS_APP_SECRET`). Sem ela o webhook responde 503 |
+| `LEAD_ADS_VERIFY_TOKEN` | texto sorteado (16+ caracteres) para o "Verify token" do webhook `leadgen` (objeto Page) |
 | `IG_WEBHOOK_SECRET` | opcional: segredo usado para conferir a assinatura `X-Hub-Signature-256` do webhook. Sem ela vale `IG_APP_SECRET` |
 | `AUTOMACOES_HOURLY_CAP` | opcional: envios por hora por conta (padrão 60, máximo 200; a Meta permite 750 private replies/h) |
 | `META_API_VERSION` | opcional, padrão `v25.0` (Graph API do Facebook: anúncios, Business Discovery, Biblioteca de Anúncios) |
@@ -153,3 +156,12 @@ npm run dev         # abrir por http://localhost:3000 (não por 127.0.0.1)
 - Regras: private reply 1 por comentário e até 7 dias; 1 DM por pessoa por post; direct só na janela de 24h (sem HUMAN_AGENT); teto por hora por conta; "parar" respeitado; e-mail/telefone só depois do "sim" ao texto de consentimento (guardado com data e versão).
 - Link da DM passa por `/api/r/<org>/<código>` (público) para contar o clique.
 - Passo a passo da Meta (webhook, verificação da empresa, análise do app): `docs/ajuda/21-meta-app-automacoes.md`.
+
+## CRM de leads
+
+- O lead é o `Contact` (models/Automation.ts) com campos de funil: `lead`, `pipeline`, `stage`, `owner`, `value`, `lostReason`, `wonAt`/`lostAt`, `origin`, `utm`, `firstTouch`/`lastTouch`, `phoneKey` (dedupe), `clickKey` (clique do link da DM na linha do tempo). Lead sem Instagram tem `igsid` sintético `x:<id>`.
+- Coleções novas (todas com o plugin de organização): `Pipeline`, `LeadEvent`, `LeadTask`, `ConsentLog`, `LeadCapture`, `CaptureRate`, `LeadAdsPage`, `LeadAdsEvent` (`src/models/Crm.ts`). Lógica em `src/lib/crm/`.
+- Entradas: passo "Enviar para o CRM" da automação; `referral` de anúncio/ig.me no direct; formulário da Meta (`/api/crm/lead-ads/webhook`, público e assinado; busca `GET /{leadgen_id}` com o token da Página, só leitura; laço do servidor + `POST /api/crm/lead-ads/processar`); página de captura pública `/api/captura/<org>/<código>` (ficha assinada, isca, teto por IP, consentimento); planilha com prévia (`POST /api/crm/importar`); cadastro à mão.
+- E-mail/telefone só com consentimento registrado (`ConsentLog`); dedupe por e-mail e telefone dentro da organização; "Juntar" repetidos.
+- Relatório `GET /api/crm/relatorios?agrupar=campanha|conjunto|anuncio|post|origem&toque=primeiro|ultimo` (+ `formato=csv`), custo do Tráfego só quando o id bate (estimativa rotulada).
+- Chaves desligadas dos formulários da Meta: `CRM_LEAD_ADS_ENABLED` + `Organization.leadAdsEnabled`. O ContentHub nunca escreve na Meta (instalar o app na Página é com quem administra a Página).

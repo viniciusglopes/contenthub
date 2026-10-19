@@ -138,6 +138,16 @@ export function metaMockFetch(now: () => number = Date.now): FetchLike {
       }));
       return ok({ business_discovery: { username: user, name: p.name, followers_count: p.followers, media_count: p.media, media: { data: media } }, id: bd[1] });
     }
+    // CRM (formulário de cadastro da Meta): conferir o token da Página e ler um lead (só leitura)
+    if (bd && u.searchParams.get("fields") === "id,name") return ok({ id: bd[1], name: `Página ${bd[1].slice(-4)} (demonstração)` });
+    if (bd && (u.searchParams.get("fields") || "").startsWith("id,created_time")) {
+      const n = Number(bd[1].slice(-2)) || 1;
+      const names = ["Ana Souza", "Bruno Lima", "Carla Dias", "Diego Rocha", "Elisa Prado"];
+      return ok({
+        id: bd[1], created_time: new Date(now() - n * 3_600_000).toISOString(), ad_id: ADS[n % ADS.length].id, form_id: "880000000000001",
+        field_data: [{ name: "full_name", values: [names[n % names.length]] }, { name: "email", values: [`lead${n}@exemplo.com.br`] }, { name: "phone_number", values: [`+5511990${String(n).padStart(6, "0")}`] }],
+      });
+    }
     return fail(400, 100, `Simulador: caminho não previsto ${path}`);
   };
 }

@@ -15,7 +15,7 @@ import { automationsGlobal } from "./switches";
 // Aqui só se confere, separa e GUARDA (idempotente pela chave do evento). Quem processa é o motor
 // (engine.ts), no laço do servidor, com atraso aleatório: a resposta à Meta sai rápido.
 
-export const WEBHOOK_FIELDS = ["comments", "messages", "messaging_postbacks"] as const;
+export const WEBHOOK_FIELDS = ["comments", "messages", "messaging_postbacks", "messaging_referral"] as const;
 export const MAX_BODY_BYTES = 512 * 1024;
 
 export function webhookSecret(): string {
@@ -64,6 +64,18 @@ const ms = (t: unknown, fallback: number) => {
 const str = (v: unknown, n = 2000) => (v == null ? "" : String(v).slice(0, n));
 const hash = (o: unknown) => createHash("sha256").update(JSON.stringify(o)).digest("hex").slice(0, 24);
 
+/**
+ * Indicação de anúncio "clique para o direct" (message.referral: source ADS, ad_id, ads_context_data)
+ * ou de link ig.me (messaging[].referral: ref, source, type). Doc oficial lida em 19/10/2026:
+ * https://developers.facebook.com/docs/instagram-platform/webhooks/examples
+ */
+export function slimReferral(r: any): Record<string, string> | null {
+  if (!r || typeof r !== "object") return null;
+  const out = { source: str(r.source, 200), type: str(r.type, 40), ref: str(r.ref, 200), adId: str(r.ad_id, 40), adTitle: str(r.ads_context_data?.ad_title, 160) };
+  if (out.adId && !/^\d{3,30}$/.test(out.adId)) out.adId = "";
+  return out.source || out.ref || out.adId ? out : null;
+}
+
 function messaging(igUserId: string, ev: any, entryTime: number): ParsedEvent | null {
   if (!ev || typeof ev !== "object") return null;
   const at = ms(ev.timestamp, entryTime);
@@ -89,8 +101,15 @@ function messaging(igUserId: string, ev: any, entryTime: number): ParsedEvent | 
         echo: msg.is_echo === true,
         attachment: Array.isArray(msg.attachments) && msg.attachments.length > 0,
         storyReply: Boolean(msg.reply_to?.story),
+        referral: slimReferral(msg.referral),
       },
     };
+  }
+  if (ev.referral) {
+    // pessoa abriu a conversa por link ig.me (sem mensagem ainda): só registra a origem
+    const referral = slimReferral(ev.referral);
+    if (!referral) return null;
+    return { igUserId, field: "messages", key: `r:${hash(ev)}`, eventAt: at, data: { senderId: sender, recipientId: recipient, text: "", quickReply: "", echo: false, attachment: false, storyReply: false, referral } };
   }
   return null;
 }
@@ -114,7 +133,7 @@ export function parseWebhook(body: any, now = Date.now()): { events: ParsedEvent
           eventAt: entryTime,
           data: { commentId: str(v.id, 64), parentId: str(v.parent_id, 64), mediaId: str(v.media?.id, 64), mediaType: str(v.media?.media_product_type, 20), fromId: str(v.from?.id, 64), fromUsername: str(v.from?.username, 60), text: str(v.text, 1000) },
         });
-      } else if ((ch?.field === "messages" || ch?.field === "messaging_postbacks") && v) {
+      } else if ((ch?.field === "messages" || ch?.field === "messaging_postbacks" || ch?.field === "messaging_referral") && v) {
         // o botão "Testar" do painel da Meta manda mensagens dentro de `changes`
         const e = messaging(igUserId, v, entryTime);
         if (e) events.push(e);

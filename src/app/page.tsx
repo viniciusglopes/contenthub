@@ -31,6 +31,7 @@ import {
   HelpCircle,
   Bot,
   Contact as ContactIcon,
+  KanbanSquare,
 } from "lucide-react";
 import AdminClients from "@/components/admin/AdminClients";
 import Onboarding from "@/components/Onboarding";
@@ -49,6 +50,7 @@ import TrafficPanel from "@/components/trafego/TrafficPanel";
 import CompetitorsPanel from "@/components/concorrentes/CompetitorsPanel";
 import AutomationsPanel from "@/components/automacoes/AutomationsPanel";
 import ContactsPanel from "@/components/automacoes/ContactsPanel";
+import CrmPanel from "@/components/crm/CrmPanel";
 import { type PostT, STATUS, STATUS_ORDER, flowStatus, stateLine, statusOf } from "@/components/posts/flow";
 
 interface Project {
@@ -63,8 +65,8 @@ interface Project {
 type Post = PostT;
 
 type SocialAccount = PublicAccount;
-type View = "calendar" | "list" | "aprovacoes" | "instagram" | "estudio" | "trafego" | "concorrentes" | "automacoes" | "contatos" | "clientes" | "conta" | "ajuda";
-const VIEW_TITLE: Record<string, string> = { estudio: "Estúdio", trafego: "Tráfego", concorrentes: "Concorrentes", automacoes: "Automações", contatos: "Contatos", instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações", ajuda: "Ajuda" };
+type View = "calendar" | "list" | "aprovacoes" | "instagram" | "estudio" | "trafego" | "concorrentes" | "automacoes" | "crm" | "contatos" | "clientes" | "conta" | "ajuda";
+const VIEW_TITLE: Record<string, string> = { estudio: "Estúdio", trafego: "Tráfego", concorrentes: "Concorrentes", automacoes: "Automações", crm: "CRM", contatos: "Contatos", instagram: "Instagram", clientes: "Clientes", conta: "Minha conta", aprovacoes: "Aprovações", ajuda: "Ajuda" };
 
 const PLATFORM_FIELDS: Record<string, { label: string; fields: { key: string; label: string; secret?: boolean }[] }> = {
   instagram: {
@@ -186,7 +188,7 @@ export default function Home() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const v = p.get("view");
-    if (v === "instagram" || v === "estudio" || v === "trafego" || v === "concorrentes" || v === "automacoes" || v === "contatos" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes" || v === "ajuda") setViewState(v);
+    if (v === "instagram" || v === "estudio" || v === "trafego" || v === "concorrentes" || v === "automacoes" || v === "crm" || v === "contatos" || v === "list" || v === "clientes" || v === "conta" || v === "aprovacoes" || v === "ajuda") setViewState(v);
     // Volta do login pelo Instagram: o resultado vem no link e sai dele depois de lido.
     const igOk = p.get("ig_ok");
     const igErro = p.get("ig_erro");
@@ -782,6 +784,14 @@ export default function Home() {
             <span>Automações</span>
           </button>
           <button
+            onClick={() => { setView("crm"); setMenuOpen(false); }}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "crm" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            data-testid="menu-crm"
+          >
+            <KanbanSquare size={16} />
+            <span>CRM</span>
+          </button>
+          <button
             onClick={() => { setView("contatos"); setMenuOpen(false); }}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "contatos" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-contatos"
@@ -930,6 +940,8 @@ export default function Home() {
           <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
         ) : view === "automacoes" && me ? (
           <AutomationsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} canManage={me.canManage} />
+        ) : view === "crm" && me ? (
+          <CrmPanel />
         ) : view === "contatos" && me ? (
           <ContactsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} canManage={me.canManage} />
         ) : !calendarViews && view !== "instagram" && view !== "estudio" ? (

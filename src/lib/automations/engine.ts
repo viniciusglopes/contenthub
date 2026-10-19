@@ -12,6 +12,7 @@ import {
 } from "./match";
 import { automationsGlobal } from "./switches";
 import { trackedUrl } from "./links";
+import { clickKeyFor, logEvent, sendContactToCrm } from "@/lib/crm/leads";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -184,11 +185,15 @@ async function addTags(x: Exec, contact: any, tags: string[]) {
 
 // ---------- mensagens montadas a partir da automação ----------
 
-export function buildDm(a: any, org: Org): Record<string, unknown> {
+export function buildDm(a: any, org: Org, clickKey = ""): Record<string, unknown> {
+  const tracked = (code: string) => {
+    const u = trackedUrl(org, code);
+    return u && clickKey ? `${u}?k=${clickKey}` : u;
+  };
   const buttons: any[] = (a.dm?.buttons || []).slice(0, 3).map((b: any, i: number) =>
     b.kind === "postback"
       ? { type: "postback", title: b.title, payload: `b:${a._id}:${i}` }
-      : { type: "web_url", title: b.title, url: trackedUrl(org, b.linkCode) || b.url }
+      : { type: "web_url", title: b.title, url: tracked(b.linkCode) || b.url }
   );
   if (a.ask?.enabled && buttons.length < 3) buttons.push({ type: "postback", title: a.ask.buttonTitle || "Quero receber", payload: `ask:${a._id}` });
   const message: Record<string, unknown> = buttons.length
@@ -232,6 +237,22 @@ async function scopeMatches(x: Exec, a: any, mediaId: string): Promise<boolean> 
   return (fresh?.trigger?.mediaIds || []).includes(mediaId);
 }
 
+// ---------- CRM ----------
+
+/** Passo "Enviar para o CRM" (vale também no ensaio: não manda nada para a Meta; na simulação só mostra). */
+async function crmStep(x: Exec, a: any, contact: any, postIgId = "") {
+  if (!a?.crm?.enabled || !contact) return;
+  if (x.sim || contact._virtual) {
+    x.step({ kind: "crm", status: "dry_run", detail: "Simulação: o contato iria para o CRM." });
+    return;
+  }
+  const r = await sendContactToCrm(x.org, contact._id, { pipeline: a.crm.pipeline, stage: a.crm.stage, owner: a.crm.owner, tags: a.crm.tags, touch: { at: new Date(x.now), kind: "automation", label: a.name, automation: a._id, postIgId } }, new Date(x.now));
+  if (r) {
+    contact.lead = true;
+    x.step({ kind: "crm", status: "done", detail: r.entered ? `Entrou no CRM: ${r.stageName}.` : "Já estava no CRM: etiquetas e último toque atualizados." });
+  }
+}
+
 // ---------- registro ----------
 
 function runStatus(steps: Step[], dry: boolean): string {
@@ -257,6 +278,10 @@ async function saveRun(x: Exec, ev: any, a: any | null, contact: any, base: Reco
     steps: x.steps,
     ...base,
   });
+  if (!x.sim && contact?._id && !contact._virtual && contact.lead) {
+    const what = x.steps.filter((s) => s.kind !== "tag").map((s) => `${s.kind}:${s.status}`).join(", ");
+    await logEvent(x.org, contact._id, "automation", `${a?.name ? `Automação "${a.name}"` : "Mensagem recebida"} (${status}${dry ? ", ensaio" : ""}).`, { run: String(run._id), steps: what }, null, new Date(x.now)).catch(() => {});
+  }
   if (a && !x.sim) {
     const inc: Record<string, number> = { "stats.matched": base.trigger === "comment" || base.trigger === "dm" ? 1 : 0 };
     for (const s of x.steps) {
@@ -324,7 +349,7 @@ async function onComment(x: Exec, ev: any, forced: any | null) {
     else if (!(await x.once(`dm-comment:${d.commentId}`, dry))) x.step({ kind: "private_reply", status: "skipped", detail: "Este comentário já recebeu DM (a Meta permite uma por comentário)." });
     else if (!(await x.once(`dm-post:${d.mediaId}:${d.fromId}`, dry))) x.step({ kind: "private_reply", status: "skipped", detail: "Essa pessoa já recebeu a DM deste post." });
     else {
-      const ok = await x.send("private_reply", { dry, commentId: d.commentId, message: buildDm(a, x.org) }).catch(async (e) => {
+      const ok = await x.send("private_reply", { dry, commentId: d.commentId, message: buildDm(a, x.org, x.sim ? "" : await clickKeyFor(x.org, contact)) }).catch(async (e) => {
         await x.release(`dm-comment:${d.commentId}`, dry);
         await x.release(`dm-post:${d.mediaId}:${d.fromId}`, dry);
         throw e;
@@ -334,6 +359,7 @@ async function onComment(x: Exec, ev: any, forced: any | null) {
     }
   }
   await addTags(x, contact, a.tags || []);
+  await crmStep(x, a, contact, d.mediaId);
   await saveRun(x, ev, a, contact, base, dry);
   return { note: "" };
 }
@@ -440,6 +466,33 @@ async function anyLive(x: Exec): Promise<boolean> {
   return Boolean(await Automation.exists({ organization: x.org, account: x.account._id, active: true, dryRun: false }));
 }
 
+/**
+ * Mensagem recebida na linha do tempo (só de quem já é lead) e indicação de anúncio/link ig.me
+ * (objeto `referral`, doc oficial: developers.facebook.com/docs/instagram-platform/webhooks/examples):
+ * vira origem do contato (se ainda não tinha) e toque de atribuição.
+ */
+async function recordInbound(x: Exec, contact: any, d: any, isPostback: boolean, at: Date) {
+  if (!contact?._id || contact._virtual) return;
+  const ref = d.referral && typeof d.referral === "object" ? d.referral : null;
+  if (ref) {
+    const kind = ref.adId || String(ref.source || "").toUpperCase() === "ADS" ? "ig_ad" : "ig_link";
+    const label = String(ref.adTitle || ref.ref || (kind === "ig_ad" ? "Anúncio" : "Link ig.me")).slice(0, 160);
+    const { applyTouch } = await import("@/lib/crm/leads");
+    const set: Record<string, unknown> = applyTouch(contact, { at, kind, label, adId: ref.adId || "", utm: {} }, at);
+    if (!contact.origin?.kind) set.origin = { kind, label, adId: ref.adId || "", ref: String(ref.ref || "").slice(0, 120) };
+    if (ref.adId) {
+      // anúncio já sincronizado no Tráfego: completa conjunto e campanha
+      const { AdObject } = await import("@/models/Ads");
+      const ad: any = await AdObject.findOne({ organization: x.org, level: "ad", metaId: String(ref.adId) }).select("campaignId adsetId name").lean();
+      if (ad) for (const t of ["firstTouch", "lastTouch"] as const) if (set[t]) Object.assign(set[t] as any, { campaignId: ad.campaignId || "", adsetId: ad.adsetId || "" });
+      if (ad && set.origin) Object.assign(set.origin as any, { campaignId: ad.campaignId || "", adsetId: ad.adsetId || "" });
+    }
+    await updateContact(x, contact, { $set: set });
+    await logEvent(x.org, contact._id, "referral", `Chegou pelo ${kind === "ig_ad" ? "anúncio" : "link ig.me"}: ${label}.`, { adId: ref.adId || "", source: ref.source || "", ref: ref.ref || "" }, null, at).catch(() => {});
+  }
+  if (contact.lead && !isPostback && d.text) await logEvent(x.org, contact._id, "message", excerpt(d.text, 300), null, null, at).catch(() => {});
+}
+
 async function onMessage(x: Exec, ev: any, forced: any | null) {
   const d = ev.data || {};
   if (d.echo || !d.senderId || String(d.senderId) === String(x.account.accountId)) return { note: "mensagem enviada pela própria conta: ignorada" };
@@ -449,6 +502,7 @@ async function onMessage(x: Exec, ev: any, forced: any | null) {
   let contact = await touchContact(x, String(d.senderId), {}, isPostback ? "postback" : "dm", at);
   const text = String(d.text || "");
   const base = { trigger: isPostback ? "postback" : d.quickReply ? "quick_reply" : "dm", username: contact.username || "", text: excerpt(isPostback ? d.title : text) };
+  if (!x.sim) await recordInbound(x, contact, d, isPostback, at);
 
   if (!isPostback && isOptOut(text)) {
     await updateContact(x, contact, { $set: { optOutAt: new Date(x.now), pending: { automation: null, step: "", tries: 0, at: null } } });
@@ -487,8 +541,9 @@ async function onMessage(x: Exec, ev: any, forced: any | null) {
         x.step({ kind: "optout", status: "done", detail: "Mandou a palavra de novo: voltou a receber." });
       }
       if (!dry && (await x.capLeft("dm")) <= 0) throw new RetryLater(nextHourMs(x.now), "teto por hora (DMs)");
-      if ((a.dm?.text || "").trim()) await x.send("dm", { dry, contact, message: buildDm(a, x.org), detail: `Palavra: ${word}` });
+      if ((a.dm?.text || "").trim()) await x.send("dm", { dry, contact, message: buildDm(a, x.org, x.sim ? "" : await clickKeyFor(x.org, contact)), detail: `Palavra: ${word}` });
       await addTags(x, contact, a.tags || []);
+      await crmStep(x, a, contact);
       break;
     }
   }

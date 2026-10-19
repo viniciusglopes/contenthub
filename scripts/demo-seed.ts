@@ -31,6 +31,11 @@ import { Automation } from "../src/models/Automation";
 import { ensureLinks } from "../src/lib/automations/links";
 import { ingest } from "../src/lib/automations/webhook";
 import { processDue } from "../src/lib/automations/engine";
+import { changeStage, createTask, logEvent, upsertLead } from "../src/lib/crm/leads";
+import { defaultPipeline } from "../src/lib/crm/pipelines";
+import { AdObject } from "../src/models/Ads";
+import { Contact } from "../src/models/Automation";
+import { LeadAdsEvent, LeadAdsPage, LeadCapture } from "../src/models/Crm";
 
 const uri = process.env.MONGODB_URI || "";
 if (!/127\.0\.0\.1|localhost/.test(uri) || process.env.IG_MOCK !== "1") {
@@ -153,6 +158,7 @@ async function automationsDemo(org: Types.ObjectId, project: Types.ObjectId) {
     dm: { text: "Oi! Aqui está o ebook dos 21 dias que você pediu 👇", buttons: [{ kind: "url", title: "Baixar o ebook", url: "https://exemplo.com.br/ebook-21-dias.pdf" }] },
     ask: { enabled: true, field: "email", buttonTitle: "Quero por e-mail", consentText: "Para te mandar os próximos materiais, a Hora de Mudar o Jogo precisa guardar o seu e-mail e usar só para isso. Você autoriza?" },
     tags: ["ebook-21"],
+    crm: { enabled: true, stage: "em-conversa", tags: ["ebook"] },
   });
   await ensureLinks(org, ebook);
   await ebook.save();
@@ -196,6 +202,60 @@ async function automationsDemo(org: Types.ObjectId, project: Types.ObjectId) {
   if (prev === undefined) delete process.env.AUTOMACOES_ENABLED; else process.env.AUTOMACOES_ENABLED = prev;
 }
 
+// CRM: leads de todas as portas, espalhados pelo funil, com tarefas e notas (tudo local)
+async function crmDemo(org: Types.ObjectId, actor: any, seller: any) {
+  await Organization.updateOne({ _id: org }, { $set: { leadAdsEnabled: true } });
+  const pipe: any = await defaultPipeline(org);
+  const ads: any[] = await AdObject.find({ organization: org, level: "ad" }).limit(6).lean();
+  const camps: any[] = await AdObject.find({ organization: org, level: "campaign" }).lean();
+  const cname = (id: string) => camps.find((c) => c.metaId === id)?.name || "";
+  const page = await LeadAdsPage.create({ organization: org, pageId: "200000000000001", name: "Hora de Mudar o Jogo", credentials: { accessToken: encrypt("token-de-pagina-de-demonstracao-0001") }, pipeline: pipe._id, stage: "novo", tags: ["formulario"], lastLeadAt: new Date(Date.now() - 2 * 3_600_000) });
+  const cap = await LeadCapture.create({ organization: org, name: "Página do ebook", code: "demoEbook01", pipeline: pipe._id, stage: "novo", tags: ["pagina-ebook"], redirectUrl: "https://exemplo.com.br/obrigado", postIgId: "1800000000000100", submissions: 4, lastAt: new Date(Date.now() - 5 * 3_600_000) });
+  await LeadCapture.create({ organization: org, name: "Lista de espera da mentoria", code: "demoLista01", pipeline: pipe._id, stage: "novo", ask: "phone", tags: ["lista-espera"], active: false });
+  const people = [
+    ["Mariana Alves", "mariana.alves@exemplo.com.br", "11 98123-4501"], ["Rodrigo Pires", "rodrigo.p@exemplo.com.br", "21 99876-1102"], ["Juliana Castro", "ju.castro@exemplo.com.br", "31 99712-3303"],
+    ["Felipe Moura", "felipe.moura@exemplo.com.br", "11 97654-2204"], ["Patrícia Gomes", "patricia.g@exemplo.com.br", "41 99888-0105"], ["Lucas Teixeira", "lucas.t@exemplo.com.br", "11 99345-7706"],
+    ["Camila Rocha", "camila.rocha@exemplo.com.br", "19 99234-1207"], ["Thiago Nunes", "thiago.n@exemplo.com.br", "11 98765-4308"],
+  ];
+  const day = 86_400_000;
+  const made: any[] = [];
+  for (const [i, [name, email, phone]] of people.entries()) {
+    const ad = ads[i % Math.max(1, ads.length)];
+    const at = new Date(Date.now() - (i * 2 + 1) * day);
+    const r = await upsertLead(org, {
+      name, email, phone, tags: ["formulario"], pipeline: pipe._id, owner: i % 2 ? seller._id : actor._id, source: "meta_lead_ads",
+      origin: { leadgenId: `9100000000${i}`, formId: "880000000000001", pageId: page.pageId, adId: ad?.metaId || "", adsetId: ad?.adsetId || "", campaignId: ad?.campaignId || "", label: cname(ad?.campaignId) || "Formulário" },
+      touch: { at, kind: "meta_lead_ads", label: cname(ad?.campaignId), campaignId: ad?.campaignId || "", adsetId: ad?.adsetId || "", adId: ad?.metaId || "", formId: "880000000000001" },
+      consent: { given: true, channel: "meta_lead_form", text: "Preencheu o formulário de cadastro do anúncio na Meta.", version: "form:880000000000001", basis: "formulário 880000000000001", at },
+      eventKind: "lead_ads", eventText: `Preencheu o formulário da Meta (${cname(ad?.campaignId) || "anúncio"}).`,
+    }, null, at);
+    await LeadAdsEvent.create({ organization: org, page: page._id, pageId: page.pageId, leadgenId: `9100000000${i}`, formId: "880000000000001", adId: ad?.metaId || "", status: "done", note: "Lead criado.", contact: r.contact._id, processedAt: at });
+    made.push(r.contact);
+  }
+  const landing = [["Beatriz Lopes", "", "11 99111-2233", "instagram", "bio"], ["Gustavo Reis", "gustavo.reis@exemplo.com.br", "", "instagram", "stories-outubro"], ["Helena Prado", "helena.p@exemplo.com.br", "11 99222-3344", "youtube", "video-rotina"]];
+  for (const [i, [name, email, phone, src, camp]] of landing.entries()) {
+    const at = new Date(Date.now() - (i + 1) * 30 * 3_600_000);
+    const utm = { source: src, medium: "social", campaign: camp };
+    const r = await upsertLead(org, { name, email, phone, tags: ["pagina-ebook"], pipeline: pipe._id, source: "landing", origin: { label: cap.name, capture: cap._id, postIgId: cap.postIgId }, touch: { at, kind: "link", label: cap.name, capture: cap._id, postIgId: cap.postIgId, utm }, utm, consent: { given: true, channel: "landing", text: "Autorizo a Hora de Mudar o Jogo a guardar meus dados deste formulário.", version: "v-demo", basis: `formulário "${cap.name}"`, at }, eventKind: "capture", eventText: `Enviou o formulário "${cap.name}" (utm_campaign ${camp}).` }, null, at);
+    made.push(r.contact);
+  }
+  const manual = await upsertLead(org, { name: "Renato Barbosa", phone: "11 99555-6677", value: 1497, pipeline: pipe._id, owner: actor._id, source: "manual", origin: { label: "Indicação da Mariana" }, touch: { kind: "manual", label: "Indicação da Mariana" }, consent: { given: true, channel: "manual", text: "Autorização informada pela equipe.", basis: "pediu proposta pelo WhatsApp" } }, actor);
+  made.push(manual.contact);
+  const stages = ["proposta", "ganhou", "em-conversa", "perdeu", "novo", "proposta", "ganhou", "em-conversa", "novo", "em-conversa", "proposta", "proposta"];
+  const values = [997, 497, null, 497, null, 1497, 997, null, null, 497, 997, 1497];
+  for (const [i, c] of made.entries()) {
+    if (values[i] != null) await Contact.updateOne({ _id: c._id, organization: org }, { $set: { value: values[i] } });
+    const fresh: any = await Contact.findOne({ _id: c._id, organization: org }).lean();
+    if (stages[i] !== fresh.stage) await changeStage(org, fresh, stages[i], i % 2 ? seller : actor, { lostReason: stages[i] === "perdeu" ? "Achou caro, vai pensar no próximo mês" : undefined });
+  }
+  await logEvent(org, made[0]._id, "note", "Ligou perguntando se a mentoria tem acompanhamento individual. Mandar proposta com o plano anual.", null, actor);
+  await createTask(org, made[0]._id, { title: "Mandar proposta do plano anual", dueAt: new Date(Date.now() + 20 * 3_600_000).toISOString() }, actor);
+  await createTask(org, made[2]._id, { title: "Retornar no WhatsApp", dueAt: new Date(Date.now() - 3 * 3_600_000).toISOString() }, actor);
+  await createTask(org, made[5]._id, { title: "Confirmar pagamento", dueAt: new Date(Date.now() + 2 * day).toISOString(), assignee: String(seller._id) }, actor);
+  // um cadastro repetido (mesmo @ do direct) para mostrar o "Juntar"
+  await Contact.create({ organization: org, name: "Ana Souza", username: "ana.souza", lead: true, leadAt: new Date(Date.now() - day), pipeline: pipe._id, stage: "novo", source: "manual", origin: { kind: "manual", label: "Evento presencial" }, firstTouch: { at: new Date(Date.now() - day), kind: "manual", label: "Evento presencial" }, lastTouch: { at: new Date(Date.now() - day), kind: "manual", label: "Evento presencial" } });
+}
+
 async function main() {
   await mongoose.connect(uri);
   await mongoose.connection.dropDatabase();
@@ -221,6 +281,9 @@ async function main() {
   ]);
   for (const c of rivals) await refreshCompetitor(home._id, c);
   await automationsDemo(home._id, hdmoj._id);
+  const adminUser: any = await User.findOne({ organization: home._id, role: "platform_admin" }).lean();
+  const seller: any = await user(home._id, "member", "Júlia Vendas", "julia@vinculo.exemplo", new Date(Date.now() - 4 * 3_600_000));
+  await crmDemo(home._id, adminUser, seller);
   await CompetitorProduct.create([
     { organization: home._id, project: hdmoj._id, competitor: rivals[0]._id, name: "Mentoria Virada 90", platform: "Hotmart", price: 997, promise: "Mudar de carreira em 90 dias", link: "https://exemplo.com/virada90" },
     { organization: home._id, project: hdmoj._id, competitor: rivals[1]._id, name: "Curso Rotina de Ouro", platform: "Kiwify", price: 197, promise: "Rotina produtiva em 21 dias" },

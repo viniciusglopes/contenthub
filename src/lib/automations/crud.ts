@@ -10,11 +10,15 @@ import { toObjectId } from "@/lib/tenant";
 import { InstagramMedia } from "@/models/InstagramMedia";
 import SocialAccount from "@/models/SocialAccount";
 import { Automation, AutomationLedger, AutomationRun, Contact, TrackedLink } from "@/models/Automation";
+import { ConsentLog, LeadAdsEvent, LeadEvent, LeadTask } from "@/models/Crm";
 import { LIMITS, excerpt, hourlyCap } from "./match";
 import { ensureLinks, safeHttpUrl, trackedUrl } from "./links";
 import { automationSwitch } from "./switches";
 import { defaultConsent, defaultQuestion, processEvent } from "./engine";
 import { WEBHOOK_FIELDS } from "./webhook";
+import { resolveStage } from "@/lib/crm/pipelines";
+import { ownUser } from "@/lib/crm/leads";
+import { cleanTags } from "@/lib/crm/pure";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -126,9 +130,22 @@ export function cleanAutomation(b: Record<string, any>, currentDoc?: any): Recor
   return out;
 }
 
+/** Passo "Enviar para o CRM": confere funil, etapa e responsável (todos desta organização). */
+export async function cleanCrmStep(org: Org, raw: unknown, current?: any): Promise<Record<string, any> | undefined> {
+  if (raw === undefined) return undefined;
+  const b: any = raw && typeof raw === "object" ? raw : {};
+  if (b.enabled !== true) return { enabled: false, pipeline: current?.crm?.pipeline ?? null, stage: current?.crm?.stage ?? "", owner: current?.crm?.owner ?? null, tags: current?.crm?.tags ?? [] };
+  const { pipeline, stage } = await resolveStage(org, b.pipeline || null, b.stage || "");
+  const owner = b.owner ? await ownUser(org, b.owner) : null;
+  const tags = cleanTags(b.tags);
+  return { enabled: true, pipeline: pipeline._id, stage: stage.key, owner: owner?._id ?? null, tags };
+}
+
 export async function createAutomation(org: Org, session: Session, b: Record<string, any>) {
   const account = await ownInstagramAccount(org, b.account);
   const fields = cleanAutomation(b);
+  const crm = await cleanCrmStep(org, b.crm);
+  if (crm) fields.crm = crm;
   const wantsLive = b.active === true || b.dryRun === false;
   if (wantsLive && !session.canManage) throw new FriendlyError("Só o dono da conta liga uma automação. Salve e peça para ele ligar.", 403);
   const a = new Automation({ organization: org, project: account.project, account: account._id, ...fields, active: b.active === true, dryRun: b.dryRun !== false, createdBy: session.user?._id ?? null });
@@ -140,6 +157,8 @@ export async function createAutomation(org: Org, session: Session, b: Record<str
 export async function updateAutomation(org: Org, session: Session, id: unknown, b: Record<string, any>, ip?: string) {
   const a = await ownAutomation(org, id);
   const fields = cleanAutomation(b, a);
+  const crm = await cleanCrmStep(org, b.crm, a);
+  if (crm) fields.crm = crm;
   Object.assign(a, fields);
   const prev = { active: a.active, dryRun: a.dryRun };
   if (b.active !== undefined && Boolean(b.active) !== a.active) {
@@ -182,6 +201,7 @@ export async function publicAutomation(org: Org, a: any) {
     },
     ask: { ...o.ask, defaultConsent: defaultConsent(o.ask?.field || "email", "{nome da sua empresa}"), defaultQuestion: defaultQuestion(o.ask?.field || "email") },
     tags: o.tags || [],
+    crm: { enabled: o.crm?.enabled === true, pipeline: o.crm?.pipeline ? String(o.crm.pipeline) : "", stage: o.crm?.stage || "", owner: o.crm?.owner ? String(o.crm.owner) : "", tags: o.crm?.tags || [] },
     active: o.active === true,
     dryRun: o.dryRun !== false,
     stats: o.stats || {},
@@ -239,7 +259,7 @@ export async function listRuns(org: Org, params: URLSearchParams) {
 
 export function publicContact(c: any) {
   return {
-    _id: String(c._id), account: String(c.account), igsid: c.igsid, username: c.username, tags: c.tags || [], fields: c.fields || {}, email: c.email || "", phone: c.phone || "",
+    _id: String(c._id), account: c.account ? String(c.account) : "", igsid: String(c.igsid || "").startsWith("x:") ? "" : c.igsid, username: c.username, name: c.name || "", lead: c.lead === true, tags: c.tags || [], fields: c.fields || {}, email: c.email || "", phone: c.phone || "",
     consent: { given: c.consent?.given === true, at: c.consent?.at || null, version: c.consent?.version || "", text: c.consent?.text || "", refusedAt: c.consent?.refusedAt || null },
     optOutAt: c.optOutAt || null, source: c.source, firstSeenAt: c.firstSeenAt, lastInboundAt: c.lastInboundAt || null,
     windowOpen: Boolean(c.lastInboundAt && Date.now() - new Date(c.lastInboundAt).getTime() <= 86_400_000),
@@ -263,7 +283,7 @@ export async function listContacts(org: Org, params: URLSearchParams) {
   const tag = (params.get("tag") || "").trim();
   if (tag) q.tags = tag;
   const s = (params.get("q") || "").trim().slice(0, 60).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  if (s) q.$or = [{ username: { $regex: s, $options: "i" } }, { email: { $regex: s, $options: "i" } }];
+  if (s) q.$or = [{ username: { $regex: s, $options: "i" } }, { email: { $regex: s, $options: "i" } }, { name: { $regex: s, $options: "i" } }];
   if (params.get("lead") === "1") q.$and = [{ $or: [{ email: { $ne: "" } }, { phone: { $ne: "" } }] }];
   const rows: any[] = await Contact.find(q).sort({ lastInboundAt: -1, updatedAt: -1 }).limit(500).lean();
   const tags = await Contact.distinct("tags", { organization: org, ...(q.account ? { account: q.account } : {}), ...(q.project ? { project: q.project } : {}) });
@@ -315,7 +335,12 @@ export async function eraseContact(org: Org, session: Session, id: unknown, ip?:
   await AutomationRun.updateMany({ organization: org, contact: c._id }, { $set: { username: "", text: "", contact: null } });
   const esc = String(c.igsid).replace(/[^\w-]/g, "");
   if (esc) await AutomationLedger.deleteMany({ organization: org, account: c.account, key: { $regex: `:${esc}$` } });
+  // CRM: linha do tempo e tarefas somem; o registro de consentimento fica (sem dado pessoal) com "apagado"
+  await LeadEvent.deleteMany({ organization: org, contact: c._id });
+  await LeadTask.deleteMany({ organization: org, contact: c._id });
+  await LeadAdsEvent.updateMany({ organization: org, contact: c._id }, { $set: { contact: null } });
   await Contact.deleteOne({ _id: c._id, organization: org });
+  await ConsentLog.create({ organization: org, contact: c._id, action: "erased", channel: "manual", basis: "exclusão a pedido (LGPD)", by: session.user?._id ?? null });
   await audit({ action: "contato.excluido", actor: session.user, organization: org, target: String(c._id), ip });
 }
 

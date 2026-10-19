@@ -17,7 +17,8 @@ Exemplo: quem comentar **QUERO** no próximo post recebe uma resposta no coment�
 4. **DM:** a mensagem, com até 3 botões (link ou resposta) e respostas rápidas opcionais.
 5. **Pedir e-mail ou telefone** (opcional): veja [Contatos e LGPD](artigo:contatos-e-lgpd).
 6. **Etiqueta:** o contato recebe a etiqueta quando a automação dispara.
-7. Clique em **Salvar**.
+7. **Enviar para o CRM** (opcional): quem disparar vira lead no funil, na etapa e com o responsável que você escolher. Veja [Por onde o lead entra no CRM](artigo:crm-entradas).
+8. Clique em **Salvar**.
 
 **O que você deve ver:** a automação na lista, marcada **desligada** e **ensaio**.
 
