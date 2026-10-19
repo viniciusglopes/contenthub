@@ -5,6 +5,7 @@ import { FriendlyError } from "@/lib/errors";
 import { mockEnabled } from "@/lib/instagram/mock";
 import { oauthEnabled } from "@/lib/instagram/oauth";
 import { publishSwitch } from "@/lib/workflow";
+import { automationSwitch } from "@/lib/automations/switches";
 import { audit } from "@/lib/orgs";
 import { clientIp, setSessionCookie } from "@/lib/session";
 
@@ -22,6 +23,7 @@ export const GET = route("org", async ({ session }) => {
     impersonating: s.impersonating,
     features: { igOauth: oauthEnabled(), demo: mockEnabled() },
     publishing: publishSwitch(s.organization),
+    automations: automationSwitch(s.organization),
   });
 });
 

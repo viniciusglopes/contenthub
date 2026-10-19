@@ -37,6 +37,7 @@ import { refreshCompetitor } from "@/lib/competitors/competitors";
 import { Competitor, CompetitorProduct } from "@/models/Competitor";
 import { HouseCredential } from "@/models/Platform";
 import { encrypt } from "@/lib/crypto";
+import { Automation, AutomationCounter, AutomationEvent, AutomationLedger, AutomationRun, Contact, TrackedLink } from "@/models/Automation";
 import { type Call, call, cookieFor, makeOrg, makeUser, setCookieValue, setTestEnv } from "./helpers";
 
 // PROVA DE ISOLAMENTO ENTRE CLIENTES.
@@ -56,6 +57,7 @@ const NOW = Date.now();
 
 interface Side {
   org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any; adAccount: any; adSpare: any; competitor: any; competitorSpare: any; product: any; scene: any; template: any; cenasJob: any;
+  automation: any; automationSpare: any; contact: any; contactSpare: any; run: any; link: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -623,6 +625,83 @@ const CASES: Record<string, Case> = {
     own: (t) => ({ method: "DELETE", path: "/api/concorrentes/produtos/x", params: { id: String(t.product._id) } }),
   },
   "PUT /api/admin/estudio": { access: "admin", why: "chaves da casa, teto padrão e teto de cada cliente" },
+
+  // ---- Automações do direct e contatos
+  "GET /api/instagram/webhook": { access: "public", why: "verificação da Meta: só devolve o hub.challenge com o token de verificação certo (automacoes.test.ts)" },
+  "POST /api/instagram/webhook": { access: "public", why: "quem chama é a Meta: corpo assinado (HMAC do segredo do app) conferido antes de tudo; não devolve dado de cliente (automacoes.test.ts)" },
+  "GET /api/r/[org]/[code]": { access: "public", why: "link da DM: código sorteado de 64 bits dentro da organização; só soma clique e redireciona (automacoes.test.ts)" },
+  "POST /api/automacoes/worker": { access: "cron", why: "motor das automações: só com o token de rotina; percorre só organizações com a chave ligada" },
+  "GET /api/automacoes": {
+    access: "org",
+    attack: (t) => [{ path: `/api/automacoes?project=${t.project._id}` }, { path: `/api/automacoes?organization=${t.org._id}`, expect: 200 }],
+    own: (t) => ({ path: `/api/automacoes?project=${t.project._id}` }),
+  },
+  "POST /api/automacoes": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/automacoes", body: { account: String(t.account._id), name: "Intrusa", trigger: { kind: "comment", scope: "all", keywords: ["quero"] }, dm: { text: "oi" } } }],
+    own: (t) => ({ method: "POST", path: "/api/automacoes", body: { account: String(t.account._id), name: "Automação Alfa Dois", trigger: { kind: "dm", keywords: ["preco"] }, dm: { text: "R$ 97" } }, expect: 201 }),
+  },
+  "GET /api/automacoes/[id]": {
+    access: "org",
+    attack: (t) => [{ path: "/api/automacoes/x", params: { id: String(t.automation._id) } }],
+    own: (t) => ({ path: "/api/automacoes/x", params: { id: String(t.automation._id) } }),
+  },
+  "PUT /api/automacoes/[id]": {
+    access: "org",
+    attack: (t) => [
+      { method: "PUT", path: "/api/automacoes/x", params: { id: String(t.automation._id) }, body: { name: "Invadida", active: false } },
+      { method: "PUT", path: "/api/automacoes/x", params: { id: String(t.automation._id) }, body: { dryRun: false, confirm: true } },
+    ],
+    own: (t) => ({ method: "PUT", path: "/api/automacoes/x", params: { id: String(t.automation._id) }, body: { name: "Ebook Alfa" } }),
+  },
+  "DELETE /api/automacoes/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/automacoes/x", params: { id: String(t.automation._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/automacoes/x", params: { id: String(t.automationSpare._id) } }),
+  },
+  "GET /api/automacoes/midias": {
+    access: "org",
+    attack: (t) => [{ path: `/api/automacoes/midias?account=${t.account._id}` }],
+    own: (t) => ({ path: `/api/automacoes/midias?account=${t.account._id}` }),
+  },
+  "GET /api/automacoes/execucoes": {
+    access: "org",
+    attack: (t) => [
+      { path: `/api/automacoes/execucoes?automation=${t.automation._id}`, expect: 200 },
+      { path: `/api/automacoes/execucoes?account=${t.account._id}`, expect: 200 },
+    ],
+    own: (t) => ({ path: `/api/automacoes/execucoes?automation=${t.automation._id}` }),
+  },
+  "POST /api/automacoes/simular": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/automacoes/simular", body: { automation: String(t.automation._id), text: "quero" } }],
+    own: (t) => ({ method: "POST", path: "/api/automacoes/simular", body: { automation: String(t.automation._id), text: "quero" } }),
+  },
+  "POST /api/automacoes/assinar": {
+    access: "owner",
+    // chaves desligadas neste mundo: nada vai à Meta, nem para a própria conta
+    attack: (t) => [{ method: "POST", path: "/api/automacoes/assinar", body: { account: String(t.account._id) }, expect: 403 }],
+    own: (t) => ({ method: "POST", path: "/api/automacoes/assinar", body: { account: String(t.account._id) }, expect: 403 }),
+  },
+  "GET /api/contatos": {
+    access: "org",
+    attack: (t) => [
+      { path: `/api/contatos?account=${t.account._id}`, expect: 200 },
+      { path: `/api/contatos?project=${t.project._id}&formato=csv`, expect: 200 },
+      { path: "/api/contatos?tag=cliente-beta", expect: 200 },
+    ],
+    own: (t) => ({ path: `/api/contatos?account=${t.account._id}` }),
+  },
+  "PUT /api/contatos/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/contatos/x", params: { id: String(t.contact._id) }, body: { tags: ["invadido"] } }],
+    own: (t) => ({ method: "PUT", path: "/api/contatos/x", params: { id: String(t.contact._id) }, body: { tags: ["vip"] } }),
+  },
+  "DELETE /api/contatos/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/contatos/x", params: { id: String(t.contact._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/contatos/x", params: { id: String(t.contactSpare._id) } }),
+  },
 };
 
 const MEDIA_ID = "1800000000000100";
@@ -703,7 +782,18 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   await refreshCompetitor(o, competitor, NOW - 1_500_000);
   const competitorSpare = await Competitor.create({ organization: o, project: project._id, name: `Concorrente sobrando ${label}`, instagram: "mentora_b" });
   const product = await CompetitorProduct.create({ organization: o, project: project._id, competitor: competitor._id, name: `Produto secreto ${label}`, price: 97 });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob };
+  // Automações: uma automação com link, uma sobrando, contatos, execução, evento, trava e contador
+  const autoBase = { organization: o, project: project._id, account: account._id, trigger: { kind: "comment", scope: "all", keywords: ["quero"] }, publicReplies: [`resposta-publica-${tag}`], dm: { text: `dm-secreta-${tag}`, buttons: [{ kind: "url", title: "Baixar", url: `https://${tag}.exemplo.com.br/ebook` }] } };
+  const automation = await Automation.create({ ...autoBase, name: `Automação secreta ${label}` });
+  const link = await TrackedLink.create({ organization: o, automation: automation._id, code: tag === "beta" ? "codigoBeta1" : "codigoAlfa1", url: `https://${tag}.exemplo.com.br/ebook` });
+  const automationSpare = await Automation.create({ ...autoBase, name: `Automação sobrando ${label}` });
+  const contact = await Contact.create({ organization: o, project: project._id, account: account._id, igsid: tag === "beta" ? "8800000000000002" : "8800000000000001", username: `contato_${tag}`, email: `lead@${tag}.test`, tags: [`cliente-${tag}`], consent: { given: true, at: new Date(NOW), text: "ok", version: "v-1" } });
+  const contactSpare = await Contact.create({ organization: o, project: project._id, account: account._id, igsid: tag === "beta" ? "8800000000000004" : "8800000000000003", username: `contato_sobrando_${tag}` });
+  const run = await AutomationRun.create({ organization: o, account: account._id, automation: automation._id, automationName: automation.name, contact: contact._id, eventKey: `c:${tag}`, trigger: "comment", username: `contato_${tag}`, text: `comentario-${tag}`, status: "done", steps: [{ kind: "private_reply", status: "sent" }] });
+  await AutomationEvent.create({ organization: o, account: account._id, key: `c:evento-${tag}`, field: "comments", data: { text: `evento-${tag}` }, eventAt: new Date(NOW), status: "done" });
+  await AutomationLedger.create({ organization: o, account: account._id, key: `dm-post:1:${tag}` });
+  await AutomationCounter.create({ organization: o, account: account._id, kind: "dm", hour: "2026101800", count: 1, expiresAt: new Date(NOW + 86_400_000) });
+  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -728,6 +818,8 @@ function markers(side: Side): string[] {
     String(side.kit._id), "Kit secreto Beta", "@kitbeta", String(side.job._id), "Reel secreto Beta", String(side.logo._id), side.logo.file, "logo-beta.png", String(side.usage._id), "uso-beta",
     String(side.adAccount._id), String(side.adSpare._id), `${ADS_TOKEN}beta`, String(side.competitor._id), "Concorrente secreto Beta", String(side.competitorSpare._id), "Concorrente sobrando Beta", "Pagina Beta", String(side.product._id), "Produto secreto Beta",
     String(side.scene._id), side.scene.file, "Cena secreta Beta", "Autor Beta", String(side.template._id), "Padrão secreto Beta", String(side.cenasJob._id), "Vídeo com cenas Beta", "chamada-beta",
+    String(side.automation._id), "Automação secreta Beta", String(side.automationSpare._id), "Automação sobrando Beta", "resposta-publica-beta", "dm-secreta-beta", "beta.exemplo.com.br", "codigoBeta1",
+    String(side.contact._id), String(side.contactSpare._id), "contato_beta", "lead@beta.test", "cliente-beta", "8800000000000002", String(side.run._id), "comentario-beta", "evento-beta",
   ];
 }
 
@@ -809,7 +901,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "BrandKit", "Competitor", "CompetitorDaily", "CompetitorProduct", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob", "VideoTemplate"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "Competitor", "CompetitorDaily", "CompetitorProduct", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "MediaAsset", "Post", "Project", "SocialAccount", "StudioJob", "TrackedLink", "VideoTemplate"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

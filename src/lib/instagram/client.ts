@@ -382,6 +382,32 @@ export class InstagramClient {
     return r.id;
   }
 
+  // ---- Mensagens (automações do direct). ESCRITA: só com as três chaves de automação ligadas
+  // e fora do modo ensaio. Documentação oficial lida em 18/10/2026:
+  //   POST /<IG_ID>/messages  recipient {id: IGSID} (dentro das 24h) ou {comment_id} (private reply,
+  //   1 por comentário, até 7 dias). Nunca mandamos `tag` (HUMAN_AGENT exige App Review e humano).
+
+  async sendMessage(igUserId: string, recipient: { id: string } | { comment_id: string }, message: Record<string, unknown>): Promise<{ messageId: string; recipientId: string }> {
+    const r = await this.call<{ message_id?: string; recipient_id?: string }>(
+      `/${igUserId}/messages`,
+      { recipient: JSON.stringify(recipient), message: JSON.stringify(message) },
+      "POST"
+    );
+    return { messageId: String(r.message_id || ""), recipientId: String(r.recipient_id || "") };
+  }
+
+  /** Liga o webhook do app para esta conta (comments, messages, messaging_postbacks). ESCRITA. */
+  async subscribeApp(fields: string[]): Promise<boolean> {
+    const r = await this.call<{ success?: boolean }>("/me/subscribed_apps", { subscribed_fields: fields.join(",") }, "POST");
+    return r.success === true;
+  }
+
+  /** Data de publicação de uma mídia (para o escopo "próximo post"). Só leitura. */
+  async getMediaTimestamp(mediaId: string): Promise<string> {
+    const r = await this.call<{ timestamp?: string }>(`/${mediaId}`, { fields: "timestamp" });
+    return r.timestamp || "";
+  }
+
   // ---- Publicação (container -> publish) ----
 
   async createContainer(igUserId: string, params: Record<string, string | boolean | undefined>): Promise<string> {

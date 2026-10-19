@@ -2,6 +2,7 @@ import { json, route } from "@/lib/api";
 import { publicBrand } from "@/lib/brand";
 import { FriendlyError, notFound } from "@/lib/errors";
 import { adsWriteGlobal } from "@/lib/ads/write";
+import { automationsGlobal } from "@/lib/automations/switches";
 import { publishEnabled } from "@/lib/instagram/publish";
 import { publicInvite } from "@/lib/invites";
 import { applyBrand, audit, publicUser } from "@/lib/orgs";
@@ -33,6 +34,8 @@ export const GET = route("admin", async ({ params, id }) => {
     commentReplyGlobal: process.env.IG_COMMENT_REPLY_ENABLED === "true",
     adsWriteEnabled: organization.adsWriteEnabled === true,
     adsWriteGlobal: adsWriteGlobal(),
+    automationsEnabled: organization.automationsEnabled === true,
+    automationsGlobal: automationsGlobal(),
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -67,7 +70,12 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   // Ações nos anúncios da Meta (Tráfego): mesma regra, e só valem com TRAFEGO_WRITE_ENABLED=true.
   const adsChanged = b.adsWriteEnabled !== undefined && Boolean(b.adsWriteEnabled) !== (organization.adsWriteEnabled === true);
   if (adsChanged) organization.adsWriteEnabled = Boolean(b.adsWriteEnabled);
+  // Automações do direct: mesma regra, e só valem com AUTOMACOES_ENABLED=true também.
+  const autoChanged = b.automationsEnabled !== undefined && Boolean(b.automationsEnabled) !== (organization.automationsEnabled === true);
+  if (autoChanged) organization.automationsEnabled = Boolean(b.automationsEnabled);
   await organization.save();
+  if (autoChanged)
+    await audit({ action: organization.automationsEnabled ? "cliente.automacoes_ligadas" : "cliente.automacoes_desligadas", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (replyChanged)
     await audit({ action: organization.commentReplyEnabled ? "cliente.resposta_comentario_ligada" : "cliente.resposta_comentario_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (adsChanged)
@@ -80,5 +88,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, brand: publicBrand(organization) });
 });

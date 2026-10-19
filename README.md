@@ -66,6 +66,10 @@ contas, chaves de API e dados do Instagram pertencem a uma organização e nunca
 | `IG_MOCK` | `1` = modo demonstração (Meta simulada). Nunca em produção |
 | `IG_COMMENT_REPLY_ENABLED` | `true` = chave geral de responder comentário pelo ContentHub (padrão: desligada). Ainda precisa da chave do cliente em Admin › Clientes |
 | `TRAFEGO_WRITE_ENABLED` | `true` = chave geral das ações nos anúncios da Meta (pausar, ativar, orçamento diário, criar anúncio pausado). Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes |
+| `AUTOMACOES_ENABLED` | `true` = chave geral das automações do direct (webhook guarda eventos, motor roda). Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes e de cada automação ligada (que nasce em ensaio) |
+| `IG_WEBHOOK_VERIFY_TOKEN` | texto sorteado (16+ caracteres) que se cola no painel da Meta em "Verify token" do webhook do Instagram |
+| `IG_WEBHOOK_SECRET` | opcional: segredo usado para conferir a assinatura `X-Hub-Signature-256` do webhook. Sem ela vale `IG_APP_SECRET` |
+| `AUTOMACOES_HOURLY_CAP` | opcional: envios por hora por conta (padrão 60, máximo 200; a Meta permite 750 private replies/h) |
 | `META_API_VERSION` | opcional, padrão `v25.0` (Graph API do Facebook: anúncios, Business Discovery, Biblioteca de Anúncios) |
 
 **Tráfego e Concorrentes** (menu): conta de anúncio por projeto com token colado (login do Facebook, `ads_read`), números por anúncio e por dia no período escolhido, candidatos a anúncio pelos posts orgânicos. Concorrentes: Instagram pelo Business Discovery (só existe no host `graph.facebook.com`, usa o token da conta de anúncio com `instagram_basic`, `instagram_manage_insights`, `pages_read_engagement`; no `graph.instagram.com` a Meta responde "nonexisting field"), YouTube pela Data API v3 (chave do cliente em Configurações › APIs, serviço `youtube`, ou chave da casa em `PUT /api/admin/integracoes`), anúncios pelo link da Biblioteca pública (a API `ads_archive` só traz comercial que alcançou a UE) e produtos numa tabela à mão. Rotinas opcionais com `CRON_TOKEN`: `POST /api/trafego/sync` e `POST /api/concorrentes/atualizar`.
@@ -141,3 +145,11 @@ npm run dev         # abrir por http://localhost:3000 (não por 127.0.0.1)
 - **O que fica guardado** (`InstagramComment`): @ de quem escreveu, texto, data, curtidas, se é resposta e de qual comentário, se a conta já respondeu, oculto. Nada de id de usuário, foto ou perfil. Some junto ao desconectar a conta; comentário apagado no Instagram sai na busca seguinte.
 - **Estudo** (`src/lib/comments/`): classificador com interface única (`classify.ts`), provedor de regras em português (`rules.ts`, "automática simples") e contrato de IA com provedores em sequência e fallback (`llm.ts`; nenhum adaptador HTTP registrado, nada é chamado). Relatório em texto: `GET /api/instagram/report?tipo=comentarios&periodo=30d`.
 - **Responder** (`POST /api/instagram/comments/<id>/reply`): só com `IG_COMMENT_REPLY_ENABLED=true` E a chave do cliente ligada pelo administrador; pede confirmação e registra quem respondeu. Ocultar e apagar não existem.
+
+## Automações do direct (comentou PALAVRA, DM, contatos)
+
+- Webhook público `GET|POST /api/instagram/webhook` (fora do login): verificação `hub.challenge` com `IG_WEBHOOK_VERIFY_TOKEN`; cada POST tem a assinatura `X-Hub-Signature-256` conferida no corpo cru; evento guardado por organização, idempotente pela chave (id do comentário, `mid`), e processado depois pelo motor (`src/lib/automations/engine.ts`, laço do servidor + `POST /api/automacoes/worker` com `CRON_TOKEN`).
+- Três chaves desligadas: `AUTOMACOES_ENABLED`, `Organization.automationsEnabled` (Admin › Clientes) e `Automation.active`; cada automação nasce em ensaio (`dryRun`), que registra o que enviaria sem chamar a Meta. Simular pela tela (`POST /api/automacoes/simular`) funciona com tudo desligado.
+- Regras: private reply 1 por comentário e até 7 dias; 1 DM por pessoa por post; direct só na janela de 24h (sem HUMAN_AGENT); teto por hora por conta; "parar" respeitado; e-mail/telefone só depois do "sim" ao texto de consentimento (guardado com data e versão).
+- Link da DM passa por `/api/r/<org>/<código>` (público) para contar o clique.
+- Passo a passo da Meta (webhook, verificação da empresa, análise do app): `docs/ajuda/21-meta-app-automacoes.md`.

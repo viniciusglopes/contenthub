@@ -26,6 +26,11 @@ import { refreshCompetitor } from "../src/lib/competitors/competitors";
 import { encrypt } from "../src/lib/crypto";
 import { Competitor, CompetitorProduct } from "../src/models/Competitor";
 import { HouseCredential } from "../src/models/Platform";
+import SocialAccount from "../src/models/SocialAccount";
+import { Automation } from "../src/models/Automation";
+import { ensureLinks } from "../src/lib/automations/links";
+import { ingest } from "../src/lib/automations/webhook";
+import { processDue } from "../src/lib/automations/engine";
 
 const uri = process.env.MONGODB_URI || "";
 if (!/127\.0\.0\.1|localhost/.test(uri) || process.env.IG_MOCK !== "1") {
@@ -135,6 +140,62 @@ async function flowPosts(org: Types.ObjectId, project: Types.ObjectId, owner: st
   });
 }
 
+
+// Automações de exemplo na casa: uma de comentário (fora do ensaio), uma de direct (em ensaio) e
+// eventos simulados passando pelo MESMO caminho do webhook e do motor (a Meta é a simulada do IG_MOCK).
+async function automationsDemo(org: Types.ObjectId, project: Types.ObjectId) {
+  const account: any = await SocialAccount.findOne({ organization: org, project, platform: "instagram" }).lean();
+  await Organization.updateOne({ _id: org }, { $set: { automationsEnabled: true } });
+  const ebook = new Automation({
+    organization: org, project, account: account._id, name: "Ebook 21 dias", active: true, dryRun: false,
+    trigger: { kind: "comment", scope: "all", keywords: ["quero", "21"], match: "word" },
+    publicReplies: ["Te mandei no direct! 📩", "Corre lá na DM 😉", "Enviado, confere o direct!"],
+    dm: { text: "Oi! Aqui está o ebook dos 21 dias que você pediu 👇", buttons: [{ kind: "url", title: "Baixar o ebook", url: "https://exemplo.com.br/ebook-21-dias.pdf" }] },
+    ask: { enabled: true, field: "email", buttonTitle: "Quero por e-mail", consentText: "Para te mandar os próximos materiais, a Hora de Mudar o Jogo precisa guardar o seu e-mail e usar só para isso. Você autoriza?" },
+    tags: ["ebook-21"],
+  });
+  await ensureLinks(org, ebook);
+  await ebook.save();
+  const preco = new Automation({
+    organization: org, project, account: account._id, name: "Preço da mentoria", active: true, dryRun: true,
+    trigger: { kind: "dm", keywords: ["preco", "valor"], match: "word" },
+    dm: { text: "A mentoria custa R$ 497 em até 12x. Quer ver como funciona?", buttons: [{ kind: "url", title: "Ver a página", url: "https://exemplo.com.br/mentoria" }], quickReplies: [{ title: "Tenho dúvida", replyText: "Me conta sua dúvida que eu respondo!", tag: "duvida" }] },
+    tags: ["interesse-mentoria"],
+  });
+  await ensureLinks(org, preco);
+  await preco.save();
+  await Automation.create({ organization: org, project, account: account._id, name: "Próximo Reel: palavra GUIA", trigger: { kind: "comment", scope: "next", nextAfter: new Date(), keywords: ["guia"] }, dm: { text: "Aqui está o guia!" }, publicReplies: ["Enviado no direct!"] });
+  const ig = String(account.accountId);
+  const people = [["17841400000000201", "ana.souza"], ["17841400000000202", "bruno_lima"], ["17841400000000203", "carla.m"], ["17841400000000204", "diego.f"], ["17841400000000205", "eduarda_r"]];
+  const t0 = Date.now() - 50 * 60_000;
+  const prev = process.env.AUTOMACOES_ENABLED;
+  process.env.AUTOMACOES_ENABLED = "true";
+  const deliver = (body: unknown, at: number) => ingest(body, { now: at, delay: () => 0 });
+  const comment = (i: number, text: string, media = "1800000000000100") => ({ object: "instagram", entry: [{ id: ig, time: Math.floor((t0 + i * 60_000) / 1000), changes: [{ field: "comments", value: { id: `1785100000000${100 + i}`, text, from: { id: people[i % people.length][0], username: people[i % people.length][1] }, media: { id: media } } }] }] });
+  const msg = (who: number, mid: string, at: number, m: Record<string, unknown>) => ({ object: "instagram", entry: [{ id: ig, time: at, messaging: [{ sender: { id: people[who][0] }, recipient: { id: ig }, timestamp: at, ...m, ...(m.postback ? {} : { message: { mid, ...(m.message as object) } }) }] }] });
+  for (const [i, text] of ["QUERO!!", "quero o ebook", "Quero 21", "que lindo esse post", "quero de novo"].entries()) {
+    await deliver(comment(i, text, i === 4 ? "1800000000000100" : "1800000000000100"), t0 + i * 60_000);
+  }
+  // a 5ª pessoa repete no mesmo post: recebe resposta pública, mas não 2ª DM
+  await deliver(comment(5, "QUERO também"), t0 + 6 * 60_000);
+  await processDue({ now: t0 + 8 * 60_000 });
+  // Ana pede por e-mail: botão -> consentimento -> sim -> e-mail
+  const at = t0 + 10 * 60_000;
+  await deliver(msg(0, "", at, { postback: { mid: "pb1", title: "Quero por e-mail", payload: `ask:${ebook._id}` } }), at);
+  await processDue({ now: at + 5_000 });
+  await deliver(msg(0, "mid-ana-1", at + 20_000, { message: { text: "Sim, autorizo", quick_reply: { payload: `ask-yes:${ebook._id}` } } }), at + 20_000);
+  await processDue({ now: at + 25_000 });
+  await deliver(msg(0, "mid-ana-2", at + 40_000, { message: { text: "ana.souza@exemplo.com.br" } }), at + 40_000);
+  await processDue({ now: at + 45_000 });
+  // Bruno pergunta o preço no direct (automação em ensaio)
+  await deliver(msg(1, "mid-bruno-1", at + 60_000, { message: { text: "Qual o valor da mentoria?" } }), at + 60_000);
+  await processDue({ now: at + 65_000 });
+  // Carla pede para parar
+  await deliver(msg(2, "mid-carla-1", at + 80_000, { message: { text: "parar" } }), at + 80_000);
+  await processDue({ now: at + 85_000 });
+  if (prev === undefined) delete process.env.AUTOMACOES_ENABLED; else process.env.AUTOMACOES_ENABLED = prev;
+}
+
 async function main() {
   await mongoose.connect(uri);
   await mongoose.connection.dropDatabase();
@@ -159,6 +220,7 @@ async function main() {
     { organization: home._id, project: hdmoj._id, name: "Marca C", instagram: "marca_c", facebookPage: "123456789012345" },
   ]);
   for (const c of rivals) await refreshCompetitor(home._id, c);
+  await automationsDemo(home._id, hdmoj._id);
   await CompetitorProduct.create([
     { organization: home._id, project: hdmoj._id, competitor: rivals[0]._id, name: "Mentoria Virada 90", platform: "Hotmart", price: 997, promise: "Mudar de carreira em 90 dias", link: "https://exemplo.com/virada90" },
     { organization: home._id, project: hdmoj._id, competitor: rivals[1]._id, name: "Curso Rotina de Ouro", platform: "Kiwify", price: 197, promise: "Rotina produtiva em 21 dias" },

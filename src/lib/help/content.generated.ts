@@ -278,6 +278,61 @@ export const ARTICLES: Article[] = [
     "body": "# Concorrentes\n\n1. No menu, clique em **Concorrentes** e em **Adicionar concorrente**.\n2. Informe o nome e o que tiver: @ do Instagram, canal do YouTube, Página do Facebook.\n3. Salve e clique em atualizar.\n\n## O que cada fonte precisa\n\n- **YouTube**: a chave do YouTube. Veja [YouTube](artigo:youtube).\n- **Instagram**: uma conta de anúncio conectada em Tráfego, com o Instagram ligado a uma Página. Veja [Token da Meta para Tráfego](artigo:token-meta-ads).\n- **Anúncios**: a tela abre a Biblioteca de Anúncios pública da Meta.\n\n> **Ainda não disponível pela API:** anúncios comerciais de concorrentes no Brasil. A API da Biblioteca de Anúncios só devolve anúncios de fora da União Europeia quando são sobre temas sociais, eleições ou política."
   },
   {
+    "id": "automacoes",
+    "title": "Automações do direct",
+    "summary": "Quem comentar uma palavra recebe resposta pública e DM com link; palavra no direct, botões e teste.",
+    "order": 19,
+    "admin": false,
+    "tags": [
+      "automações",
+      "manychat",
+      "comentário",
+      "dm",
+      "direct",
+      "palavra",
+      "gatilho",
+      "link",
+      "ensaio"
+    ],
+    "body": "# Automações do direct\n\nExemplo: quem comentar **QUERO** no próximo post recebe uma resposta no comentário e uma DM com o link do material.\n\n## Criar\n\n1. No menu, clique em **Automações** e depois em **Nova automação**.\n2. **Quando:** escolha **Comentou no post** (próximo post, posts escolhidos ou todos) ou **Mandou mensagem no direct**, e escreva as palavras. Acento e maiúscula não fazem diferença.\n3. **Resposta pública:** até 3 textos. Eles são usados em rodízio, porque textos iguais em sequência parecem robô para o Instagram.\n4. **DM:** a mensagem, com até 3 botões (link ou resposta) e respostas rápidas opcionais.\n5. **Pedir e-mail ou telefone** (opcional): veja [Contatos e LGPD](artigo:contatos-e-lgpd).\n6. **Etiqueta:** o contato recebe a etiqueta quando a automação dispara.\n7. Clique em **Salvar**.\n\n**O que você deve ver:** a automação na lista, marcada **desligada** e **ensaio**.\n\n## Testar antes de ligar\n\n1. No cartão da automação, clique em **Testar**.\n2. Escreva um comentário de exemplo e clique em **Testar**.\n\n**O que você deve ver:** cada passo que ela faria (resposta pública, DM, etiqueta) com o texto e os botões. A simulação nunca envia nada para o Instagram.\n\n## Ligar\n\nSó o dono da conta liga. Há três chaves, e as três precisam estar ligadas:\n\n1. a chave do servidor (o suporte liga);\n2. a chave do seu cliente, em Admin › Clientes (o suporte liga);\n3. o botão **Ligar** de cada automação.\n\nMesmo ligada, a automação começa em **modo ensaio**: ela recebe os comentários e registra em **Execuções** o que enviaria, sem enviar. Quando estiver tudo certo, clique em **Sair do ensaio** e confirme.\n\n## Regras da Meta que o ContentHub respeita\n\n- A DM a partir de um comentário só pode ser enviada **uma vez por comentário** e **até 7 dias** depois dele. Fonte: [Private replies](https://developers.facebook.com/docs/instagram-platform/private-replies)\n- O ContentHub manda no máximo **uma DM por pessoa em cada post**.\n- Mensagem comum no direct só sai **até 24 horas** depois da última mensagem da pessoa. Fora disso nada é enviado. Fonte: [Messaging API](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api)\n- A Meta permite 750 DMs de comentário por hora por conta. O ContentHub usa um teto bem menor (60 por hora, mudável pelo suporte até 200). O que passar espera a hora seguinte. Fonte: [limites de taxa](https://developers.facebook.com/docs/instagram-platform/overview)\n- Respostas rápidas não aparecem no Instagram do computador, só no celular.\n- Quem responder **parar** não recebe mais nada automático.\n\n## Execuções\n\nNa aba **Execuções** fica cada disparo: a palavra, o que foi enviado (ou seria, no ensaio), o que não foi enviado e por quê, e o erro da Meta quando houve. Cliques nos links da DM são contados pelo nosso endereço curto e aparecem no cartão da automação.\n\n> **Ainda não funciona com o público:** a Meta só entrega comentários e mensagens de pessoas de fora depois da análise do app. Veja [App da Meta para automações](artigo:meta-app-automacoes)."
+  },
+  {
+    "id": "contatos-e-lgpd",
+    "title": "Contatos e LGPD",
+    "summary": "Quem entra na lista, como pedir e-mail ou telefone com consentimento, exportar e excluir a pedido.",
+    "order": 20,
+    "admin": false,
+    "tags": [
+      "contatos",
+      "lgpd",
+      "consentimento",
+      "e-mail",
+      "telefone",
+      "etiqueta",
+      "exportar",
+      "excluir"
+    ],
+    "body": "# Contatos e LGPD\n\nUm contato aparece quando uma automação dispara para a pessoa ou quando ela manda mensagem no direct de uma conta com as automações ligadas.\n\n## O que fica guardado\n\n- o @ e o identificador da pessoa nesta conta (é o que a Meta envia);\n- etiquetas e campos que você ou a automação colocaram;\n- quando foi a última mensagem dela (para a regra das 24 horas);\n- e-mail ou telefone, **só se ela autorizou**, com a data e a versão do texto que ela aceitou.\n\n## Pedir e-mail ou telefone\n\n1. Na automação, ligue **Pedir e-mail ou telefone**.\n2. Escreva o **texto de consentimento**: diga quem guarda (o nome da sua empresa) e para quê. Exemplo: \"Para te enviar o material, a Clínica X precisa guardar o seu e-mail e usar só para isso. Você autoriza?\"\n3. Salve.\n\nNa DM aparece o botão **Quero receber**. Ao tocar, a pessoa recebe o seu texto e responde **Sim** ou **Não**. Só depois do **Sim** o ContentHub pergunta o e-mail ou telefone e confere se é válido. Com **Não**, nada é guardado.\n\nSe você mudar o texto, os próximos aceites ficam com uma versão nova; os antigos continuam com o texto que a pessoa viu.\n\n## Lista de contatos\n\n1. No menu, clique em **Contatos**.\n2. Use os filtros no topo: busca, **com e-mail ou telefone** e as etiquetas.\n3. Clique num contato para ver o consentimento, mudar etiquetas e campos.\n4. **Exportar CSV** baixa a lista filtrada.\n\n## Excluir a pedido\n\nSe a pessoa pedir para apagar os dados dela:\n\n1. Abra o contato e clique em **Excluir a pedido (LGPD)** (só o dono da conta vê).\n\n**O que você deve ver:** o contato some da lista e o @ e o texto dele são apagados das execuções.\n\n> Você (o cliente) é quem decide para que usa os contatos; o ContentHub guarda e processa por você. Use os dados só para o que está no texto de consentimento."
+  },
+  {
+    "id": "meta-app-automacoes",
+    "title": "App da Meta para automações",
+    "summary": "Passo a passo do webhook, verificação da empresa e análise do app (permissões de comentário e mensagem).",
+    "order": 21,
+    "admin": false,
+    "tags": [
+      "meta",
+      "app",
+      "webhook",
+      "análise",
+      "app review",
+      "verificação",
+      "permissões",
+      "instagram_business_manage_messages"
+    ],
+    "body": "# App da Meta para automações\n\nAs automações dependem do app da Meta da plataforma. Este passo a passo é para quem administra o app (normalmente o suporte). Os nomes dos menus podem variar.\n\n## 1. Permissões\n\nO token da conta precisa destas três permissões:\n\n- **instagram_business_basic**\n- **instagram_business_manage_comments** (ler e responder comentários)\n- **instagram_business_manage_messages** (mandar DM)\n\nGere o token de novo marcando as três (veja [Token do Instagram](artigo:token-instagram)).\n\n## 2. Webhook (o Instagram avisa o ContentHub)\n\n1. Abra o app em [developers.facebook.com](https://developers.facebook.com/apps).\n2. Vá em **Instagram** e depois em **Configure webhooks** (o nome pode variar).\n3. Em **Callback URL**, coloque: `https://contenthub.vinculodigital.com.br/api/instagram/webhook`\n4. Em **Verify token**, coloque o mesmo valor da variável `IG_WEBHOOK_VERIFY_TOKEN` do servidor e clique em **Verify and save**.\n5. Assine os campos **comments**, **messages** e **messaging_postbacks**.\n6. No ContentHub, com as chaves ligadas, o suporte liga o webhook em cada conta (isso chama `POST /me/subscribed_apps` na Meta).\n\nCada aviso da Meta vem assinado com o segredo do app; o ContentHub confere a assinatura e descarta o que não confere. Fonte: [Webhooks do Instagram](https://developers.facebook.com/docs/instagram-platform/webhooks)\n\n**O que você deve ver:** o painel da Meta aceita a URL. No modo de desenvolvimento, só chegam comentários e mensagens de pessoas com função no app (testadores).\n\n## 3. Verificação da empresa\n\nA Meta só dá o acesso avançado para empresa verificada.\n\n1. No painel do app, abra **Configurações do app** e depois **Básico**, e confira qual portfólio empresarial é dono do app.\n2. Na Central de Segurança do portfólio, clique em **Iniciar verificação** e envie os documentos da empresa.\n\nFontes: [Níveis de acesso](https://developers.facebook.com/docs/graph-api/overview/access-levels) e [Verificação da empresa](https://developers.facebook.com/docs/development/release/business-verification)\n\n## 4. Análise do app (App Review)\n\n1. No painel do app, abra **Análise do app** e depois **Permissões e recursos**.\n2. Peça **acesso avançado** para as três permissões acima.\n3. Para cada uma, explique o uso e envie um vídeo (screencast) com a tela em inglês mostrando o fluxo: comentário com a palavra, resposta pública, DM com link, contato na lista.\n4. Faça antes pelo menos uma chamada com sucesso de cada permissão (com uma conta testadora).\n5. Depois de aprovado, coloque o app no modo **Ao vivo** (Live).\n\nFontes: [Análise do app do Instagram](https://developers.facebook.com/docs/instagram-platform/app-review) e [Modos do app](https://developers.facebook.com/docs/development/build-and-test/app-modes)\n\n## 5. Contas de clientes\n\nPara contas que não são da própria empresa dona do app, a Meta pede também a verificação de acesso de provedor de tecnologia (Tech Provider). Fonte: [Access Verification](https://developers.facebook.com/docs/development/release/access-verification)\n\n> **Importante:** o ContentHub não usa a etiqueta HUMAN_AGENT nem manda mensagem fora das 24 horas. Não vender a automação a cliente antes da aprovação da Meta."
+  },
+  {
     "id": "admin-clientes",
     "title": "Admin: clientes, convites e chaves",
     "summary": "Criar cliente, convidar o dono, entrar como cliente e ligar ou desligar recursos.",

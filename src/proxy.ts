@@ -5,8 +5,10 @@ import { CRON_PATHS, SESSION_COOKIE, checkCronToken, verifySessionToken } from "
 // Primeira barreira: sem cookie assinado válido, nada passa (menos entrar e aceitar convite).
 // A segunda barreira é em cada rota (src/lib/api.ts): usuário ativo, papel e organização
 // conferidos no banco.
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/brand"];
-const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/"];
+// /api/instagram/webhook: quem chama é a Meta (assinatura conferida na rota);
+// /api/r/: link da DM que conta o clique (código sorteado, sem dado da pessoa).
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/brand", "/api/instagram/webhook"];
+const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/", "/api/r/"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

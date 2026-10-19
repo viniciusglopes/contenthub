@@ -31,6 +31,8 @@ interface OrgDetail {
   commentReplyGlobal: boolean;
   adsWriteEnabled: boolean;
   adsWriteGlobal: boolean;
+  automationsEnabled?: boolean;
+  automationsGlobal?: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
   invites: PendingInvite[];
@@ -246,6 +248,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [publishOn, setPublishOn] = useState(false);
   const [replyOn, setReplyOn] = useState(false);
   const [adsOn, setAdsOn] = useState(false);
+  const [autoOn, setAutoOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -261,6 +264,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setPublishOn(r.data.publishEnabled);
     setReplyOn(r.data.commentReplyEnabled);
     setAdsOn(r.data.adsWriteEnabled === true);
+    setAutoOn(r.data.automationsEnabled === true);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -269,7 +273,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -347,6 +351,18 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                     ? "Ligada: o dono deste cliente pode pausar, ativar, mudar orçamento diário e criar anúncio pausado a partir de um post (com confirmação e registro)."
                     : "Desligada: Tráfego é só leitura para este cliente."}
                   {!d.adsWriteGlobal && " A chave geral do sistema (TRAFEGO_WRITE_ENABLED) está desligada: mesmo ligando aqui, nada é alterado na Meta."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="automations-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={autoOn} onChange={(e) => setAutoOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Automações do direct (comentou palavra, DM, contatos)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {autoOn
+                    ? "Ligada: o webhook guarda os comentários e mensagens das contas deste cliente e as automações ativas rodam (cada uma começa em modo ensaio)."
+                    : "Desligada: o cliente monta e simula automações, mas nada é recebido nem enviado."}
+                  {!d.automationsGlobal && " A chave geral do sistema (AUTOMACOES_ENABLED) está desligada: mesmo ligando aqui, nada é recebido nem enviado."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

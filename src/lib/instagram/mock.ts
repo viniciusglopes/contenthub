@@ -242,6 +242,12 @@ export function mockFetch(nowFn: () => number = Date.now): FetchLike {
     }
     if (/^\/\d+\/replies$/.test(path)) return (init?.method || "GET") === "POST" ? ok({ id: `1791${String(Math.round(rnd(now) * 1e9)).padStart(9, "0")}` }) : ok({ data: [] });
 
+    // Automações (demonstração): direct e assinatura do webhook respondem sem sair daqui.
+    if (/^\/\d+\/messages$/.test(path) && init?.method === "POST") {
+      const r = JSON.parse(params.get("recipient") || "{}");
+      return ok({ recipient_id: r.id || "1790000000000001", message_id: `aWdfZAG1faXRlbTo${Math.round(rnd(now) * 1e9)}` });
+    }
+    if (path === "/me/subscribed_apps") return ok({ success: true });
     if (/^\/\d+\/media_publish$/.test(path)) return ok({ id: "17900000000009999" });
     if (/^\/\d+\/content_publishing_limit$/.test(path))
       return ok({ data: [{ quota_usage: 2, config: { quota_total: 100, quota_duration: 86400 } }] });
