@@ -31,6 +31,7 @@ interface OrgDetail {
   commentReplyGlobal: boolean;
   adsWriteEnabled: boolean;
   adsWriteGlobal: boolean;
+  offersEnabled: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
   invites: PendingInvite[];
@@ -246,6 +247,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [publishOn, setPublishOn] = useState(false);
   const [replyOn, setReplyOn] = useState(false);
   const [adsOn, setAdsOn] = useState(false);
+  const [offersOn, setOffersOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -261,6 +263,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setPublishOn(r.data.publishEnabled);
     setReplyOn(r.data.commentReplyEnabled);
     setAdsOn(r.data.adsWriteEnabled === true);
+    setOffersOn(r.data.offersEnabled === true);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -269,7 +272,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, offersEnabled: offersOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -347,6 +350,17 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                     ? "Ligada: o dono deste cliente pode pausar, ativar, mudar orçamento diário e criar anúncio pausado a partir de um post (com confirmação e registro)."
                     : "Desligada: Tráfego é só leitura para este cliente."}
                   {!d.adsWriteGlobal && " A chave geral do sistema (TRAFEGO_WRITE_ENABLED) está desligada: mesmo ligando aqui, nada é alterado na Meta."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="offers-module-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={offersOn} onChange={(e) => setOffersOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Módulo Ofertas (lista da casa)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {offersOn
+                    ? "Ligado: este cliente vê a lista da casa em Concorrentes › Ofertas, as novas do dia e o relatório \"mais escaladas do mês\". Se ele não tiver conta de anúncio, a contagem das ofertas dele usa o token da casa."
+                    : "Desligado: este cliente acompanha só as ofertas que ele mesmo cadastra."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

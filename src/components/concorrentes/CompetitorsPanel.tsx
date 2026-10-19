@@ -2,7 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect -- aba lida do link e carga inicial */
 
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Megaphone, Package, Pencil, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { ExternalLink, Flame, Megaphone, Package, Pencil, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import OffersTab from "./OffersTab";
 import { send } from "@/components/http";
 import { fmt, fmtDateTime } from "@/components/instagram/shared";
 import { Card, Field, Notice, fmtBrl, linkBtn } from "@/components/studio/shared";
@@ -25,6 +26,7 @@ const TABS = [
   { id: "perfis", label: "Perfis", icon: Users },
   { id: "anuncios", label: "Anúncios", icon: Megaphone },
   { id: "produtos", label: "Produtos", icon: Package },
+  { id: "ofertas", label: "Ofertas", icon: Flame },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -274,7 +276,7 @@ function ProductsTab({ project, competitors }: { project: string; competitors: C
   );
 }
 
-export default function CompetitorsPanel({ projects, selectedProject, onSelectProject }: { projects: ProjectOpt[]; selectedProject: string; onSelectProject: (id: string) => void }) {
+export default function CompetitorsPanel({ projects, selectedProject, onSelectProject, onHelp }: { projects: ProjectOpt[]; selectedProject: string; onSelectProject: (id: string) => void; onHelp?: (id: string) => void }) {
   const project = projects.some((p) => p._id === selectedProject) ? selectedProject : projects[0]?._id || "";
   const [tab, setTabState] = useState<Tab>("perfis");
   const [data, setData] = useState<{ competitors: Competitor[]; sources: Sources } | null>(null);
@@ -289,6 +291,7 @@ export default function CompetitorsPanel({ projects, selectedProject, onSelectPr
   function setTab(t: Tab) {
     setTabState(t);
     const url = new URL(window.location.href);
+    url.searchParams.delete("lista");
     if (t === "perfis") url.searchParams.delete("aba");
     else url.searchParams.set("aba", t);
     window.history.replaceState(null, "", url);
@@ -319,18 +322,18 @@ export default function CompetitorsPanel({ projects, selectedProject, onSelectPr
     load();
   }
 
-  if (!projects.length) return <p className="text-sm text-gray-400 py-16 text-center">Crie um projeto primeiro.</p>;
+  if (!projects.length && tab !== "ofertas") return <p className="text-sm text-gray-400 py-16 text-center">Crie um projeto primeiro.</p>;
   const list = data?.competitors || [];
   const editing = list.find((c) => c._id === form);
   return (
     <div className="flex-1 overflow-auto p-3 md:p-6" data-testid="concorrentes">
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs text-gray-400 flex items-center gap-2">Projeto
+          {tab !== "ofertas" && <label className="text-xs text-gray-400 flex items-center gap-2">Projeto
             <select className="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-2 text-sm text-gray-100 max-w-[200px]" value={project} onChange={(e) => onSelectProject(e.target.value)} data-testid="concorrentes-projeto">
               {projects.map((p) => <option key={p._id} value={p._id}>{p.icon} {p.name}</option>)}
             </select>
-          </label>
+          </label>}
           <nav className="flex gap-1 overflow-x-auto ml-auto max-w-full" aria-label="Áreas de Concorrentes">
             {TABS.map((t) => (
               <button key={t.id} type="button" onClick={() => setTab(t.id)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition ${tab === t.id ? "bg-gray-800 text-white font-semibold" : "text-gray-400 hover:bg-gray-800/50"}`} aria-current={tab === t.id ? "page" : undefined} data-testid={`aba-${t.id}`}>
@@ -363,6 +366,7 @@ export default function CompetitorsPanel({ projects, selectedProject, onSelectPr
         )}
         {tab === "anuncios" && data && <AdsTab list={list} note={data.sources.adLibraryNote} onTried={load} />}
         {tab === "produtos" && <ProductsTab key={project} project={project} competitors={list} />}
+        {tab === "ofertas" && <OffersTab onHelp={onHelp} />}
       </div>
     </div>
   );

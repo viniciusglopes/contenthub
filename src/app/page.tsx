@@ -907,7 +907,7 @@ export default function Home() {
         ) : view === "ajuda" && me ? (
           <HelpPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
         ) : view === "concorrentes" && me ? (
-          <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
+          <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} onHelp={openHelp} />
         ) : !calendarViews && view !== "instagram" && view !== "estudio" ? (
           <p className="text-sm text-gray-400 py-16 text-center">{me ? "Essa área é só do administrador." : "Carregando..."}</p>
         ) : showOnboarding && projects.length === 0 ? (

@@ -26,6 +26,8 @@ const PlatformSettingsSchema = new Schema(
     maxJobsGlobal: { type: Number, default: STUDIO_DEFAULTS.maxJobsGlobal },
     maxJobsPerOrg: { type: Number, default: STUDIO_DEFAULTS.maxJobsPerOrg },
     jobMaxMinutes: { type: Number, default: STUDIO_DEFAULTS.jobMaxMinutes },
+    /** Ofertas: { heatRules: [...], countries: ["PT", ...] } (vazio = padrão de src/lib/offers/heat.ts) */
+    offers: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, minimize: false }
 );

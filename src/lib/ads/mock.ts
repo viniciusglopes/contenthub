@@ -70,6 +70,19 @@ const IG_PROFILES: Record<string, { name: string; followers: number; media: numb
   marca_c: { name: "Marca C", followers: 12_380, media: 288 },
 };
 
+/**
+ * Anúncios ativos simulados de uma página (id começando com 77) num dia: base e ritmo saem do id,
+ * para cada página ter uma curva própria (sobe, desce ou fica parada).
+ */
+export function mockActiveAds(pageId: string, date: string): number {
+  const seed = Number(pageId.slice(-5)) || 1;
+  const base = 8 + Math.round(rnd(seed) * 420);
+  const rate = -0.035 + rnd(seed + 1) * 0.1; // de -3,5% a +6,5% ao dia
+  const day = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse("2026-09-01T00:00:00Z")) / 86_400_000);
+  const wobble = 1 + (rnd(seed * 31 + day) - 0.5) * 0.08;
+  return Math.max(0, Math.min(9000, Math.round(base * Math.pow(1 + rate, day) * wobble)));
+}
+
 export function metaMockFetch(now: () => number = Date.now): FetchLike {
   return async (url, init) => {
     const u = new URL(url);
@@ -81,7 +94,19 @@ export function metaMockFetch(now: () => number = Date.now): FetchLike {
     if (path === "/me") return ok({ id: "100000000000001", name: "Usuário de Demonstração" });
     if (path === "/me/accounts")
       return ok({ data: [{ id: "200000000000001", name: "Página de Demonstração", instagram_business_account: { id: "17841400000000001", username: "contademo" } }] });
-    if (path === "/ads_archive") return ok({ data: [] });
+    if (path === "/ads_archive") {
+      // Ofertas: página cujo id começa com 77 tem anúncios ativos simulados (com paginação por cursor);
+      // token com "sem-identidade" devolve a recusa de permissão. Demais páginas: nada (como no Brasil).
+      if (/sem-identidade/.test(token)) return fail(400, 10, "Application does not have permission for this action");
+      const pid = u.searchParams.get("search_page_ids") || "";
+      if (!/^77\d+$/.test(pid)) return ok({ data: [] });
+      const total = mockActiveAds(pid, dayKey(now()));
+      const limit = Number(u.searchParams.get("limit") || 25);
+      const after = Number(u.searchParams.get("after") || 0);
+      const data = Array.from({ length: Math.max(0, Math.min(limit, total - after)) }, (_, i) => ({ id: `${pid.slice(-6)}${String(after + i).padStart(6, "0")}` }));
+      const next = after + limit < total ? (() => { const n = new URL(url); n.searchParams.set("after", String(after + limit)); return n.toString(); })() : undefined;
+      return ok({ data, paging: next ? { cursors: { after: String(after + limit) }, next } : {} });
+    }
     const act = path.match(/^\/(act_\d+)(\/[a-z_]+)?$/);
     if (act) {
       if (act[1] === "act_404") return fail(400, 100, "Unsupported get request. Object with ID 'act_404' does not exist");

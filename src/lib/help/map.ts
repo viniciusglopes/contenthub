@@ -9,7 +9,8 @@ const BY_ESTUDIO_TAB: Record<string, string> = { cenas: "reel-com-cenas", padroe
 export function helpFor(view: string, tab?: string | null): string {
   if (view === "estudio" && tab && BY_ESTUDIO_TAB[tab]) return BY_ESTUDIO_TAB[tab];
   if (view === "instagram" && tab === "comentarios") return "comentarios";
+  if (view === "concorrentes" && tab === "ofertas") return "ofertas";
   return BY_VIEW[view] || "primeiros-passos";
 }
 /** Todos os artigos que algum "?" abre (o teste confere que existem). */
-export const LINKED_ARTICLES = [...new Set([...Object.values(BY_VIEW), ...Object.values(BY_ESTUDIO_TAB), "comentarios"])];
+export const LINKED_ARTICLES = [...new Set([...Object.values(BY_VIEW), ...Object.values(BY_ESTUDIO_TAB), "comentarios", "ofertas"])];

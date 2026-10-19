@@ -18,6 +18,9 @@ const OrganizationSchema = new Schema(
     // Tráfego: pausar, mudar orçamento e criar anúncio pela Meta. Desligado por padrão; só o
     // administrador da plataforma liga, e só vale com a env TRAFEGO_WRITE_ENABLED=true também.
     adsWriteEnabled: { type: Boolean, default: false },
+    // Módulo Ofertas: ver a "lista da casa" (curadoria da plataforma), as novas do dia e o relatório
+    // mensal. Desligado por padrão; só o administrador da plataforma liga.
+    offersEnabled: { type: Boolean, default: false },
     // Classificação por IA (etapa seguinte): ordem dos provedores a tentar, em sequência.
     // As chaves ficam em ApiCredential (criptografadas, uma por serviço por organização).
     ai: {

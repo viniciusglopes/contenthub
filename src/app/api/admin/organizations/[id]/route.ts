@@ -33,6 +33,7 @@ export const GET = route("admin", async ({ params, id }) => {
     commentReplyGlobal: process.env.IG_COMMENT_REPLY_ENABLED === "true",
     adsWriteEnabled: organization.adsWriteEnabled === true,
     adsWriteGlobal: adsWriteGlobal(),
+    offersEnabled: organization.offersEnabled === true,
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -67,11 +68,16 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   // Ações nos anúncios da Meta (Tráfego): mesma regra, e só valem com TRAFEGO_WRITE_ENABLED=true.
   const adsChanged = b.adsWriteEnabled !== undefined && Boolean(b.adsWriteEnabled) !== (organization.adsWriteEnabled === true);
   if (adsChanged) organization.adsWriteEnabled = Boolean(b.adsWriteEnabled);
+  // Módulo Ofertas (lista da casa, novas do dia e relatório mensal): mesma regra.
+  const offersChanged = b.offersEnabled !== undefined && Boolean(b.offersEnabled) !== (organization.offersEnabled === true);
+  if (offersChanged) organization.offersEnabled = Boolean(b.offersEnabled);
   await organization.save();
   if (replyChanged)
     await audit({ action: organization.commentReplyEnabled ? "cliente.resposta_comentario_ligada" : "cliente.resposta_comentario_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (adsChanged)
     await audit({ action: organization.adsWriteEnabled ? "cliente.acoes_anuncio_ligadas" : "cliente.acoes_anuncio_desligadas", actor: s.user, organization: organization._id, ip: clientIp(req) });
+  if (offersChanged)
+    await audit({ action: organization.offersEnabled ? "cliente.modulo_ofertas_ligado" : "cliente.modulo_ofertas_desligado", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (publishChanged)
     await audit({ action: organization.publishEnabled ? "cliente.publicacao_ligada" : "cliente.publicacao_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   await audit({
@@ -80,5 +86,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, offersEnabled: organization.offersEnabled === true, brand: publicBrand(organization) });
 });
