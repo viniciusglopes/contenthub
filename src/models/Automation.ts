@@ -291,7 +291,7 @@ const ContactSchema = new Schema(
     /** pediu para parar: nenhuma mensagem automática sai mais para ele */
     optOutAt: { type: Date, default: null },
     /** como o contato foi criado (comment/dm/postback = direct; os outros vêm do CRM) */
-    source: { type: String, enum: ["comment", "dm", "postback", "meta_lead_ads", "landing", "manual", "import"], default: "comment" },
+    source: { type: String, enum: ["comment", "dm", "postback", "meta_lead_ads", "landing", "manual", "import", "sale"], default: "comment" },
     firstSeenAt: { type: Date, default: () => new Date() },
     /** última mensagem RECEBIDA dele: abre a janela de 24h para responder */
     lastInboundAt: { type: Date, default: null },

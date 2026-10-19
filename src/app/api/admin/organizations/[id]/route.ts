@@ -4,6 +4,8 @@ import { FriendlyError, notFound } from "@/lib/errors";
 import { adsWriteGlobal } from "@/lib/ads/write";
 import { automationsGlobal } from "@/lib/automations/switches";
 import { leadAdsGlobal } from "@/lib/crm/leadads";
+import { trackingGlobal } from "@/lib/tracking/collect";
+import { capiGlobal } from "@/lib/tracking/capi";
 import { publishEnabled } from "@/lib/instagram/publish";
 import { publicInvite } from "@/lib/invites";
 import { applyBrand, audit, publicUser } from "@/lib/orgs";
@@ -39,6 +41,10 @@ export const GET = route("admin", async ({ params, id }) => {
     automationsGlobal: automationsGlobal(),
     leadAdsEnabled: organization.leadAdsEnabled === true,
     leadAdsGlobal: leadAdsGlobal(),
+    trackingEnabled: organization.trackingEnabled === true,
+    trackingGlobal: trackingGlobal(),
+    capiEnabled: organization.capiEnabled === true,
+    capiGlobal: capiGlobal(),
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -79,7 +85,16 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   // Formulários da Meta (Lead Ads) entrando no CRM: mesma regra, e só valem com CRM_LEAD_ADS_ENABLED=true.
   const leadAdsChanged = b.leadAdsEnabled !== undefined && Boolean(b.leadAdsEnabled) !== (organization.leadAdsEnabled === true);
   if (leadAdsChanged) organization.leadAdsEnabled = Boolean(b.leadAdsEnabled);
+  // Rastreamento (script + vendas) e API de Conversões: mesma regra, cada um com a sua chave geral.
+  const trackingChanged = b.trackingEnabled !== undefined && Boolean(b.trackingEnabled) !== (organization.trackingEnabled === true);
+  if (trackingChanged) organization.trackingEnabled = Boolean(b.trackingEnabled);
+  const capiChanged = b.capiEnabled !== undefined && Boolean(b.capiEnabled) !== (organization.capiEnabled === true);
+  if (capiChanged) organization.capiEnabled = Boolean(b.capiEnabled);
   await organization.save();
+  if (trackingChanged)
+    await audit({ action: organization.trackingEnabled ? "cliente.rastreamento_ligado" : "cliente.rastreamento_desligado", actor: s.user, organization: organization._id, ip: clientIp(req) });
+  if (capiChanged)
+    await audit({ action: organization.capiEnabled ? "cliente.capi_ligada" : "cliente.capi_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (leadAdsChanged)
     await audit({ action: organization.leadAdsEnabled ? "cliente.lead_ads_ligado" : "cliente.lead_ads_desligado", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (autoChanged)
@@ -96,5 +111,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, leadAdsEnabled: organization.leadAdsEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, leadAdsEnabled: organization.leadAdsEnabled === true, trackingEnabled: organization.trackingEnabled === true, capiEnabled: organization.capiEnabled === true, brand: publicBrand(organization) });
 });

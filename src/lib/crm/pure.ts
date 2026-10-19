@@ -3,7 +3,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export const SOURCE_KINDS = ["automation", "comment", "dm", "postback", "meta_lead_ads", "ig_ad", "ig_link", "link", "landing", "manual", "import"] as const;
+export const SOURCE_KINDS = ["automation", "comment", "dm", "postback", "meta_lead_ads", "ig_ad", "ig_link", "link", "landing", "manual", "import", "sale"] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
 export const SOURCE_PT: Record<string, string> = {
@@ -18,6 +18,7 @@ export const SOURCE_PT: Record<string, string> = {
   landing: "Página de captura",
   manual: "Cadastro à mão",
   import: "Planilha",
+  sale: "Venda (checkout)",
 };
 
 export interface StageDef { key: string; name: string; kind: "open" | "won" | "lost"; color?: string }

@@ -396,7 +396,7 @@ export const ARTICLES: Article[] = [
       "último toque",
       "utm"
     ],
-    "body": "# Relatórios do CRM e custo por lead\n\nNa aba **Relatórios** do CRM, escolha o período e como agrupar: **Campanha**, **Conjunto**, **Anúncio**, **Post** ou **Origem**.\n\n## O que cada número quer dizer\n\n- **Leads**: quem entrou no CRM dentro do período.\n- **Vendas**: desses leads, quantos estão hoje numa etapa de ganho. **Valor** soma o valor deles.\n- **Gasto**: o que o **Tráfego** registrou no mesmo período para aquele id de campanha, conjunto ou anúncio.\n- **Meta contou**: os leads que a própria Meta informou para aquele id (para comparar com os que chegaram de verdade).\n- **Custo/lead** e **Custo/venda**: gasto dividido por leads ou por vendas.\n\n## Quando aparece custo\n\nO custo só aparece quando o id do lead é o mesmo id do gasto:\n\n- **mesmo id**: o lead veio do formulário da Meta ou de anúncio para o direct, ou da página de captura com `utm_campaign` igual ao id da campanha (a Meta preenche com `{{campaign.id}}`).\n- **estimativa**: ligação indireta. Por post, soma o gasto dos anúncios feitos a partir daquele post. Por UTM com o **nome** da campanha, liga pelo nome.\n- **sem custo**: lead sem id de anúncio (direct orgânico, planilha, cadastro à mão) ou UTM que não bate com nenhuma campanha.\n\nPara o custo funcionar, conecte a conta de anúncio no **Tráfego** e sincronize o período. Veja [Tráfego](artigo:trafego).\n\n## Primeiro e último toque\n\nCada lead guarda o **primeiro toque** (por onde chegou da primeira vez) e o **último toque** (a interação mais recente que trouxe ele de volta). Escolha no seletor qual usar. O primeiro toque mostra o que gera lead novo; o último mostra o que reativa quem já estava na base.\n\n## Exportar\n\nO botão **CSV** baixa a tabela do jeito que está na tela, com a coluna de base do custo."
+    "body": "# Relatórios do CRM e custo por lead\n\nNa aba **Relatórios** do CRM, escolha o período e como agrupar: **Campanha**, **Conjunto**, **Anúncio**, **Post**, **Automação** ou **Origem**.\n\n## O que cada número quer dizer\n\n- **Leads**: quem entrou no CRM dentro do período.\n- **Ganhos**: desses leads, quantos estão hoje numa etapa de ganho.\n- **Vendas**, **Receita** e **Reemb.**: vendas aprovadas, valor e reembolsos/chargebacks que chegaram pelos webhooks da Hotmart e da Kiwify com data no período. Veja [Vendas da Hotmart e da Kiwify](artigo:rastreamento-vendas).\n- **Gasto**: o que o **Tráfego** registrou no mesmo período para aquele id de campanha, conjunto ou anúncio.\n- **Meta contou**: os leads que a própria Meta informou para aquele id (para comparar com os que chegaram de verdade).\n- **CPL**: gasto dividido por leads. **CPA**: gasto dividido por vendas. **ROAS**: (receita menos reembolsos) dividido pelo gasto.\n\n## Quando aparece custo\n\nO custo só aparece quando o id do lead é o mesmo id do gasto:\n\n- **mesmo id**: o lead veio do formulário da Meta ou de anúncio para o direct, ou da página de captura com `utm_campaign` igual ao id da campanha (a Meta preenche com `{{campaign.id}}`).\n- **estimativa**: ligação indireta. Por post, soma o gasto dos anúncios feitos a partir daquele post. Por UTM com o **nome** da campanha, liga pelo nome.\n- **sem custo**: lead sem id de anúncio (direct orgânico, planilha, cadastro à mão) ou UTM que não bate com nenhuma campanha.\n\nPara o custo funcionar, conecte a conta de anúncio no **Tráfego** e sincronize o período. Veja [Tráfego](artigo:trafego).\n\n## Primeiro e último toque\n\nCada lead guarda o **primeiro toque** (por onde chegou da primeira vez) e o **último toque** (a interação mais recente que trouxe ele de volta). Escolha no seletor qual usar. O primeiro toque mostra o que gera lead novo; o último mostra o que reativa quem já estava na base.\n\n## Exportar\n\nO botão **CSV** baixa a tabela do jeito que está na tela, com a coluna de base do custo."
   },
   {
     "id": "meta-lead-ads",
@@ -416,6 +416,90 @@ export const ARTICLES: Article[] = [
       "crm"
     ],
     "body": "# Formulários da Meta no CRM\n\nEste passo a passo liga o formulário de cadastro dos anúncios (Lead Ads) ao CRM. Os nomes dos menus da Meta podem variar.\n\n## Como funciona\n\n1. A pessoa preenche o formulário no anúncio.\n2. A Meta avisa o ContentHub (só o número do lead, sem os dados).\n3. O ContentHub busca o lead na Meta com o token da Página (só leitura) e cria no funil, com campanha, conjunto e anúncio.\n\nFontes: [Webhooks para Lead Ads](https://developers.facebook.com/docs/graph-api/webhooks/getting-started/webhooks-for-leadgen) e [Como ler os leads](https://developers.facebook.com/docs/marketing-api/guides/lead-ads/retrieving)\n\n## 1. App da Meta (quem administra o app, normalmente o suporte)\n\n1. Abra o app em [developers.facebook.com](https://developers.facebook.com/apps) e adicione o produto **Webhooks**.\n2. Escolha o objeto **Page** e assine o campo **leadgen**.\n3. Em **Callback URL**, coloque o endereço que aparece no CRM, aba **Entradas**, **Formulário da Meta** (termina em `/api/crm/lead-ads/webhook`).\n4. Em **Verify token**, coloque o valor da variável `LEAD_ADS_VERIFY_TOKEN` do servidor e clique em **Verify and save**.\n5. O servidor precisa da chave secreta do app em `META_APP_SECRET`: todo aviso vem assinado e o ContentHub descarta o que não confere.\n\nPermissões que a Meta lista para isso: **leads_retrieval**, **pages_manage_metadata**, **pages_show_list**, **pages_read_engagement** e **ads_management**. O token precisa ser de alguém que pode anunciar pela Página.\n\n## 2. Instalar o app na Página\n\nA Meta só avisa apps instalados na Página. Quem administra a Página faz a instalação (no Graph API Explorer, `POST /{id-da-página}/subscribed_apps` com `subscribed_fields=leadgen` e o token da Página). O ContentHub não faz essa chamada sozinho.\n\n**O que você deve ver:** na ferramenta de teste de leads da Meta, o app aparece como inscrito na Página.\n\n## 3. Cadastrar a Página no CRM\n\n1. No CRM, aba **Entradas**, **Formulário da Meta**, clique em **Cadastrar Página** (só o dono da conta).\n2. Cole o id da Página e o token da Página (com **leads_retrieval**). O ContentHub confere o token com uma leitura e guarda criptografado.\n3. Escolha a etapa, o responsável e as etiquetas dos leads que vierem dela.\n\n## 4. Ligar\n\nO suporte liga a chave **CRM: leads dos formulários da Meta** em Admin, Clientes. Sem ela (e sem a chave geral do servidor), os avisos não são guardados.\n\n## Testar\n\nUse a ferramenta de teste de leads da Meta para criar um lead de teste. Em **Últimos avisos da Meta** aparece a situação: na fila, no CRM ou falhou (com o motivo). Erro passageiro da Meta tenta de novo sozinho; token vencido aparece na Página até você colar um novo.\n\n> **Importante:** o lead do formulário é guardado com o consentimento \"formulário da Meta\" (o formulário mostra a política de privacidade do anunciante). Confira que o seu formulário tem o link da sua política."
+  },
+  {
+    "id": "rastreamento-script",
+    "title": "Rastreamento: instalar o script no site",
+    "summary": "Script próprio que guarda de onde a pessoa veio (UTM, clique do anúncio), cria o lead do formulário e marca os links do checkout.",
+    "order": 26,
+    "admin": false,
+    "tags": [
+      "rastreamento",
+      "script",
+      "utm",
+      "fbclid",
+      "fbc",
+      "fbp",
+      "gclid",
+      "ttclid",
+      "cookie",
+      "consentimento",
+      "checkout",
+      "src",
+      "sck",
+      "hotmart",
+      "kiwify"
+    ],
+    "body": "# Rastreamento: instalar o script no site\n\nO script do ContentHub é pequeno e roda no **seu** domínio (cookie primário, sem depender de terceiros). Ele guarda de onde a pessoa veio e leva essa origem até a venda.\n\n## O que ele faz\n\n- Lê as UTMs (`utm_source`, `utm_campaign`...), o clique do anúncio (`fbclid`, que vira o `fbc` da Meta, `gclid`, `ttclid`), a página de entrada e de qual site a pessoa veio.\n- Guarda o **primeiro** e o **último toque** num cookie do seu site por até 13 meses.\n- Manda ao ContentHub as visitas, os leads e os cliques no checkout.\n- Marca os links de checkout (Hotmart, Kiwify, Eduzz, Monetizze, Lastlink, Perfect Pay, Greenn, Ticto) com `src` e `sck` (o código do visitante) e as UTMs. É assim que a venda volta ligada ao lead e à campanha.\n\n## Instalar\n\n1. No CRM, aba **Rastreamento**, escolha o projeto e clique em **Criar script**.\n2. Copie a linha `<script ...>` e cole antes de `</head>` em todas as páginas: site, página de vendas, página de obrigado.\n3. Em **Domínios do site**, coloque os seus domínios (o ContentHub recusa evento de outro lugar).\n4. Clique em **Salvar**.\n\n**O que você deve ver:** ao abrir o site e aceitar os cookies, o contador de eventos do script sobe.\n\n## Formulário vira lead\n\nNo seu formulário, acrescente `data-ch-lead` na tag `<form>` e uma caixinha de autorização com `name=\"ch_consent\"`. Os campos `name`, `email` e `phone` (ou `nome`, `telefone`, `whatsapp`) entram no CRM, com as UTMs do visitante. Sem a caixinha marcada, nada é guardado.\n\nQuem tem formulário próprio pode chamar `chTrack.lead({ name, email, phone, consent: true })` depois do envio.\n\n## Cookies e LGPD\n\nCom **Só rastrear depois do aceite** ligado (padrão), o script não grava cookie nem manda nada até a pessoa aceitar. O aviso de cookies do ContentHub aparece sozinho; se o seu site já tem um, desligue o nosso e chame `chTrack.consent(true)` quando a pessoa aceitar (ou `chTrack.consent(false)` para apagar os cookies).\n\nO que fica guardado: o código do visitante, os toques (UTMs, ids de anúncio, clique), `fbc`/`fbp` e as páginas visitadas (sem a parte da consulta). Eventos somem em 180 dias; o visitante, 13 meses depois da última visita. Excluir o lead a pedido apaga as visitas dele.\n\n## Ids das campanhas\n\nPara o relatório ligar o lead ao gasto, use os parâmetros dinâmicos da Meta nos links do anúncio, por exemplo `utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}`. Com o **nome** da campanha, o relatório liga pelo nome e marca como estimativa. Veja [Relatórios do CRM](artigo:crm-relatorios)."
+  },
+  {
+    "id": "rastreamento-vendas",
+    "title": "Vendas da Hotmart e da Kiwify no CRM",
+    "summary": "Webhook de venda aprovada, reembolso, chargeback e abandono, ligado ao lead e à campanha.",
+    "order": 27,
+    "admin": false,
+    "tags": [
+      "vendas",
+      "hotmart",
+      "kiwify",
+      "webhook",
+      "hottok",
+      "compra aprovada",
+      "reembolso",
+      "chargeback",
+      "carrinho abandonado",
+      "roas"
+    ],
+    "body": "# Vendas da Hotmart e da Kiwify no CRM\n\nCada venda que a plataforma avisar entra no CRM: compra aprovada, reembolso, chargeback, aguardando pagamento e carrinho abandonado.\n\n## Configurar no ContentHub\n\n1. No CRM, aba **Rastreamento**, em **Vendas**, clique em **Nova integração**.\n2. Escolha **Hotmart** ou **Kiwify**, o projeto (é o pixel que recebe o Purchase) e cole a chave de autenticação da plataforma.\n3. Escolha a etapa da compra aprovada (padrão: a etapa de ganho do funil) e, se quiser, a etapa de reembolso.\n4. Clique em **Salvar e gerar URL** e copie a URL.\n\n## Hotmart\n\n1. Na Hotmart, abra **Ferramentas**, depois **Webhook** (os nomes podem variar).\n2. Cadastre uma configuração nova com a URL copiada, versão **2.0.0**, e marque os eventos de compra (aprovada, completa, reembolsada, chargeback, cancelada, abandono de carrinho).\n3. Na aba **Autenticação**, copie o **Hottok** e cole no ContentHub.\n4. Use **Enviar teste** e confira a venda de teste na lista do ContentHub.\n\n## Kiwify\n\n1. Na Kiwify, abra **Apps**, depois **Webhooks**, e crie um webhook com a URL copiada.\n2. Marque os gatilhos: compra aprovada, compra reembolsada, chargeback, carrinho abandonado (e boleto/pix gerado, se quiser).\n3. Copie o **token** do webhook e cole no ContentHub. Toda notificação vem assinada com ele; o ContentHub descarta o que não confere.\n\n## Como a venda acha o lead\n\nNa ordem: o código `src`/`sck` que o script pôs no link do checkout, o e-mail do comprador, o telefone. Comprador que não estava no CRM vira lead (origem **Venda (checkout)**), com o consentimento \"compra\". Carrinho abandonado só marca quem já é lead (etiqueta `carrinho-abandonado`); de quem não é, nada é guardado.\n\nVenda repetida (a plataforma reenvia) não duplica. Com a chave de rastreamento desligada, a URL responde e não guarda nada.\n\n> **Importante:** a página oficial de webhooks da Hotmart estava fora do ar quando isto foi feito e a da Kiwify não descreve o corpo do aviso. Antes de ligar para um cliente, mande o **teste** de cada plataforma e confira se a venda aparece certa."
+  },
+  {
+    "id": "rastreamento-capi",
+    "title": "Pixel e API de Conversões da Meta",
+    "summary": "Mandar Lead e Purchase pelo servidor, com deduplicação do pixel e dados protegidos por hash.",
+    "order": 28,
+    "admin": false,
+    "tags": [
+      "pixel",
+      "api de conversões",
+      "capi",
+      "conversions api",
+      "lead",
+      "purchase",
+      "initiatecheckout",
+      "event_id",
+      "deduplicação",
+      "hash",
+      "test_event_code"
+    ],
+    "body": "# Pixel e API de Conversões da Meta\n\nAlém do pixel no navegador, o ContentHub manda os eventos **Lead** e **Purchase** (e, se quiser, **InitiateCheckout**) direto do servidor para a Meta. Isso recupera conversões que o navegador perde (bloqueador, iPhone, aba fechada).\n\n## Configurar\n\n1. No Gerenciador de Eventos da Meta, abra o pixel, vá em **Configurações** e gere o **token de acesso** da API de Conversões.\n2. No CRM, aba **Rastreamento**, no script do projeto, preencha o **Id do pixel** e cole o **token** (fica criptografado).\n3. Marque **Enviar Lead e Purchase para a Meta** e clique em **Salvar**.\n4. O suporte liga a chave **API de Conversões** da sua conta em Admin, Clientes.\n\n## Deduplicação com o pixel\n\nSe o pixel da Meta está na página, o script dispara o mesmo evento no navegador com o **mesmo eventID** que o servidor manda como `event_id`. A Meta junta os dois e conta uma vez só (dentro de 48 horas). Fonte: [Deduplicação](https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events)\n\n## O que vai para a Meta\n\n- E-mail, telefone (com 55), nome, sobrenome e o código do lead vão **com hash SHA-256**, nunca em texto.\n- `fbc`, `fbp`, IP e navegador vão sem hash, como a Meta pede.\n- Só vai quem deu consentimento (aceite de cookies e caixinha do formulário) ou quem comprou.\n\nFonte: [Parâmetros de informação do cliente](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters)\n\n## Registro\n\nEm **Envios para a Meta** aparece cada evento: enviado, teste, falhou (com a resposta da Meta) ou não enviado (com o motivo, por exemplo chave desligada). O registro mostra quais dados foram, nunca os valores, e some em 90 dias. Veja também [Testar os eventos](artigo:rastreamento-testar)."
+  },
+  {
+    "id": "rastreamento-testar",
+    "title": "Testar o rastreamento e os eventos",
+    "summary": "Conferir script, lead, link do checkout, venda de teste e evento de teste na Meta antes de ligar para valer.",
+    "order": 29,
+    "admin": false,
+    "tags": [
+      "testar",
+      "test_event_code",
+      "teste",
+      "rastreamento",
+      "pixel",
+      "eventos",
+      "hotmart",
+      "kiwify"
+    ],
+    "body": "# Testar o rastreamento e os eventos\n\nFaça nesta ordem, com as chaves ligadas só na sua conta.\n\n## 1. Script\n\nAbra o site com `?utm_source=teste&utm_campaign=teste` no fim do endereço, aceite os cookies e confira na aba **Rastreamento** que o contador de eventos subiu.\n\n## 2. Lead\n\nPreencha o formulário (com a caixinha marcada). O lead aparece no funil com a origem **Página de captura** e as UTMs na aba **Origem** da ficha.\n\n## 3. Link do checkout\n\nPasse o mouse no botão de compra: o endereço deve ter `src=` e `sck=` no fim.\n\n## 4. Venda de teste\n\nUse o envio de teste da Hotmart ou da Kiwify. A venda aparece em **Vendas**, com o lead (se achou) e a origem.\n\n## 5. Meta\n\n1. No Gerenciador de Eventos, abra **Testar eventos** e copie o código (ex.: `TEST12345`).\n2. Cole em **Código de teste** no script do projeto e salve.\n3. Clique em **Enviar evento de teste**. O evento aparece em **Testar eventos** da Meta e em **Envios para a Meta** como \"teste\".\n4. **Apague o código de teste** depois: enquanto ele estiver preenchido, todos os eventos vão como teste e não contam para os anúncios.\n\nFonte: [API de Conversões](https://developers.facebook.com/docs/marketing-api/conversions-api)"
   },
   {
     "id": "admin-clientes",

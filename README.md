@@ -70,6 +70,8 @@ contas, chaves de API e dados do Instagram pertencem a uma organização e nunca
 | `IG_WEBHOOK_VERIFY_TOKEN` | texto sorteado (16+ caracteres) que se cola no painel da Meta em "Verify token" do webhook do Instagram |
 | `CRM_LEAD_ADS_ENABLED` | `true` = chave geral dos formulários da Meta (Lead Ads) no CRM: webhook guarda avisos e o laço busca o lead. Padrão: desligada. Ainda precisa da chave do cliente em Admin › Clientes |
 | `META_APP_SECRET` | chave secreta do app da Meta (Facebook) que assina o webhook `leadgen` (aceita também `LEAD_ADS_APP_SECRET`). Sem ela o webhook responde 503 |
+| `TRACKING_ENABLED` | `true` = chave geral do rastreamento (script do site guarda visitas/leads; webhooks da Hotmart/Kiwify guardam vendas). Padrão: desligada. Ainda precisa de `Organization.trackingEnabled` (Admin › Clientes) |
+| `CAPI_ENABLED` | `true` = chave geral da API de Conversões da Meta (Lead/Purchase pelo servidor). Padrão: desligada. Ainda precisa de `Organization.capiEnabled` e do envio ligado no site (pixel + token) |
 | `LEAD_ADS_VERIFY_TOKEN` | texto sorteado (16+ caracteres) para o "Verify token" do webhook `leadgen` (objeto Page) |
 | `IG_WEBHOOK_SECRET` | opcional: segredo usado para conferir a assinatura `X-Hub-Signature-256` do webhook. Sem ela vale `IG_APP_SECRET` |
 | `AUTOMACOES_HOURLY_CAP` | opcional: envios por hora por conta (padrão 60, máximo 200; a Meta permite 750 private replies/h) |
@@ -165,3 +167,11 @@ npm run dev         # abrir por http://localhost:3000 (não por 127.0.0.1)
 - E-mail/telefone só com consentimento registrado (`ConsentLog`); dedupe por e-mail e telefone dentro da organização; "Juntar" repetidos.
 - Relatório `GET /api/crm/relatorios?agrupar=campanha|conjunto|anuncio|post|origem&toque=primeiro|ultimo` (+ `formato=csv`), custo do Tráfego só quando o id bate (estimativa rotulada).
 - Chaves desligadas dos formulários da Meta: `CRM_LEAD_ADS_ENABLED` + `Organization.leadAdsEnabled`. O ContentHub nunca escreve na Meta (instalar o app na Página é com quem administra a Página).
+
+## Rastreamento (script, vendas, API de Conversões)
+
+- Modelos (`src/models/Tracking.ts`, com o plugin de organização): `TrackingSite` (um por projeto: chave pública, domínios, consentimento, pixel + token CAPI criptografado), `TrackVisitor` (TTL 13 meses), `TrackEvent` (TTL 180 dias), `SalesIntegration`, `Sale` (idempotente por provedor + transação + tipo), `CapiLog` (TTL 90 dias, sem valores da pessoa). Lógica em `src/lib/tracking/`.
+- Público: `GET /api/t/<chave>/script` (JS primeiro-partido: UTMs, fbclid→fbc, _fbp, gclid, ttclid, primeiro/último toque em cookie, aviso de cookies, decora links de checkout com src/sck/UTMs, `data-ch-lead`), `POST /api/t/<chave>/evento` (sendBeacon), `POST /api/vendas/<hotmart|kiwify>/<chave>` (hottok / HMAC-SHA1 `?signature=`).
+- Venda liga ao lead por src/sck > e-mail > telefone (> lead novo, origem "Venda"); aprovada muda a etapa (configurável) e manda Purchase com `event_id` `purchase.<provedor>.<transação>`.
+- API de Conversões: `POST /{pixel}/events`, dados com SHA-256 (em, ph, fn, ln, external_id), fbc/fbp/IP/UA sem hash, `test_event_code`; três chaves desligadas (`CAPI_ENABLED`, `Organization.capiEnabled`, `TrackingSite.capi.enabled`).
+- Relatório de atribuição: `GET /api/crm/relatorios` agora traz vendas, receita, reembolsos, CPA e ROAS, e agrupa também por automação.

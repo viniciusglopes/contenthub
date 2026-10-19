@@ -24,6 +24,10 @@ const OrganizationSchema = new Schema(
     // Formulários de cadastro da Meta (Lead Ads) entrando no CRM: só o administrador liga,
     // e só vale com a env CRM_LEAD_ADS_ENABLED=true também.
     leadAdsEnabled: { type: Boolean, default: false },
+    // Rastreamento próprio (script do site + webhooks de venda): só com TRACKING_ENABLED=true também.
+    trackingEnabled: { type: Boolean, default: false },
+    // API de Conversões da Meta (envio de Lead/Purchase): só com CAPI_ENABLED=true também.
+    capiEnabled: { type: Boolean, default: false },
     // Classificação por IA (etapa seguinte): ordem dos provedores a tentar, em sequência.
     // As chaves ficam em ApiCredential (criptografadas, uma por serviço por organização).
     ai: {

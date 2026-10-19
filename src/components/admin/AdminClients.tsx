@@ -34,6 +34,10 @@ interface OrgDetail {
   automationsEnabled?: boolean;
   leadAdsEnabled?: boolean;
   leadAdsGlobal?: boolean;
+  trackingEnabled?: boolean;
+  trackingGlobal?: boolean;
+  capiEnabled?: boolean;
+  capiGlobal?: boolean;
   automationsGlobal?: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
@@ -252,6 +256,8 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [adsOn, setAdsOn] = useState(false);
   const [autoOn, setAutoOn] = useState(false);
   const [leadAdsOn, setLeadAdsOn] = useState(false);
+  const [trackOn, setTrackOn] = useState(false);
+  const [capiOn, setCapiOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -269,6 +275,8 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setAdsOn(r.data.adsWriteEnabled === true);
     setAutoOn(r.data.automationsEnabled === true);
     setLeadAdsOn(r.data.leadAdsEnabled === true);
+    setTrackOn(r.data.trackingEnabled === true);
+    setCapiOn(r.data.capiEnabled === true);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -277,7 +285,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, leadAdsEnabled: leadAdsOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, leadAdsEnabled: leadAdsOn, trackingEnabled: trackOn, capiEnabled: capiOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -379,6 +387,26 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                     ? "Ligada: os avisos de formulário das Páginas cadastradas por este cliente entram no CRM (o lead é buscado na Meta só com leitura)."
                     : "Desligada: o cliente cadastra a Página, mas nenhum aviso é guardado nem lead é buscado."}
                   {!d.leadAdsGlobal && " A chave geral do sistema (CRM_LEAD_ADS_ENABLED) está desligada: mesmo ligando aqui, nada entra."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="tracking-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={trackOn} onChange={(e) => setTrackOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Rastreamento (script do site e vendas da Hotmart/Kiwify)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {trackOn ? "Ligado: o script do site deste cliente grava visitas e leads, e os webhooks de venda entram no CRM." : "Desligado: o cliente configura, mas nenhum evento nem venda é guardado."}
+                  {!d.trackingGlobal && " A chave geral do sistema (TRACKING_ENABLED) está desligada: mesmo ligando aqui, nada entra."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="capi-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={capiOn} onChange={(e) => setCapiOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  API de Conversões da Meta (Lead e Purchase pelo servidor)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {capiOn ? "Ligada: os sites deste cliente com pixel e token mandam Lead/Purchase para a Meta (cada envio fica registrado)." : "Desligada: nada é enviado à Meta; o registro mostra \"não enviado\"."}
+                  {!d.capiGlobal && " A chave geral do sistema (CAPI_ENABLED) está desligada: mesmo ligando aqui, nada é enviado."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

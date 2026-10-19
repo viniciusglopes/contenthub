@@ -36,6 +36,8 @@ import { defaultPipeline } from "../src/lib/crm/pipelines";
 import { AdObject } from "../src/models/Ads";
 import { Contact } from "../src/models/Automation";
 import { LeadAdsEvent, LeadAdsPage, LeadCapture } from "../src/models/Crm";
+import { SalesIntegration, TrackVisitor, TrackingSite } from "../src/models/Tracking";
+import { processSale } from "../src/lib/tracking/sales";
 
 const uri = process.env.MONGODB_URI || "";
 if (!/127\.0\.0\.1|localhost/.test(uri) || process.env.IG_MOCK !== "1") {
@@ -256,6 +258,28 @@ async function crmDemo(org: Types.ObjectId, actor: any, seller: any) {
   await Contact.create({ organization: org, name: "Ana Souza", username: "ana.souza", lead: true, leadAt: new Date(Date.now() - day), pipeline: pipe._id, stage: "novo", source: "manual", origin: { kind: "manual", label: "Evento presencial" }, firstTouch: { at: new Date(Date.now() - day), kind: "manual", label: "Evento presencial" }, lastTouch: { at: new Date(Date.now() - day), kind: "manual", label: "Evento presencial" } });
 }
 
+// Rastreamento: script do HDMOJ com pixel, integrações Hotmart/Kiwify e vendas ligadas aos leads
+async function trackingDemo(org: Types.ObjectId, project: Types.ObjectId) {
+  await Organization.updateOne({ _id: org }, { $set: { trackingEnabled: true, capiEnabled: true } });
+  const site = await TrackingSite.create({ organization: org, project, name: "Site HDMOJ", key: "demo0hdmoj00site", domains: ["horademudarojogo.com.br"], pixelId: "1234567890123", capi: { enabled: true, accessToken: encrypt("EAAtoken-capi-de-demonstracao-000000000001"), initiateCheckout: true }, hits: 1843, lastHitAt: new Date(Date.now() - 20 * 60_000) });
+  const camps: any[] = await AdObject.find({ organization: org, level: "campaign" }).lean();
+  const hot = await SalesIntegration.create({ organization: org, provider: "hotmart", name: "Mentoria", key: "demohotmart00000000000000000000a", secret: encrypt("hottok-demo-123456"), project, events: 6, lastEventAt: new Date(Date.now() - 2 * 3_600_000) });
+  await SalesIntegration.create({ organization: org, provider: "kiwify", name: "Ebook pago", key: "demokiwify000000000000000000000b", secret: encrypt("token-kiwify-demo"), project, events: 2, lastEventAt: new Date(Date.now() - 26 * 3_600_000) });
+  const leads: any[] = await Contact.find({ organization: org, lead: true, email: { $ne: "" } }).sort({ createdAt: 1 }).limit(6).lean();
+  const day = 86_400_000;
+  const sales: [number, string, number, string][] = [[0, "PURCHASE_APPROVED", 997, "HP10001"], [1, "PURCHASE_APPROVED", 497, "HP10002"], [5, "PURCHASE_APPROVED", 1497, "HP10003"], [5, "PURCHASE_APPROVED", 997, "HP10004"], [1, "PURCHASE_REFUNDED", 497, "HP10002"], [2, "PURCHASE_OUT_OF_SHOPPING_CART", 997, "ab-demo-1"]];
+  for (const [i, ev, value, tx] of sales) {
+    const c = leads[i % leads.length];
+    if (!c) continue;
+    const vid = randomVid(i);
+    const camp = camps[i % Math.max(1, camps.length)];
+    await TrackVisitor.create({ organization: org, site: site._id, vid, contact: c._id, firstTouch: { at: new Date(Date.now() - (i + 3) * day), source: "facebook", campaign: camp?.name || "", campaignId: camp?.metaId || "", clickType: "fbclid", clickId: "IwAR-demo" }, lastTouch: { at: new Date(Date.now() - (i + 1) * day), source: "instagram", campaign: "stories" }, fbc: `fb.1.${Date.now()}.IwAR-demo`, fbp: `fb.1.${Date.now()}.12345`, pageViews: 3 + i, expiresAt: new Date(Date.now() + 395 * day) }).catch(() => null);
+    const kind = ev === "PURCHASE_APPROVED" ? "approved" : ev === "PURCHASE_REFUNDED" ? "refunded" : "abandoned";
+    await processSale("hotmart", (hot as any).toObject(), { externalId: kind === "abandoned" ? `abandono:${tx}` : tx, kind, providerEvent: ev, value, currency: "BRL", product: value > 900 ? "Mentoria Virada 90" : "Curso Rotina de Ouro", productId: "123", buyer: { email: c.email, phone: c.phone, name: c.name }, src: vid, params: {}, at: new Date(Date.now() - (i + 0.5) * day) } as any);
+  }
+}
+const randomVid = (i: number) => `d${String(i).padStart(2, "0")}`.padEnd(24, "a1b2c3");
+
 async function main() {
   await mongoose.connect(uri);
   await mongoose.connection.dropDatabase();
@@ -284,6 +308,7 @@ async function main() {
   const adminUser: any = await User.findOne({ organization: home._id, role: "platform_admin" }).lean();
   const seller: any = await user(home._id, "member", "Júlia Vendas", "julia@vinculo.exemplo", new Date(Date.now() - 4 * 3_600_000));
   await crmDemo(home._id, adminUser, seller);
+  await trackingDemo(home._id, hdmoj._id);
   await CompetitorProduct.create([
     { organization: home._id, project: hdmoj._id, competitor: rivals[0]._id, name: "Mentoria Virada 90", platform: "Hotmart", price: 997, promise: "Mudar de carreira em 90 dias", link: "https://exemplo.com/virada90" },
     { organization: home._id, project: hdmoj._id, competitor: rivals[1]._id, name: "Curso Rotina de Ouro", platform: "Kiwify", price: 197, promise: "Rotina produtiva em 21 dias" },

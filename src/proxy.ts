@@ -10,7 +10,9 @@ import { CRON_PATHS, SESSION_COOKIE, checkCronToken, verifySessionToken } from "
 // /api/crm/lead-ads/webhook: quem chama é a Meta (formulário de cadastro; assinatura conferida na rota);
 // /api/captura/: formulário de captura de lead (código sorteado + ficha anti-robô + teto por IP).
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/brand", "/api/instagram/webhook", "/api/crm/lead-ads/webhook"];
-const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/", "/api/r/", "/api/captura/"];
+// /api/t/: script e eventos do rastreamento do site (chave sorteada; sem dado do cliente na resposta);
+// /api/vendas/: webhook da Hotmart/Kiwify (chave sorteada + autenticação do provedor conferida na rota).
+const PUBLIC_PREFIXES = ["/convite/", "/api/auth/invite/", "/api/r/", "/api/captura/", "/api/t/", "/api/vendas/"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

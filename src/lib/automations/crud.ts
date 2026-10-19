@@ -11,6 +11,7 @@ import { InstagramMedia } from "@/models/InstagramMedia";
 import SocialAccount from "@/models/SocialAccount";
 import { Automation, AutomationLedger, AutomationRun, Contact, TrackedLink } from "@/models/Automation";
 import { ConsentLog, LeadAdsEvent, LeadEvent, LeadTask } from "@/models/Crm";
+import { CapiLog, Sale, TrackEvent, TrackVisitor } from "@/models/Tracking";
 import { LIMITS, excerpt, hourlyCap } from "./match";
 import { ensureLinks, safeHttpUrl, trackedUrl } from "./links";
 import { automationSwitch } from "./switches";
@@ -339,6 +340,11 @@ export async function eraseContact(org: Org, session: Session, id: unknown, ip?:
   await LeadEvent.deleteMany({ organization: org, contact: c._id });
   await LeadTask.deleteMany({ organization: org, contact: c._id });
   await LeadAdsEvent.updateMany({ organization: org, contact: c._id }, { $set: { contact: null } });
+  // rastreamento: visitante e eventos do site somem; a venda fica (valor/produto) sem ligação com a pessoa
+  await TrackVisitor.deleteMany({ organization: org, contact: c._id });
+  await TrackEvent.deleteMany({ organization: org, contact: c._id });
+  await Sale.updateMany({ organization: org, contact: c._id }, { $set: { contact: null, src: "", matchedBy: "apagado" } });
+  await CapiLog.updateMany({ organization: org, contact: c._id }, { $set: { contact: null } });
   await Contact.deleteOne({ _id: c._id, organization: org });
   await ConsentLog.create({ organization: org, contact: c._id, action: "erased", channel: "manual", basis: "exclusão a pedido (LGPD)", by: session.user?._id ?? null });
   await audit({ action: "contato.excluido", actor: session.user, organization: org, target: String(c._id), ip });

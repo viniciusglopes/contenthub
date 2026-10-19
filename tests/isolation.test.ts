@@ -40,6 +40,7 @@ import { encrypt } from "@/lib/crypto";
 import { Automation, AutomationCounter, AutomationEvent, AutomationLedger, AutomationRun, Contact, TrackedLink } from "@/models/Automation";
 import { CaptureRate, ConsentLog, LeadAdsEvent, LeadAdsPage, LeadCapture, LeadEvent, LeadTask, Pipeline } from "@/models/Crm";
 import { DEFAULT_STAGES } from "@/lib/crm/pure";
+import { CapiLog, Sale, SalesIntegration, TrackEvent, TrackVisitor, TrackingSite } from "@/models/Tracking";
 import { type Call, call, cookieFor, makeOrg, makeUser, setCookieValue, setTestEnv } from "./helpers";
 
 // PROVA DE ISOLAMENTO ENTRE CLIENTES.
@@ -61,6 +62,7 @@ interface Side {
   org: any; owner: any; member: any; project: any; post: any; account: any; other: any; cred: any; invite: any; inviteToken: string; asset: any; assetPath: string; comment: any; kit: any; job: any; logo: any; usage: any; adAccount: any; adSpare: any; competitor: any; competitorSpare: any; product: any; scene: any; template: any; cenasJob: any;
   automation: any; automationSpare: any; contact: any; contactSpare: any; run: any; link: any;
   pipeline: any; pipelineSpare: any; leadSpare: any; task: any; taskSpare: any; capture: any; captureSpare: any; page: any; pageSpare: any; leadDup: any;
+  site: any; siteSpare: any; projectFree: any; integ: any; integSpare: any;
 }
 interface World { A: Side; B: Side; admin: any; adminOrg: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
@@ -860,6 +862,55 @@ const CASES: Record<string, Case> = {
     attack: (t) => [{ method: "DELETE", path: "/api/crm/lead-ads/paginas/x", params: { id: String(t.pageSpare._id) } }],
     own: (t) => ({ method: "DELETE", path: "/api/crm/lead-ads/paginas/x", params: { id: String(t.pageSpare._id) } }),
   },
+  // ---- Rastreamento (script do site, vendas, API de Conversões)
+  "GET /api/t/[key]/script": { access: "public", why: "script do site: chave sorteada de 64 bits; devolve só a configuração do próprio script (domínios de checkout, aviso), nunca dado do cliente (rastreio.test.ts)" },
+  "POST /api/t/[key]/evento": { access: "public", why: "evento do script: chave sorteada, domínio conferido, consentimento, teto por IP; responde só o código (rastreio.test.ts)" },
+  "POST /api/vendas/[provider]/[key]": { access: "public", why: "webhook da Hotmart/Kiwify: chave sorteada de 128 bits + hottok/assinatura HMAC conferidos; responde só ok/duplicado (rastreio.test.ts)" },
+  "GET /api/rastreio": { access: "org", attack: (t) => [{ path: `/api/rastreio?organization=${t.org._id}&project=${t.project._id}`, expect: 200 }], own: () => ({ path: "/api/rastreio" }) },
+  "POST /api/rastreio/sites": {
+    access: "owner",
+    attack: (t) => [{ method: "POST", path: "/api/rastreio/sites", body: { project: String(t.projectFree._id) } }],
+    own: (t) => ({ method: "POST", path: "/api/rastreio/sites", body: { project: String(t.projectFree._id), domains: "alfa.loja.test" }, expect: 201 }),
+  },
+  "PUT /api/rastreio/sites/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "PUT", path: "/api/rastreio/sites/x", params: { id: String(t.site._id) }, body: { pixelId: "9999999999999", capiEnabled: false } }],
+    own: (t) => ({ method: "PUT", path: "/api/rastreio/sites/x", params: { id: String(t.site._id) }, body: { domains: "alfa.loja.test, www.alfa.loja.test" } }),
+  },
+  "DELETE /api/rastreio/sites/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/rastreio/sites/x", params: { id: String(t.siteSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/rastreio/sites/x", params: { id: String(t.siteSpare._id) } }),
+  },
+  "POST /api/rastreio/sites/[id]/testar": {
+    access: "owner",
+    // chaves desligadas neste mundo: o teste da própria ALFA volta "não enviado"
+    attack: (t) => [{ method: "POST", path: "/api/rastreio/sites/x/testar", params: { id: String(t.site._id) } }],
+    own: (t) => ({ method: "POST", path: "/api/rastreio/sites/x/testar", params: { id: String(t.site._id) } }),
+  },
+  "POST /api/rastreio/integracoes": {
+    access: "owner",
+    attack: (t) => [
+      { method: "POST", path: "/api/rastreio/integracoes", body: { provider: "hotmart", secret: "hottok-intruso-123", project: String(t.project._id) } },
+      { method: "POST", path: "/api/rastreio/integracoes", body: { provider: "hotmart", secret: "hottok-intruso-123", pipeline: String(t.pipeline._id) } },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/rastreio/integracoes", body: { provider: "kiwify", secret: "token-kiwify-alfa", project: String(t.project._id) }, expect: 201 }),
+  },
+  "PUT /api/rastreio/integracoes/[id]": {
+    access: "owner",
+    attack: (t, me) => [
+      { method: "PUT", path: "/api/rastreio/integracoes/x", params: { id: String(t.integ._id) }, body: { active: false } },
+      { method: "PUT", path: "/api/rastreio/integracoes/x", params: { id: String(me.integ._id) }, body: { project: String(t.project._id) } },
+    ],
+    own: (t) => ({ method: "PUT", path: "/api/rastreio/integracoes/x", params: { id: String(t.integ._id) }, body: { stageOnApproved: "ganhou" } }),
+  },
+  "DELETE /api/rastreio/integracoes/[id]": {
+    access: "owner",
+    attack: (t) => [{ method: "DELETE", path: "/api/rastreio/integracoes/x", params: { id: String(t.integSpare._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/rastreio/integracoes/x", params: { id: String(t.integSpare._id) } }),
+  },
+  "GET /api/rastreio/vendas": { access: "org", attack: (t) => [{ path: `/api/rastreio/vendas?organization=${t.org._id}&tipo=approved`, expect: 200 }], own: () => ({ path: "/api/rastreio/vendas" }) },
+  "GET /api/rastreio/capi": { access: "org", attack: (t) => [{ path: `/api/rastreio/capi?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/rastreio/capi" }) },
   "POST /api/crm/lead-ads/processar": {
     access: "org+cron",
     // chaves desligadas neste mundo: não roda nem para a própria organização
@@ -974,7 +1025,19 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   const page = await LeadAdsPage.create({ organization: o, pageId: tag === "beta" ? "990000000002" : "990000000001", name: `Página secreta ${label}`, credentials: { accessToken: encrypt(`token-da-pagina-${tag}-0000000000`) } });
   const pageSpare = await LeadAdsPage.create({ organization: o, pageId: tag === "beta" ? "990000000004" : "990000000003", name: `Página sobrando ${label}`, credentials: { accessToken: encrypt("x".repeat(30)) } });
   await LeadAdsEvent.create({ organization: o, page: page._id, pageId: page.pageId, leadgenId: `lg${tag}`, status: "done", contact: contact._id, note: `aviso-${tag}` });
-  return { org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link, pipeline, pipelineSpare, leadSpare, task, taskSpare, capture, captureSpare, page, pageSpare, leadDup };
+  // Rastreamento: script do site (com token da CAPI), outro sobrando, projeto sem script, integrações de venda,
+  // visitante, evento, venda e registro de envio à Meta
+  const projectSpare = await Project.create({ organization: o, name: `Projeto sobrando ${label}`, slug: "projeto-sobrando" });
+  const projectFree = await Project.create({ organization: o, name: `Projeto livre ${label}`, slug: "projeto-livre" });
+  const site = await TrackingSite.create({ organization: o, project: project._id, name: `Site secreto ${label}`, key: tag === "beta" ? "chavesitebeta01" : "chavesitealfa01", domains: [`${tag}.loja.test`], pixelId: tag === "beta" ? "2222222222222" : "1111111111111", capi: { accessToken: encrypt(`token-capi-${tag}-000000000000000000`), testEventCode: "TEST1234" } });
+  const siteSpare = await TrackingSite.create({ organization: o, project: projectSpare._id, key: tag === "beta" ? "chavesitebeta02" : "chavesitealfa02" });
+  const integ = await SalesIntegration.create({ organization: o, provider: "hotmart", name: `Integração secreta ${label}`, key: (tag === "beta" ? "b" : "a").repeat(32), secret: encrypt(`hottok-${tag}-123456`) });
+  const integSpare = await SalesIntegration.create({ organization: o, provider: "kiwify", key: (tag === "beta" ? "d" : "c").repeat(32), secret: encrypt("token-kiwify-0000") });
+  await TrackVisitor.create({ organization: o, site: site._id, vid: (tag === "beta" ? "b" : "a").repeat(24), contact: contact._id, fbc: `fb.1.1.fbc${tag}`, expiresAt: new Date(NOW + 86_400_000) });
+  await TrackEvent.create({ organization: o, site: site._id, vid: (tag === "beta" ? "b" : "a").repeat(24), type: "page_view", path: `https://${tag}.loja.test/pagina-secreta` });
+  await Sale.create({ organization: o, integration: integ._id, provider: "hotmart", externalId: `HP${tag}`, kind: "approved", value: 1234, product: `Produto vendido ${label}`, contact: contact._id });
+  await CapiLog.create({ organization: o, site: site._id, eventName: "Purchase", eventId: `purchase.${tag}`, status: "skipped", reason: `motivo-${tag}` });
+  return { site, siteSpare, projectFree, integ, integSpare, org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link, pipeline, pipelineSpare, leadSpare, task, taskSpare, capture, captureSpare, page, pageSpare, leadDup };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -1004,6 +1067,8 @@ function markers(side: Side): string[] {
     String(side.pipeline._id), "Funil secreto Beta", String(side.pipelineSpare._id), "Funil sobrando Beta", "Lead secreto Beta", String(side.leadSpare._id), "Lead sobrando Beta", String(side.leadDup._id), "Lead repetido Beta", "campbeta", "Campanha Beta",
     String(side.task._id), "Tarefa secreta Beta", String(side.taskSpare._id), "Tarefa sobrando Beta", "nota-secreta-beta", "base-secreta-beta", String(side.capture._id), "Captura secreta Beta", "capturaBeta01", "captura-beta",
     String(side.captureSpare._id), "Captura sobrando Beta", String(side.page._id), "Página secreta Beta", "990000000002", String(side.pageSpare._id), "Página sobrando Beta", "token-da-pagina-beta", "aviso-beta", "lgbeta",
+    String(side.site._id), "Site secreto Beta", "chavesitebeta01", String(side.siteSpare._id), "chavesitebeta02", "2222222222222", "token-capi-beta", String(side.projectFree._id), "Projeto livre Beta", "Projeto sobrando Beta",
+    String(side.integ._id), "Integração secreta Beta", "b".repeat(32), String(side.integSpare._id), "d".repeat(32), "hottok-beta", "fbcbeta", "pagina-secreta", "HPbeta", "Produto vendido Beta", "purchase.beta", "motivo-beta",
   ];
 }
 
@@ -1085,7 +1150,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "CaptureRate", "Competitor", "CompetitorDaily", "CompetitorProduct", "ConsentLog", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "LeadAdsEvent", "LeadAdsPage", "LeadCapture", "LeadEvent", "LeadTask", "MediaAsset", "Pipeline", "Post", "Project", "SocialAccount", "StudioJob", "TrackedLink", "VideoTemplate"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "CapiLog", "CaptureRate", "Competitor", "CompetitorDaily", "CompetitorProduct", "ConsentLog", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "LeadAdsEvent", "LeadAdsPage", "LeadCapture", "LeadEvent", "LeadTask", "MediaAsset", "Pipeline", "Post", "Project", "Sale", "SalesIntegration", "SocialAccount", "StudioJob", "TrackEvent", "TrackVisitor", "TrackedLink", "TrackingSite", "VideoTemplate"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

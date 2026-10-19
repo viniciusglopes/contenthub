@@ -2,22 +2,24 @@
 /* eslint-disable react-hooks/set-state-in-effect -- aba e filtros lidos do link e carga inicial */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlarmClock, Download, KanbanSquare, List, ListChecks, Plus, Search, Settings2, BarChart3, Inbox, X } from "lucide-react";
+import { AlarmClock, Download, KanbanSquare, List, ListChecks, Plus, Radar, Search, Settings2, BarChart3, Inbox, X } from "lucide-react";
 import { send, fmtWhen } from "@/components/http";
 import { Field, Notice, linkBtn } from "@/components/studio/shared";
 import LeadDrawer from "./LeadDrawer";
 import CrmReports from "./CrmReports";
 import CrmInputs from "./CrmInputs";
 import PipelineEditor from "./PipelineEditor";
+import TrackingPanel from "./TrackingPanel";
 import { type LeadT, type Options, type Stage, type TaskT, HelpDot, SOURCE_TONE, btn, chip, initials, input, money, primary, select, setParam } from "./shared";
 
 
-type Tab = "funil" | "lista" | "tarefas" | "relatorios" | "entradas" | "funis";
+type Tab = "funil" | "lista" | "tarefas" | "relatorios" | "rastreio" | "entradas" | "funis";
 const TABS: { key: Tab; label: string; icon: React.ReactNode; owner?: boolean }[] = [
   { key: "funil", label: "Funil", icon: <KanbanSquare size={14} /> },
   { key: "lista", label: "Lista", icon: <List size={14} /> },
   { key: "tarefas", label: "Tarefas", icon: <ListChecks size={14} /> },
   { key: "relatorios", label: "Relatórios", icon: <BarChart3 size={14} /> },
+  { key: "rastreio", label: "Rastreamento", icon: <Radar size={14} /> },
   { key: "entradas", label: "Entradas", icon: <Inbox size={14} /> },
   { key: "funis", label: "Etapas", icon: <Settings2 size={14} />, owner: true },
 ];
@@ -371,6 +373,7 @@ export default function CrmPanel() {
         {tab === "lista" && data && (data.leads.length ? <LeadList stages={stages} leads={data.leads} onOpen={openLead} /> : <p className="text-sm text-gray-400 py-8 text-center">Nenhum lead {chips.length ? "com esses filtros" : "ainda. Eles chegam pelas automações, formulários da Meta, páginas de captura, planilha ou pelo botão Novo lead"}.</p>)}
         {tab === "tarefas" && <TasksTab onOpen={openLead} />}
         {tab === "relatorios" && <CrmReports />}
+        {tab === "rastreio" && opts && <TrackingPanel opts={opts} />}
         {tab === "entradas" && opts && <CrmInputs opts={opts} onImported={() => { load(); loadOpts(); }} />}
         {tab === "funis" && opts && <PipelineEditor opts={opts} onChanged={() => { loadOpts(); load(); }} />}
       </div>

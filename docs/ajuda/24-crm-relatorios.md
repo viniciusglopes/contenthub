@@ -7,15 +7,16 @@ tags: crm, relatório, custo por lead, cpl, custo por venda, campanha, anúncio,
 ---
 # Relatórios do CRM e custo por lead
 
-Na aba **Relatórios** do CRM, escolha o período e como agrupar: **Campanha**, **Conjunto**, **Anúncio**, **Post** ou **Origem**.
+Na aba **Relatórios** do CRM, escolha o período e como agrupar: **Campanha**, **Conjunto**, **Anúncio**, **Post**, **Automação** ou **Origem**.
 
 ## O que cada número quer dizer
 
 - **Leads**: quem entrou no CRM dentro do período.
-- **Vendas**: desses leads, quantos estão hoje numa etapa de ganho. **Valor** soma o valor deles.
+- **Ganhos**: desses leads, quantos estão hoje numa etapa de ganho.
+- **Vendas**, **Receita** e **Reemb.**: vendas aprovadas, valor e reembolsos/chargebacks que chegaram pelos webhooks da Hotmart e da Kiwify com data no período. Veja [Vendas da Hotmart e da Kiwify](artigo:rastreamento-vendas).
 - **Gasto**: o que o **Tráfego** registrou no mesmo período para aquele id de campanha, conjunto ou anúncio.
 - **Meta contou**: os leads que a própria Meta informou para aquele id (para comparar com os que chegaram de verdade).
-- **Custo/lead** e **Custo/venda**: gasto dividido por leads ou por vendas.
+- **CPL**: gasto dividido por leads. **CPA**: gasto dividido por vendas. **ROAS**: (receita menos reembolsos) dividido pelo gasto.
 
 ## Quando aparece custo
 

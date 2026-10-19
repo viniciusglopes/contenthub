@@ -83,7 +83,7 @@ export interface LeadInput {
   pipeline?: unknown;
   stage?: string;
   owner?: unknown;
-  source: "meta_lead_ads" | "landing" | "manual" | "import";
+  source: "meta_lead_ads" | "landing" | "manual" | "import" | "sale";
   origin: Record<string, unknown>;
   touch: Touch;
   utm?: Utm;
@@ -624,11 +624,14 @@ export async function mergeLeads(org: Org, keepId: unknown, dropId: unknown, by:
 /** Tudo o que existe sobre a pessoa, para entregar a ela (pedido de acesso/portabilidade). */
 export async function exportLead(org: Org, id: unknown, by: Actor) {
   const c = await ownContact(org, id);
-  const [events, tasks, consents, runs] = await Promise.all([
+  const { Sale, TrackVisitor } = await import("@/models/Tracking");
+  const [events, tasks, consents, runs, sales, visits] = await Promise.all([
     LeadEvent.find({ organization: org, contact: c._id }).sort({ at: 1 }).lean(),
     LeadTask.find({ organization: org, contact: c._id }).lean(),
     ConsentLog.find({ organization: org, contact: c._id }).sort({ at: 1 }).lean(),
     AutomationRun.find({ organization: org, contact: c._id }).sort({ createdAt: 1 }).select("automationName trigger text status createdAt").lean(),
+    Sale.find({ organization: org, contact: c._id }).select("provider kind value currency product at").lean(),
+    TrackVisitor.find({ organization: org, contact: c._id }).select("firstTouch lastTouch fbc fbp lastSeenAt pageViews").lean(),
   ]);
   await logConsent(org, c._id, "exported", { channel: "manual", basis: "exportação a pedido (LGPD)" }, by);
   const strip = (x: any) => { const rest = { ...x }; delete rest.organization; delete rest.__v; return rest; };
@@ -639,6 +642,8 @@ export async function exportLead(org: Org, id: unknown, by: Actor) {
     tarefas: (tasks as any[]).map(strip),
     consentimentos: (consents as any[]).map(strip),
     execucoesDeAutomacao: (runs as any[]).map(strip),
+    vendas: (sales as any[]).map(strip),
+    visitasDoSite: (visits as any[]).map(strip),
   };
 }
 
