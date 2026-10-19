@@ -45,6 +45,7 @@ export const GET = route("admin", async ({ params, id }) => {
     trackingGlobal: trackingGlobal(),
     capiEnabled: organization.capiEnabled === true,
     capiGlobal: capiGlobal(),
+    offersEnabled: organization.offersEnabled === true,
     brand: publicBrand(organization),
     rawBrand: organization.brand || {},
     users: users.map(publicUser),
@@ -90,6 +91,9 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
   if (trackingChanged) organization.trackingEnabled = Boolean(b.trackingEnabled);
   const capiChanged = b.capiEnabled !== undefined && Boolean(b.capiEnabled) !== (organization.capiEnabled === true);
   if (capiChanged) organization.capiEnabled = Boolean(b.capiEnabled);
+  // Módulo Ofertas (lista da casa, novas do dia e relatório mensal): mesma regra.
+  const offersChanged = b.offersEnabled !== undefined && Boolean(b.offersEnabled) !== (organization.offersEnabled === true);
+  if (offersChanged) organization.offersEnabled = Boolean(b.offersEnabled);
   await organization.save();
   if (trackingChanged)
     await audit({ action: organization.trackingEnabled ? "cliente.rastreamento_ligado" : "cliente.rastreamento_desligado", actor: s.user, organization: organization._id, ip: clientIp(req) });
@@ -103,6 +107,8 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     await audit({ action: organization.commentReplyEnabled ? "cliente.resposta_comentario_ligada" : "cliente.resposta_comentario_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (adsChanged)
     await audit({ action: organization.adsWriteEnabled ? "cliente.acoes_anuncio_ligadas" : "cliente.acoes_anuncio_desligadas", actor: s.user, organization: organization._id, ip: clientIp(req) });
+  if (offersChanged)
+    await audit({ action: organization.offersEnabled ? "cliente.modulo_ofertas_ligado" : "cliente.modulo_ofertas_desligado", actor: s.user, organization: organization._id, ip: clientIp(req) });
   if (publishChanged)
     await audit({ action: organization.publishEnabled ? "cliente.publicacao_ligada" : "cliente.publicacao_desligada", actor: s.user, organization: organization._id, ip: clientIp(req) });
   await audit({
@@ -111,5 +117,5 @@ export const PUT = route("admin", async ({ params, id, body, session, req }) => 
     organization: organization._id,
     ip: clientIp(req),
   });
-  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, leadAdsEnabled: organization.leadAdsEnabled === true, trackingEnabled: organization.trackingEnabled === true, capiEnabled: organization.capiEnabled === true, brand: publicBrand(organization) });
+  return json({ _id: String(organization._id), name: organization.name, active: organization.active, publishEnabled: organization.publishEnabled === true, commentReplyEnabled: organization.commentReplyEnabled === true, adsWriteEnabled: organization.adsWriteEnabled === true, automationsEnabled: organization.automationsEnabled === true, leadAdsEnabled: organization.leadAdsEnabled === true, trackingEnabled: organization.trackingEnabled === true, capiEnabled: organization.capiEnabled === true, offersEnabled: organization.offersEnabled === true, brand: publicBrand(organization) });
 });

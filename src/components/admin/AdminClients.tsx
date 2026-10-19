@@ -39,6 +39,7 @@ interface OrgDetail {
   capiEnabled?: boolean;
   capiGlobal?: boolean;
   automationsGlobal?: boolean;
+  offersEnabled: boolean;
   rawBrand: Partial<BrandInfo>;
   users: TeamUser[];
   invites: PendingInvite[];
@@ -258,6 +259,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
   const [leadAdsOn, setLeadAdsOn] = useState(false);
   const [trackOn, setTrackOn] = useState(false);
   const [capiOn, setCapiOn] = useState(false);
+  const [offersOn, setOffersOn] = useState(false);
   const [brand, setBrand] = useState<BrandForm>(toBrandForm(null));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -277,6 +279,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     setLeadAdsOn(r.data.leadAdsEnabled === true);
     setTrackOn(r.data.trackingEnabled === true);
     setCapiOn(r.data.capiEnabled === true);
+    setOffersOn(r.data.offersEnabled === true);
     setBrand(toBrandForm(r.data.rawBrand));
   }, [id]);
   useEffect(() => { load(); }, [load]);
@@ -285,7 +288,7 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, leadAdsEnabled: leadAdsOn, trackingEnabled: trackOn, capiEnabled: capiOn, ...brand });
+    const r = await send("PUT", `/api/admin/organizations/${id}`, { name, active, publishEnabled: publishOn, commentReplyEnabled: replyOn, adsWriteEnabled: adsOn, automationsEnabled: autoOn, leadAdsEnabled: leadAdsOn, trackingEnabled: trackOn, capiEnabled: capiOn, offersEnabled: offersOn, ...brand });
     setSaving(false);
     if (!r.ok) return setError({ msg: r.error, field: r.field });
     setSaved(true);
@@ -407,6 +410,17 @@ function ClientModal({ id, isHome, onClose, onChanged }: { id: string; isHome: b
                 <p className="text-xs text-gray-400">
                   {capiOn ? "Ligada: os sites deste cliente com pixel e token mandam Lead/Purchase para a Meta (cada envio fica registrado)." : "Desligada: nada é enviado à Meta; o registro mostra \"não enviado\"."}
                   {!d.capiGlobal && " A chave geral do sistema (CAPI_ENABLED) está desligada: mesmo ligando aqui, nada é enviado."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-800 p-3 space-y-1" data-testid="offers-module-switch">
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={offersOn} onChange={(e) => setOffersOn(e.target.checked)} className="w-4 h-4 accent-[var(--brand-500)]" />
+                  Módulo Ofertas (lista da casa)
+                </label>
+                <p className="text-xs text-gray-400">
+                  {offersOn
+                    ? "Ligado: este cliente vê a lista da casa em Concorrentes › Ofertas, as novas do dia e o relatório \"mais escaladas do mês\". Se ele não tiver conta de anúncio, a contagem das ofertas dele usa o token da casa."
+                    : "Desligado: este cliente acompanha só as ofertas que ele mesmo cadastra."}
                 </p>
               </div>
               {error && error.field !== "color" && error.field !== "logo" && <p className="text-xs text-red-400" role="alert">{error.msg}</p>}

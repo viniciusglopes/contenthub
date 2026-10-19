@@ -36,6 +36,7 @@ import { setYoutubeFetch } from "@/lib/competitors/youtube";
 import { refreshCompetitor } from "@/lib/competitors/competitors";
 import { Competitor, CompetitorProduct } from "@/models/Competitor";
 import { HouseCredential } from "@/models/Platform";
+import { HouseOffer, OfferDaily, OfferFavorite, OfferPage } from "@/models/Offer";
 import { encrypt } from "@/lib/crypto";
 import { Automation, AutomationCounter, AutomationEvent, AutomationLedger, AutomationRun, Contact, TrackedLink } from "@/models/Automation";
 import { CaptureRate, ConsentLog, LeadAdsEvent, LeadAdsPage, LeadCapture, LeadEvent, LeadTask, Pipeline } from "@/models/Crm";
@@ -63,8 +64,9 @@ interface Side {
   automation: any; automationSpare: any; contact: any; contactSpare: any; run: any; link: any;
   pipeline: any; pipelineSpare: any; leadSpare: any; task: any; taskSpare: any; capture: any; captureSpare: any; page: any; pageSpare: any; leadDup: any;
   site: any; siteSpare: any; projectFree: any; integ: any; integSpare: any;
+  offer: any; offerSpare: any; favorite: any;
 }
-interface World { A: Side; B: Side; admin: any; adminOrg: any }
+interface World { A: Side; B: Side; admin: any; adminOrg: any; house: any }
 type Req = Omit<Call, "cookie"> & { expect?: number | number[]; cookie?: string };
 interface Case {
   access: Access;
@@ -917,6 +919,64 @@ const CASES: Record<string, Case> = {
     attack: (t) => [{ method: "POST", path: "/api/crm/lead-ads/processar", body: { organization: String(t.org._id) }, expect: 200 }],
     own: () => ({ method: "POST", path: "/api/crm/lead-ads/processar" }),
   },
+  // ---- ofertas (Concorrentes › Ofertas) e lista da casa
+  "GET /api/ofertas": { access: "org", attack: (t) => [{ path: `/api/ofertas?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/ofertas" }) },
+  "POST /api/ofertas": {
+    access: "org",
+    // grava na MINHA organização mesmo mandando a da outra no corpo
+    attack: (t) => [{ method: "POST", path: "/api/ofertas", body: { name: "Oferta de ataque", counting: "manual", organization: String(t.org._id) }, expect: 201 }],
+    own: () => ({ method: "POST", path: "/api/ofertas", body: { name: "Oferta Alfa Dois", counting: "manual", tags: { structure: "quiz", countries: ["BR"] } }, expect: 201 }),
+  },
+  "PUT /api/ofertas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "PUT", path: "/api/ofertas/x", params: { id: String(t.offer._id) }, body: { name: "Invadida", counting: "manual" } }],
+    own: (t) => ({ method: "PUT", path: "/api/ofertas/x", params: { id: String(t.offer._id) }, body: { notes: "ok", tags: { niche: "nutra" } } }),
+  },
+  "DELETE /api/ofertas/[id]": {
+    access: "org",
+    attack: (t) => [{ method: "DELETE", path: "/api/ofertas/x", params: { id: String(t.offer._id) } }],
+    own: (t) => ({ method: "DELETE", path: "/api/ofertas/x", params: { id: String(t.offerSpare._id) } }),
+  },
+  "GET /api/ofertas/[id]/historico": {
+    access: "org",
+    attack: (t) => [{ path: "/api/ofertas/x/historico", params: { id: String(t.offer._id) } }],
+    own: (t) => ({ path: "/api/ofertas/x/historico", params: { id: String(t.offer._id) } }),
+  },
+  "POST /api/ofertas/[id]/contagem": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/ofertas/x/contagem", params: { id: String(t.offer._id) }, body: { count: 1, note: "contagem de ataque" } }],
+    own: (t) => ({ method: "POST", path: "/api/ofertas/x/contagem", params: { id: String(t.offer._id) }, body: { count: 42, note: "Biblioteca, Brasil" }, expect: 201 }),
+  },
+  "POST /api/ofertas/atualizar": {
+    access: "org+cron",
+    attack: (t) => [
+      { method: "POST", path: "/api/ofertas/atualizar", body: { offer: String(t.offer._id) } },
+      // sem oferta: conta só as da MINHA organização
+      { method: "POST", path: "/api/ofertas/atualizar", body: { organization: String(t.org._id) }, expect: 200 },
+    ],
+    own: (t) => ({ method: "POST", path: "/api/ofertas/atualizar", body: { offer: String(t.offer._id) } }),
+  },
+  "POST /api/ofertas/favoritos": {
+    access: "org",
+    attack: (t) => [{ method: "POST", path: "/api/ofertas/favoritos", body: { kind: "org", id: String(t.offer._id), on: true } }],
+    own: (t) => ({ method: "POST", path: "/api/ofertas/favoritos", body: { kind: "org", id: String(t.offer._id), on: true } }),
+  },
+  "GET /api/ofertas/casa": { access: "org", attack: (t) => [{ path: `/api/ofertas/casa?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/ofertas/casa" }) },
+  "GET /api/ofertas/casa/[id]/historico": {
+    access: "org",
+    // id de oferta da organização da BETA não abre pela rota da casa
+    attack: (t) => [{ path: "/api/ofertas/casa/x/historico", params: { id: String(t.offer._id) } }],
+    own: (_t, w) => ({ path: "/api/ofertas/casa/x/historico", params: { id: String(w.house._id) } }),
+  },
+  "GET /api/ofertas/casa/relatorio": { access: "org", attack: (t) => [{ path: `/api/ofertas/casa/relatorio?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/ofertas/casa/relatorio" }) },
+  "GET /api/admin/ofertas": { access: "admin", why: "lista da casa (dado da plataforma, não de cliente)" },
+  "POST /api/admin/ofertas": { access: "admin", why: "lista da casa" },
+  "PUT /api/admin/ofertas/[id]": { access: "admin", why: "lista da casa" },
+  "DELETE /api/admin/ofertas/[id]": { access: "admin", why: "arquiva da lista da casa" },
+  "POST /api/admin/ofertas/[id]/contagem": { access: "admin", why: "contagem manual da lista da casa" },
+  "POST /api/admin/ofertas/atualizar": { access: "admin", why: "conta a lista da casa pela API" },
+  "GET /api/admin/ofertas/config": { access: "admin", why: "regras do selo, países e token da casa" },
+  "PUT /api/admin/ofertas/config": { access: "admin", why: "regras do selo, países e token da casa" },
 };
 
 const MEDIA_ID = "1800000000000100";
@@ -949,7 +1009,7 @@ const handlers: Record<string, any> = {};
 let attacks = 0;
 
 async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
-  const org = await makeOrg(`Cliente ${label}`, `cliente-${tag}`, { brand: { displayName: `Marca ${label}` } });
+  const org = await makeOrg(`Cliente ${label}`, `cliente-${tag}`, { brand: { displayName: `Marca ${label}` }, offersEnabled: true });
   const owner = await makeUser(org._id, "owner", `dona@${tag}.test`);
   const member = await makeUser(org._id, "member", `membro@${tag}.test`);
   const o = org._id;
@@ -1037,7 +1097,12 @@ async function seedSide(tag: "alfa" | "beta", label: string): Promise<Side> {
   await TrackEvent.create({ organization: o, site: site._id, vid: (tag === "beta" ? "b" : "a").repeat(24), type: "page_view", path: `https://${tag}.loja.test/pagina-secreta` });
   await Sale.create({ organization: o, integration: integ._id, provider: "hotmart", externalId: `HP${tag}`, kind: "approved", value: 1234, product: `Produto vendido ${label}`, contact: contact._id });
   await CapiLog.create({ organization: o, site: site._id, eventName: "Purchase", eventId: `purchase.${tag}`, status: "skipped", reason: `motivo-${tag}` });
-  return { site, siteSpare, projectFree, integ, integSpare, org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link, pipeline, pipelineSpare, leadSpare, task, taskSpare, capture, captureSpare, page, pageSpare, leadDup };
+  // Ofertas: uma contada pela API (página simulada 77...), uma manual, contagem manual com nota e um favorito
+  const offer = await OfferPage.create({ organization: o, name: `Oferta secreta ${label}`, pageId: tag === "beta" ? "7720002" : "7710001", counting: "api", tags: { structure: "vsl", countries: ["PT"] } });
+  const offerSpare = await OfferPage.create({ organization: o, name: `Oferta sobrando ${label}`, counting: "manual" });
+  await OfferDaily.create({ organization: o, page: offer._id, date: "2026-10-01", count: 12, source: "manual", byUser: owner._id, byName: owner.name, note: `nota-${tag}` });
+  const favorite = await OfferFavorite.create({ organization: o, user: owner._id, kind: "org", ref: offer._id });
+  return { site, siteSpare, projectFree, integ, integSpare, org, owner, member, project, post: p, account, other, cred, invite, inviteToken: token, asset, assetPath, comment, kit, job, logo, usage, adAccount, adSpare, competitor, competitorSpare, product, scene, template, cenasJob, automation, automationSpare, contact, contactSpare, run, link, pipeline, pipelineSpare, leadSpare, task, taskSpare, capture, captureSpare, page, pageSpare, leadDup, offer, offerSpare, favorite };
 }
 
 /** Foto do banco inteiro de um cliente (todas as coleções com `organization` + usuários, convites e a própria organização). */
@@ -1069,6 +1134,7 @@ function markers(side: Side): string[] {
     String(side.captureSpare._id), "Captura sobrando Beta", String(side.page._id), "Página secreta Beta", "990000000002", String(side.pageSpare._id), "Página sobrando Beta", "token-da-pagina-beta", "aviso-beta", "lgbeta",
     String(side.site._id), "Site secreto Beta", "chavesitebeta01", String(side.siteSpare._id), "chavesitebeta02", "2222222222222", "token-capi-beta", String(side.projectFree._id), "Projeto livre Beta", "Projeto sobrando Beta",
     String(side.integ._id), "Integração secreta Beta", "b".repeat(32), String(side.integSpare._id), "d".repeat(32), "hottok-beta", "fbcbeta", "pagina-secreta", "HPbeta", "Produto vendido Beta", "purchase.beta", "motivo-beta",
+    String(side.offer._id), "Oferta secreta Beta", String(side.offerSpare._id), "Oferta sobrando Beta", "nota-beta", String(side.favorite._id),
   ];
 }
 
@@ -1092,6 +1158,7 @@ beforeAll(async () => {
   w.admin = await makeUser(w.adminOrg._id, "platform_admin", "admin@plataforma.test");
   // chave da casa do YouTube (simulado): os concorrentes das duas organizações leem o canal
   await HouseCredential.create({ service: "youtube", credentials: { apiKey: encrypt("AIzaChaveDeTesteDoSimulador000000000000") }, purposes: [] });
+  w.house = await HouseOffer.create({ name: "Oferta da casa", pageId: "7730003", counting: "api", addedBy: "admin@plataforma.test" });
   w.A = await seedSide("alfa", "Alfa");
   w.B = await seedSide("beta", "Beta");
 
@@ -1150,7 +1217,7 @@ describe("inventário de rotas", () => {
       await expect(M.deleteMany({}), name).rejects.toBeInstanceOf(TenantScopeError);
       await expect(M.aggregate([{ $group: { _id: null, n: { $sum: 1 } } }]), name).rejects.toBeInstanceOf(TenantScopeError);
     }
-    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "CapiLog", "CaptureRate", "Competitor", "CompetitorDaily", "CompetitorProduct", "ConsentLog", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "LeadAdsEvent", "LeadAdsPage", "LeadCapture", "LeadEvent", "LeadTask", "MediaAsset", "Pipeline", "Post", "Project", "Sale", "SalesIntegration", "SocialAccount", "StudioJob", "TrackEvent", "TrackVisitor", "TrackedLink", "TrackingSite", "VideoTemplate"]);
+    expect(TENANT_MODELS.sort()).toEqual(["AdAccount", "AdInsightDaily", "AdObject", "AiUsage", "ApiCredential", "Automation", "AutomationCounter", "AutomationEvent", "AutomationLedger", "AutomationRun", "BrandKit", "CapiLog", "CaptureRate", "Competitor", "CompetitorDaily", "CompetitorProduct", "ConsentLog", "Contact", "InstagramAccountDaily", "InstagramComment", "InstagramMedia", "InstagramMediaDaily", "LeadAdsEvent", "LeadAdsPage", "LeadCapture", "LeadEvent", "LeadTask", "MediaAsset", "OfferDaily", "OfferFavorite", "OfferPage", "Pipeline", "Post", "Project", "Sale", "SalesIntegration", "SocialAccount", "StudioJob", "TrackEvent", "TrackVisitor", "TrackedLink", "TrackingSite", "VideoTemplate"]);
     // mover um registro para outra organização por update: recusado
     await expect(Post.updateOne({ _id: w.A.post._id, organization: w.A.org._id }, { $set: { organization: w.B.org._id } })).rejects.toBeInstanceOf(TenantScopeError);
     // criar sem organização: recusado pela validação

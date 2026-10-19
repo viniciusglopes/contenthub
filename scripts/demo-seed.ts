@@ -38,6 +38,8 @@ import { Contact } from "../src/models/Automation";
 import { LeadAdsEvent, LeadAdsPage, LeadCapture } from "../src/models/Crm";
 import { SalesIntegration, TrackVisitor, TrackingSite } from "../src/models/Tracking";
 import { processSale } from "../src/lib/tracking/sales";
+import { HouseOffer, HouseOfferDaily, OfferDaily, OfferFavorite, OfferPage } from "../src/models/Offer";
+import { mockActiveAds } from "../src/lib/ads/mock";
 
 const uri = process.env.MONGODB_URI || "";
 if (!/127\.0\.0\.1|localhost/.test(uri) || process.env.IG_MOCK !== "1") {
@@ -51,6 +53,53 @@ const LOGO = (letter: string, color: string) =>
   Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${color}"/><text x="32" y="44" font-family="Arial" font-size="36" font-weight="700" text-anchor="middle" fill="#fff">${letter}</text></svg>`
   ).toString("base64");
+
+
+// OFERTAS de exemplo: lista da organização (API simulada e manual) e lista da casa, com 40 dias de fotos.
+async function seedOffers(org: Types.ObjectId, adminId: Types.ObjectId) {
+  const today = dayKey(Date.now());
+  const mine = await OfferPage.create([
+    { organization: org, name: "Chá Seca Barriga", pageId: "7711021", offerUrl: "https://exemplo.com/cha", counting: "api", tags: { structure: "vsl", niche: "nutra", product: "chá", language: "pt", countries: ["PT", "BR"] } },
+    { organization: org, name: "Método Inglês 90 Dias", pageId: "7712388", offerUrl: "https://exemplo.com/ingles", counting: "api", tags: { structure: "pagina_vendas", niche: "info", product: "curso de inglês", language: "pt", countries: ["PT"] } },
+    { organization: org, name: "Quiz do Sono Profundo", pageId: "7719102", offerUrl: "https://exemplo.com/quiz-sono", counting: "api", tags: { structure: "quiz", niche: "nutra", product: "suplemento", language: "es", countries: ["ES", "MX"] } },
+    { organization: org, name: "Planilha Financeira Pro", pageId: "7714077", offerUrl: "https://exemplo.com/planilha", counting: "api", tags: { structure: "pagina_vendas", niche: "info", product: "planilha", language: "pt", countries: ["PT"] } },
+    { organization: org, name: "Kit Pele de Seda (só Brasil)", offerUrl: "https://exemplo.com/kit", counting: "manual", tags: { structure: "vsl", niche: "ecommerce", product: "cosmético", language: "pt", countries: ["BR"] } },
+    { organization: org, name: "Desafio 21 Dias Sem Açúcar", pageId: "7715533", counting: "manual", tags: { structure: "quiz", niche: "info", language: "pt", countries: ["BR"] } },
+  ]);
+  for (const p of mine) {
+    const rows: any[] = [];
+    for (let i = 39; i >= 0; i--) {
+      const date = addDays(today, -i);
+      if (p.counting === "api") rows.push({ organization: org, page: p._id, date, count: mockActiveAds(p.pageId, date), source: "api", countries: ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"], calls: 2 });
+      else if (i % 3 === 0) rows.push({ organization: org, page: p._id, date, count: Math.round((p.name.startsWith("Kit") ? 40 : 160) * (1 + (39 - i) * (p.name.startsWith("Kit") ? 0.045 : -0.012))), source: "manual", byUser: adminId, byName: "Administrador", note: "Biblioteca pública, país Brasil" });
+    }
+    await OfferDaily.insertMany(rows);
+    const last = rows[rows.length - 1];
+    await OfferPage.updateOne({ organization: org, _id: p._id }, { $set: { last: { date: last.date, count: last.count, source: last.source, complete: true, countries: last.countries || [], at: new Date(), error: "" } } });
+  }
+  await OfferFavorite.create([{ organization: org, user: adminId, kind: "org", ref: mine[0]._id }, { organization: org, user: adminId, kind: "org", ref: mine[2]._id }]);
+  const house = [
+    ["Gotas Articulações Ativa", "7721450", "vsl", "nutra", "es", ["ES", "MX"], 0],
+    ["Curso Confeitaria Lucrativa", "7722871", "pagina_vendas", "info", "pt", ["PT", "BR"], 0],
+    ["Quiz Pressão em Dia", "7723309", "quiz", "nutra", "pt", ["PT"], 3],
+    ["Slim Coffee Express", "7724416", "vsl", "nutra", "en", ["IE", "US"], 6],
+    ["Mentoria Renda Extra", "7725590", "vsl", "info", "pt", ["PT"], 9],
+    ["Detox Verde 7", "7726014", "pagina_vendas", "nutra", "es", ["ES"], 14],
+    ["Inglês no Carro", "7727731", "pagina_vendas", "info", "pt", ["BR", "PT"], 20],
+    ["Colágeno Glow", "7728862", "quiz", "nutra", "en", ["IE"], 25],
+  ] as const;
+  for (const [name, pageId, structure, niche, language, countries, age] of house) {
+    const h = await HouseOffer.create({ name, pageId, counting: "api", offerUrl: `https://exemplo.com/${pageId}`, tags: { structure, niche, language, countries: [...countries], product: "" }, addedBy: process.env.ADMIN_EMAIL || "" });
+    await HouseOffer.collection.updateOne({ _id: h._id }, { $set: { createdAt: new Date(Date.now() - age * 86_400_000) } });
+    const rows: any[] = [];
+    for (let i = Math.max(age, 45); i >= 0; i--) {
+      const date = addDays(today, -i);
+      rows.push({ page: h._id, date, count: mockActiveAds(pageId, date), source: "api", countries: ["PT", "ES", "FR", "DE", "IT", "IE"], calls: 1 });
+    }
+    await HouseOfferDaily.insertMany(rows);
+  }
+  await OfferFavorite.create({ organization: org, user: adminId, kind: "casa", ref: (await HouseOffer.findOne({ pageId: "7721450" }))!._id });
+}
 
 async function content(org: Types.ObjectId, project: Types.ObjectId, titles: string[], token: string, followers: number) {
   const now = Date.now();
@@ -309,6 +358,8 @@ async function main() {
   const seller: any = await user(home._id, "member", "Júlia Vendas", "julia@vinculo.exemplo", new Date(Date.now() - 4 * 3_600_000));
   await crmDemo(home._id, adminUser, seller);
   await trackingDemo(home._id, hdmoj._id);
+  if (adminUser) await seedOffers(home._id, adminUser._id);
+  await HouseCredential.create({ service: "meta_ad_library", credentials: { token: encrypt("EAAtoken-da-casa-de-demonstracao-0000000000001") }, purposes: [] });
   await CompetitorProduct.create([
     { organization: home._id, project: hdmoj._id, competitor: rivals[0]._id, name: "Mentoria Virada 90", platform: "Hotmart", price: 997, promise: "Mudar de carreira em 90 dias", link: "https://exemplo.com/virada90" },
     { organization: home._id, project: hdmoj._id, competitor: rivals[1]._id, name: "Curso Rotina de Ouro", platform: "Kiwify", price: 197, promise: "Rotina produtiva em 21 dias" },
@@ -323,6 +374,7 @@ async function main() {
   const r2 = await content(bella._id, pilates._id, ["Reel: alongamento de 5 minutos", "Carrossel: 4 erros na postura", "Depoimento da aluna Ana", "Reel: aula experimental", "Carrossel: horários de novembro"], "IGAA-conta-bellaformapilates-01", 4380);
   await createInvite({ kind: "member", organization: bella._id, email: "recepcao@bellaforma.exemplo" });
   bella.publishEnabled = true; // este cliente está com a publicação automática ligada
+  bella.offersEnabled = true; // e com o módulo Ofertas (vê a lista da casa)
   await bella.save();
   await flowPosts(bella._id, pilates._id, "Marina Duarte", "Rafael Lima");
   // na casa (chave desligada): um aprovado, para ver o aviso "publicação automática desligada"

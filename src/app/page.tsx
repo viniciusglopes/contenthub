@@ -937,7 +937,7 @@ export default function Home() {
         ) : view === "ajuda" && me ? (
           <HelpPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
         ) : view === "concorrentes" && me ? (
-          <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
+          <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} onHelp={openHelp} />
         ) : view === "automacoes" && me ? (
           <AutomationsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} canManage={me.canManage} />
         ) : view === "crm" && me ? (

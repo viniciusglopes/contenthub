@@ -28,6 +28,9 @@ const OrganizationSchema = new Schema(
     trackingEnabled: { type: Boolean, default: false },
     // API de Conversões da Meta (envio de Lead/Purchase): só com CAPI_ENABLED=true também.
     capiEnabled: { type: Boolean, default: false },
+    // Módulo Ofertas: ver a "lista da casa" (curadoria da plataforma), as novas do dia e o relatório
+    // mensal. Desligado por padrão; só o administrador da plataforma liga.
+    offersEnabled: { type: Boolean, default: false },
     // Classificação por IA (etapa seguinte): ordem dos provedores a tentar, em sequência.
     // As chaves ficam em ApiCredential (criptografadas, uma por serviço por organização).
     ai: {

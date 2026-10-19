@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- sub-aba lida do link e carga inicial */
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Bot, Check, Copy, FileSpreadsheet, FileInput, Megaphone, Pencil, Trash2, Upload } from "lucide-react";
 import { send, fmtWhen } from "@/components/http";
 import { Card, Field, Notice, linkBtn } from "@/components/studio/shared";
@@ -327,7 +328,8 @@ export default function CrmInputs({ opts, onImported }: { opts: Options; onImpor
       {sub === "automacao" && (
         <Card title="Automação do direct">
           <p className="text-sm text-gray-300">Na automação (menu Automações), ligue o passo <b>Enviar para o CRM</b> e escolha a etapa, o responsável e as etiquetas. Quem comentar a palavra ou mandar a mensagem vira lead, com a automação e o post como origem. Quem chega por anúncio que abre o direct ou por link ig.me também fica marcado com a origem.</p>
-          <a href="/?view=automacoes" className={`${btn} w-fit mt-3`}><Bot size={14} /> Abrir Automações</a>
+          {/* a casca lê ?view= só ao abrir: navegação completa para trocar de tela */}
+          <Link href="/?view=automacoes" prefetch={false} onClick={(e) => { e.preventDefault(); window.location.assign("/?view=automacoes"); }} className={`${btn} w-fit mt-3`}><Bot size={14} /> Abrir Automações</Link>
         </Card>
       )}
     </div>

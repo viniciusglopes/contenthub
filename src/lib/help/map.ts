@@ -12,7 +12,8 @@ export function helpFor(view: string, tab?: string | null): string {
   if (view === "estudio" && tab && BY_ESTUDIO_TAB[tab]) return BY_ESTUDIO_TAB[tab];
   if (view === "instagram" && tab === "comentarios") return "comentarios";
   if (view === "crm" && tab && BY_CRM_TAB[tab]) return BY_CRM_TAB[tab];
+  if (view === "concorrentes" && tab === "ofertas") return "ofertas";
   return BY_VIEW[view] || "primeiros-passos";
 }
 /** Todos os artigos que algum "?" abre (o teste confere que existem). */
-export const LINKED_ARTICLES = [...new Set([...Object.values(BY_VIEW), ...Object.values(BY_ESTUDIO_TAB), "comentarios", "meta-app-automacoes", ...Object.values(BY_CRM_TAB), "meta-lead-ads", "rastreamento-vendas", "rastreamento-capi", "rastreamento-testar"])];
+export const LINKED_ARTICLES = [...new Set([...Object.values(BY_VIEW), ...Object.values(BY_ESTUDIO_TAB), "comentarios", "meta-app-automacoes", ...Object.values(BY_CRM_TAB), "meta-lead-ads", "rastreamento-vendas", "rastreamento-capi", "rastreamento-testar", "ofertas"])];

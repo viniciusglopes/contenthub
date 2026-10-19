@@ -18,3 +18,7 @@ tags: concorrentes, youtube, instagram, biblioteca de anúncios
 - **Anúncios**: a tela abre a Biblioteca de Anúncios pública da Meta.
 
 > **Ainda não disponível pela API:** anúncios comerciais de concorrentes no Brasil. A API da Biblioteca de Anúncios só devolve anúncios de fora da União Europeia quando são sobre temas sociais, eleições ou política.
+
+## Ofertas
+
+A aba **Ofertas** acompanha quantos anúncios ativos cada página anunciante tem por dia, com selo de temperatura, filtros, favoritos e histórico. Veja [Ofertas](artigo:ofertas).
