@@ -15,11 +15,13 @@ Se a plataforma tem a chave da casa, sim. Na lista de [Primeiros passos](artigo:
 
 ## Criar uma chave própria (opcional)
 
-1. Abra o [Console de APIs do Google](https://console.cloud.google.com/) e crie ou escolha um projeto.
-2. Ative a **YouTube Data API v3** (em **APIs ativadas**; se não aparecer, procure na **Biblioteca de APIs**).
-3. Vá em **APIs e serviços** e depois **Credenciais**.
-4. Clique em **Criar credenciais** e depois **Chave de API**.
-5. Copie a chave.
+:::fora Console do Google Cloud
+link: https://console.cloud.google.com/apis/credentials
+caminho: Crie ou escolha um projeto, no alto > No menu, abra **APIs e serviços** > Em **Biblioteca**, procure **YouTube Data API v3** e clique em **Ativar** > Volte e clique em **Credenciais** > Clique em **Criar credenciais** e depois em **Chave de API** > Copie a chave
+copie: a chave, que começa com **AIza**
+cole: **Configurações** › **APIs de Produção** › **Adicionar API** › **YouTube Data API (concorrentes)**
+desenho: google-cloud-chave
+:::
 
 **O que você deve ver:** uma chave que começa com **AIza**.
 

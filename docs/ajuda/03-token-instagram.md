@@ -13,11 +13,13 @@ O token é a "chave" que deixa o ContentHub ler os números da conta. Ele é ger
 
 ## Gerar o token
 
-1. Abra o painel de apps da Meta em [developers.facebook.com](https://developers.facebook.com/apps) e escolha o app.
-2. No menu da esquerda, clique em **Instagram** e depois em **API setup with Instagram business login** (o nome pode variar).
-3. Ao lado da conta do Instagram, clique em **Generate token** (Gerar token).
-4. Entre com a conta do Instagram (precisa ser profissional) e aceite as permissões.
-5. Copie o token.
+:::fora Meta for Developers
+link: https://developers.facebook.com/apps
+caminho: Clique em **Meus apps** > Escolha o app da plataforma > No menu da esquerda, clique em **Instagram** > Depois em **API setup with Instagram business login** (o nome pode variar) > Ao lado da conta do Instagram, clique em **Generate token** (Gerar token) > Entre com a conta do Instagram (precisa ser profissional) e aceite as permissões > Copie o token
+copie: o token, um texto longo que começa com **IG**
+cole: **Configurações** › **Redes Sociais** › **Adicionar Conta** › campo **Cole aqui o token (começa com IG...)**
+desenho: meta-dev-token-instagram
+:::
 
 **O que você deve ver:** um texto longo que começa com **IG**.
 
@@ -26,8 +28,9 @@ Segundo a documentação oficial, o token gerado no painel **vale 60 dias**. Fon
 ## Colar no ContentHub
 
 1. No menu, clique em **Configurações** e depois em **Redes Sociais**.
-2. Clique em **Conectar Instagram**, escolha o projeto e cole o token no campo **Cole aqui o token (começa com IG...)**.
-3. Salve e depois clique em **Sincronizar agora** na tela Instagram.
+2. Clique em **Adicionar Conta**: abre o quadro **Conectar Instagram**.
+3. Escolha o projeto e cole o token no campo **Cole aqui o token (começa com IG...)**.
+4. Clique em **Validar e conectar** e depois em **Sincronizar agora**.
 
 **O que você deve ver:** o @ da conta aparece em Instagram e os números chegam em alguns segundos.
 

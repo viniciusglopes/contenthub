@@ -11,7 +11,15 @@ Além do pixel no navegador, o ContentHub manda os eventos **Lead** e **Purchase
 
 ## Configurar
 
-1. No Gerenciador de Eventos da Meta, abra o pixel, vá em **Configurações** e gere o **token de acesso** da API de Conversões.
+:::fora Gerenciador de Eventos da Meta
+link: https://business.facebook.com/events_manager2
+caminho: No menu, clique em **Fontes de dados** > Escolha o pixel do site > Abra a aba **Configurações** > Em **API de Conversões**, clique em **Gerar token de acesso** > Copie o token e a **identificação do pixel** (fica no alto da mesma página)
+copie: o token de acesso e o número do pixel
+cole: **CRM** › **Rastreamento** › script do projeto › campos **Id do pixel** e token
+desenho: meta-eventos-capi
+:::
+
+1. Gere o token no Gerenciador de Eventos (passo a passo acima).
 2. No CRM, aba **Rastreamento**, no script do projeto, preencha o **Id do pixel** e cole o **token** (fica criptografado).
 3. Marque **Enviar Lead e Purchase para a Meta** e clique em **Salvar**.
 4. O suporte liga a chave **API de Conversões** da sua conta em Admin, Clientes.

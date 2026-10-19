@@ -13,8 +13,8 @@ import VideoTemplate from "@/models/VideoTemplate";
 import { budgetOf, usd } from "@/lib/studio/cost";
 import { resolveChain } from "@/lib/studio/chain";
 import { loadKit } from "@/lib/studio/kit";
-import { ARTICLES } from "./content.generated";
-import type { Article } from "./types";
+import { ARTICLES, SCREENS } from "./content.generated";
+import type { Article, Screen } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Org = Types.ObjectId;
@@ -23,6 +23,8 @@ type Org = Types.ObjectId;
 // plataforma) e a lista "Primeiros passos" com o andamento REAL do projeto, lido do banco.
 
 export const visibleArticles = (isAdmin: boolean): Article[] => ARTICLES.filter((a) => isAdmin || !a.admin);
+/** Guias de tela (print marcado + passos); os de telas de administrador só para ele. */
+export const visibleScreens = (isAdmin: boolean): Screen[] => SCREENS.filter((s) => isAdmin || !s.admin);
 export function getArticle(id: string, isAdmin: boolean): Article {
   const a = visibleArticles(isAdmin).find((x) => x.id === id);
   if (!a) throw notFound("Artigo");

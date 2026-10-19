@@ -13,13 +13,12 @@ O ContentHub só lê números de **contas profissionais** do Instagram (tipo **E
 
 ## Trocar para conta profissional (no aplicativo do Instagram)
 
-1. Toque na sua foto de perfil, no canto de baixo à direita.
-2. Toque no menu e depois em **Configurações e atividade**.
-3. Em **Para profissionais**, toque em **Tipo de conta e ferramentas**.
-4. Toque em **Mudar para conta profissional**.
-5. Escolha uma categoria e confirme.
-6. Escolha **Criador de conteúdo** ou **Empresa** e toque em **Avançar**.
-7. Siga as telas. Pode pular a parte de ligar a Página agora.
+:::fora aplicativo do Instagram
+link: https://www.instagram.com/
+caminho: Toque na sua foto de perfil, no canto de baixo à direita > Toque no menu (☰): abre **Configurações e atividade** > Em **Para profissionais**, toque em **Tipo de conta e ferramentas** > Toque em **Mudar para conta profissional**, escolha uma categoria e confirme > Escolha **Criador de conteúdo** ou **Empresa** > Toque em **Avançar** e siga as telas (pode pular a parte de ligar a Página agora)
+cole: nada para colar; depois disso, gere o [token do Instagram](artigo:token-instagram)
+desenho: instagram-profissional
+:::
 
 **O que você deve ver:** no seu perfil aparece o painel profissional.
 
@@ -33,12 +32,12 @@ Só é preciso para **Tráfego** (anúncios) e para ler o Instagram de **concorr
 
 Você precisa ter acesso de administrador (ou de tarefas) na Página.
 
-1. No Facebook, clique na sua foto de perfil, no canto de cima à direita.
-2. Clique em **Ver todas as Páginas** e entre na Página.
-3. Clique na foto da Página, no canto de cima à direita.
-4. Clique em **Configurações e privacidade** e depois em **Configurações**.
-5. Em **Permissões**, clique em **Contas vinculadas**.
-6. Clique em **Instagram**, depois em **Conectar conta**, e siga as telas.
+:::fora Facebook
+link: https://www.facebook.com/
+caminho: Clique na sua foto de perfil, no canto de cima à direita > Clique em **Ver todas as Páginas** > Entre na Página e clique na foto dela, no canto de cima à direita > **Configurações e privacidade** > **Configurações** > Em **Permissões**, clique em **Contas vinculadas** > Clique em **Instagram** > Clique em **Conectar conta** e siga as telas
+cole: nada para colar; a ligação fica na Meta
+desenho: facebook-pagina-instagram
+:::
 
 **O que você deve ver:** a conta do Instagram aparece como conectada na Página.
 

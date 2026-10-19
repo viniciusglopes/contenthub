@@ -45,7 +45,8 @@ import PostDetail from "@/components/posts/PostDetail";
 import PostForm from "@/components/posts/PostForm";
 import StudioPanel from "@/components/studio/StudioPanel";
 import HelpPanel from "@/components/help/HelpPanel";
-import { helpFor } from "@/lib/help/map";
+import HelpPopup, { type HelpTarget } from "@/components/help/HelpPopup";
+import { screenFor } from "@/lib/help/map";
 import TrafficPanel from "@/components/trafego/TrafficPanel";
 import CompetitorsPanel from "@/components/concorrentes/CompetitorsPanel";
 import AutomationsPanel from "@/components/automacoes/AutomationsPanel";
@@ -183,6 +184,8 @@ export default function Home() {
   const [editingApi, setEditingApi] = useState<string | null>(null);
   const [showApiSecrets, setShowApiSecrets] = useState(false);
   const [formApiService, setFormApiService] = useState("");
+  const [helpTarget, setHelpTarget] = useState<HelpTarget | null>(null);
+  const [helpPageKey, setHelpPageKey] = useState(0);
 
   // A visão e o projeto ficam no link (dá para favoritar /?view=instagram&project=...).
   useEffect(() => {
@@ -217,16 +220,22 @@ export default function Home() {
     setViewState(v);
     setUrl("view", v === "calendar" ? null : v);
   }
-  /** "?" de cada tela: abre na Ajuda o artigo daquela tela (o Estúdio e o Instagram olham a aba do link). */
-  function openHelp(article?: string) {
-    const p = new URLSearchParams(window.location.search);
-    const id = article || helpFor(view, p.get("aba"));
+  /** "?" de cada tela e de cada item do menu: abre a ajuda em POPUP por cima da tela (não sai do lugar).
+   *  Sem argumento, é a tela atual (a visão e a aba do link; com Configurações aberta, a aba dela). */
+  function openHelp(screen?: string) {
+    const aba = new URLSearchParams(window.location.search).get("aba");
+    setHelpTarget({ screen: screen || (showSettings ? screenFor("configuracoes", settingsTab) : screenFor(view, aba)) });
+  }
+  /** A página Ajuda inteira, já no artigo (menu Ajuda e "Ver todos os artigos" do popup). */
+  function openHelpPage(article: string) {
+    const id = article;
     const url = new URL(window.location.href);
     url.searchParams.set("artigo", id);
     url.searchParams.delete("aba");
     window.history.replaceState(null, "", url);
     setShowSettings(false);
     setView("ajuda");
+    setHelpPageKey((k) => k + 1);
     setMenuOpen(false);
   }
   function selectProject(id: string) {
@@ -681,9 +690,12 @@ export default function Home() {
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Projetos</span>
-            <button onClick={() => setShowNewProject(true)} className="text-brand-400 hover:text-brand-300">
-              <Plus size={16} />
-            </button>
+            <span className="flex items-center gap-1">
+              <MenuHelp label="Projetos" onClick={() => openHelp("projetos")} />
+              <button onClick={() => setShowNewProject(true)} className="text-brand-400 hover:text-brand-300" aria-label="Novo projeto" title="Novo projeto">
+                <Plus size={16} />
+              </button>
+            </span>
           </div>
           <button
             onClick={() => selectProject("all")}
@@ -709,7 +721,7 @@ export default function Home() {
         </div>
 
         <div className="p-4 border-b border-gray-800">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filtro de status</span>
+          <span className="flex items-center justify-between"><span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filtro de status</span><MenuHelp label="Filtro de status" onClick={() => openHelp("lista")} /></span>
           <div className="mt-2 space-y-1">
             <button
               onClick={() => setSelectedStatus("all")}
@@ -735,103 +747,139 @@ export default function Home() {
         </div>
 
         <div className="p-4 border-b border-gray-800 space-y-1">
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("aprovacoes"); setMenuOpen(false); loadQueue(); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "aprovacoes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "aprovacoes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-aprovacoes"
           >
             <ClipboardCheck size={16} />
             <span>Aprovações</span>
             {queueCount > 0 && <span className="ml-auto text-[11px] font-bold bg-brand-500 text-brand-ink rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">{queueCount}</span>}
           </button>
+            <MenuHelp label="Aprovações" onClick={() => openHelp("aprovacoes")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("instagram"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "instagram" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "instagram" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
           >
             <BarChart3 size={16} />
             <span>Instagram</span>
           </button>
+            <MenuHelp label="Instagram" onClick={() => openHelp("instagram")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("estudio"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "estudio" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "estudio" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-estudio"
           >
             <Wand2 size={16} />
             <span>Estúdio</span>
           </button>
+            <MenuHelp label="Estúdio" onClick={() => openHelp("estudio-carrossel")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("trafego"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "trafego" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "trafego" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-trafego"
           >
             <Megaphone size={16} />
             <span>Tráfego</span>
           </button>
+            <MenuHelp label="Tráfego" onClick={() => openHelp("trafego")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("concorrentes"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "concorrentes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "concorrentes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-concorrentes"
           >
             <Swords size={16} />
             <span>Concorrentes</span>
           </button>
+            <MenuHelp label="Concorrentes" onClick={() => openHelp("concorrentes")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("automacoes"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "automacoes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "automacoes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-automacoes"
           >
             <Bot size={16} />
             <span>Automações</span>
           </button>
+            <MenuHelp label="Automações" onClick={() => openHelp("automacoes")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("crm"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "crm" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "crm" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-crm"
           >
             <KanbanSquare size={16} />
             <span>CRM</span>
           </button>
+            <MenuHelp label="CRM" onClick={() => openHelp("crm-funil")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("contatos"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "contatos" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "contatos" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-contatos"
           >
             <ContactIcon size={16} />
             <span>Contatos</span>
           </button>
+            <MenuHelp label="Contatos" onClick={() => openHelp("contatos")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
-            onClick={() => openHelp("primeiros-passos")}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "ajuda" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            onClick={() => openHelpPage("primeiros-passos")}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "ajuda" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-ajuda"
           >
             <HelpCircle size={16} />
             <span>Ajuda</span>
           </button>
+            <MenuHelp label="Ajuda" onClick={() => openHelp("ajuda")} />
+          </div>
           {me?.isAdmin && (
+            <div className="flex items-center gap-0.5">
             <button
               onClick={() => { setView("clientes"); setMenuOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "clientes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+              className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "clientes" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
               data-testid="menu-clientes"
             >
               <Building2 size={16} />
               <span>Clientes</span>
             </button>
+              <MenuHelp label="Clientes" onClick={() => openHelp("clientes")} />
+            </div>
           )}
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setView("conta"); setMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "conta" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${view === "conta" ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             data-testid="menu-conta"
           >
             <UserCog size={16} />
             <span>{me?.canManage ? "Minha conta e equipe" : "Minha conta"}</span>
           </button>
+            <MenuHelp label="Minha conta" onClick={() => openHelp("conta")} />
+          </div>
+          <div className="flex items-center gap-0.5">
           <button
             onClick={() => openSettings()}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
+            className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
           >
             <Settings size={16} />
             <span>Configurações</span>
           </button>
+            <MenuHelp label="Configurações" onClick={() => openHelp("config-redes")} />
+          </div>
           <button
             onClick={logout}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800/50 transition"
@@ -935,7 +983,7 @@ export default function Home() {
         ) : view === "trafego" && me ? (
           <TrafficPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} canManage={me.canManage} />
         ) : view === "ajuda" && me ? (
-          <HelpPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
+          <HelpPanel key={helpPageKey} projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} />
         ) : view === "concorrentes" && me ? (
           <CompetitorsPanel projects={projects} selectedProject={selectedProject} onSelectProject={selectProject} onHelp={openHelp} />
         ) : view === "automacoes" && me ? (
@@ -1128,7 +1176,7 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <Plug size={20} className="text-brand-400" />
                 <h3 className="font-bold text-white">Configurações</h3>
-                <button type="button" onClick={() => openHelp(settingsTab === "social" ? "token-instagram" : "chaves-e-integracoes")} title="Ajuda" aria-label="Ajuda das configurações" className="p-1 text-gray-400 hover:text-white"><HelpCircle size={16} /></button>
+                <button type="button" onClick={() => openHelp(screenFor("configuracoes", settingsTab))} title="Ajuda" aria-label="Ajuda das configurações" className="p-1 text-gray-400 hover:text-white"><HelpCircle size={16} /></button>
               </div>
               <button onClick={() => { setShowSettings(false); setEditingAccount(null); setEditingApi(null); }} className="p-1 hover:bg-gray-800 rounded"><X size={16} /></button>
             </div>
@@ -1449,6 +1497,16 @@ export default function Home() {
         </div>
       )}
       </div>
+      <HelpPopup target={helpTarget} onClose={() => setHelpTarget(null)} onOpenAll={(a) => { setHelpTarget(null); openHelpPage(a); }} />
     </div>
+  );
+}
+
+/** "?" ao lado de cada item do menu: abre a ajuda daquela área em popup, sem trocar de tela. */
+function MenuHelp({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="shrink-0 rounded-md p-1.5 text-gray-600 hover:bg-gray-800 hover:text-gray-200 focus-visible:text-gray-200" aria-label={`Ajuda: ${label}`} title={`Ajuda: ${label}`} data-testid="menu-ajuda-item">
+      <HelpCircle size={14} />
+    </button>
   );
 }

@@ -461,6 +461,7 @@ const CASES: Record<string, Case> = {
     attack: () => [{ path: "/api/ajuda/x", params: { id: "admin-clientes" } }, { path: "/api/ajuda/x", params: { id: "../../package.json" } }],
     own: () => ({ path: "/api/ajuda/x", params: { id: "primeiros-passos" } }),
   },
+  "GET /api/ajuda/telas": { access: "org", attack: (t) => [{ path: `/api/ajuda/telas?organization=${t.org._id}`, expect: 200 }], own: () => ({ path: "/api/ajuda/telas" }) },
   "GET /api/ajuda/checklist": { access: "org", attack: (t) => [{ path: `/api/ajuda/checklist?project=${t.project._id}` }], own: (t) => ({ path: `/api/ajuda/checklist?project=${t.project._id}` }) },
   // ---- Reel com cenas: biblioteca, Pexels, padrões de vídeo e roteiro
   "GET /api/estudio/cenas": { access: "org", attack: (t) => [{ path: `/api/estudio/cenas?organization=${t.org._id}&categoria=mar/praia`, expect: 200 }], own: () => ({ path: "/api/estudio/cenas" }) },

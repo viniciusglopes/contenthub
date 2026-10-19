@@ -18,16 +18,27 @@ Cada venda que a plataforma avisar entra no CRM: compra aprovada, reembolso, cha
 
 ## Hotmart
 
-1. Na Hotmart, abra **Ferramentas**, depois **Webhook** (os nomes podem variar).
-2. Cadastre uma configuração nova com a URL copiada, versão **2.0.0**, e marque os eventos de compra (aprovada, completa, reembolsada, chargeback, cancelada, abandono de carrinho).
-3. Na aba **Autenticação**, copie o **Hottok** e cole no ContentHub.
-4. Use **Enviar teste** e confira a venda de teste na lista do ContentHub.
+:::fora Hotmart
+link: https://app.hotmart.com/
+caminho: No menu, abra **Ferramentas** > Clique em **Webhook** > Cadastre uma configuração nova (**Cadastrar Webhook**) > Cole a URL copiada do ContentHub e escolha a versão **2.0.0** > Marque os eventos de compra (aprovada, completa, reembolsada, chargeback, cancelada, abandono de carrinho) > Na aba **Autenticação**, copie o **Hottok**
+copie: o **Hottok** (aba Autenticação)
+cole: **CRM** › **Rastreamento** › **Vendas** › integração da Hotmart › campo da chave de autenticação
+desenho: hotmart-webhook
+obs: Os nomes vieram de fontes secundárias (a página oficial estava fora do ar) e podem variar.
+:::
+
+Depois use **Enviar teste** na Hotmart e confira a venda de teste na lista do ContentHub.
 
 ## Kiwify
 
-1. Na Kiwify, abra **Apps**, depois **Webhooks**, e crie um webhook com a URL copiada.
-2. Marque os gatilhos: compra aprovada, compra reembolsada, chargeback, carrinho abandonado (e boleto/pix gerado, se quiser).
-3. Copie o **token** do webhook e cole no ContentHub. Toda notificação vem assinada com ele; o ContentHub descarta o que não confere.
+:::fora Kiwify
+link: https://dashboard.kiwify.com.br/
+caminho: No menu, abra **Apps** > Clique em **Webhooks** > Clique em **Criar Webhook** > Cole a URL copiada do ContentHub > Marque os gatilhos: compra aprovada, compra reembolsada, chargeback, carrinho abandonado (e boleto/pix gerado, se quiser) > Copie o **token** do webhook
+copie: o **token** do webhook
+cole: **CRM** › **Rastreamento** › **Vendas** › integração da Kiwify › campo da chave de autenticação
+desenho: kiwify-webhook
+obs: Toda notificação vem assinada com o token; o ContentHub descarta o que não confere. Nomes de fontes secundárias, podem variar.
+:::
 
 ## Como a venda acha o lead
 

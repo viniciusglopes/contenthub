@@ -1,5 +1,5 @@
-// GERADO por scripts/build-help.mjs a partir de docs/ajuda/*.md. Não edite aqui: edite o .md.
-import type { Article } from "./types";
+// GERADO por scripts/build-help.mjs a partir de docs/ajuda/*.md e docs/ajuda/telas/*.md. Não edite aqui: edite o .md.
+import type { Article, Screen } from "./types";
 
 export const ARTICLES: Article[] = [
   {
@@ -30,7 +30,7 @@ export const ARTICLES: Article[] = [
       "página",
       "facebook"
     ],
-    "body": "# Conta profissional e Página do Facebook\n\nO ContentHub só lê números de **contas profissionais** do Instagram (tipo **Empresa** ou **Criador de conteúdo**). Conta pessoal não funciona.\n\n> Os nomes dos botões abaixo vêm da Central de Ajuda da Meta e **o nome pode variar** conforme a versão do aplicativo e o idioma.\n\n## Trocar para conta profissional (no aplicativo do Instagram)\n\n1. Toque na sua foto de perfil, no canto de baixo à direita.\n2. Toque no menu e depois em **Configurações e atividade**.\n3. Em **Para profissionais**, toque em **Tipo de conta e ferramentas**.\n4. Toque em **Mudar para conta profissional**.\n5. Escolha uma categoria e confirme.\n6. Escolha **Criador de conteúdo** ou **Empresa** e toque em **Avançar**.\n7. Siga as telas. Pode pular a parte de ligar a Página agora.\n\n**O que você deve ver:** no seu perfil aparece o painel profissional.\n\n> **Atenção:** uma conta privada vira **pública** ao mudar para profissional, e os pedidos para seguir pendentes são aceitos.\n\nFonte oficial: [Central de Ajuda do Instagram](https://www.facebook.com/help/instagram/502981923235522)\n\n## Ligar o Instagram a uma Página do Facebook\n\nSó é preciso para **Tráfego** (anúncios) e para ler o Instagram de **concorrentes**. Para os números do seu próprio Instagram, não precisa.\n\nVocê precisa ter acesso de administrador (ou de tarefas) na Página.\n\n1. No Facebook, clique na sua foto de perfil, no canto de cima à direita.\n2. Clique em **Ver todas as Páginas** e entre na Página.\n3. Clique na foto da Página, no canto de cima à direita.\n4. Clique em **Configurações e privacidade** e depois em **Configurações**.\n5. Em **Permissões**, clique em **Contas vinculadas**.\n6. Clique em **Instagram**, depois em **Conectar conta**, e siga as telas.\n\n**O que você deve ver:** a conta do Instagram aparece como conectada na Página.\n\nFonte oficial: [Central de Ajuda do Facebook](https://www.facebook.com/help/1148909221857370)"
+    "body": "# Conta profissional e Página do Facebook\n\nO ContentHub só lê números de **contas profissionais** do Instagram (tipo **Empresa** ou **Criador de conteúdo**). Conta pessoal não funciona.\n\n> Os nomes dos botões abaixo vêm da Central de Ajuda da Meta e **o nome pode variar** conforme a versão do aplicativo e o idioma.\n\n## Trocar para conta profissional (no aplicativo do Instagram)\n\n:::fora aplicativo do Instagram\nlink: https://www.instagram.com/\ncaminho: Toque na sua foto de perfil, no canto de baixo à direita > Toque no menu (☰): abre **Configurações e atividade** > Em **Para profissionais**, toque em **Tipo de conta e ferramentas** > Toque em **Mudar para conta profissional**, escolha uma categoria e confirme > Escolha **Criador de conteúdo** ou **Empresa** > Toque em **Avançar** e siga as telas (pode pular a parte de ligar a Página agora)\ncole: nada para colar; depois disso, gere o [token do Instagram](artigo:token-instagram)\ndesenho: instagram-profissional\n:::\n\n**O que você deve ver:** no seu perfil aparece o painel profissional.\n\n> **Atenção:** uma conta privada vira **pública** ao mudar para profissional, e os pedidos para seguir pendentes são aceitos.\n\nFonte oficial: [Central de Ajuda do Instagram](https://www.facebook.com/help/instagram/502981923235522)\n\n## Ligar o Instagram a uma Página do Facebook\n\nSó é preciso para **Tráfego** (anúncios) e para ler o Instagram de **concorrentes**. Para os números do seu próprio Instagram, não precisa.\n\nVocê precisa ter acesso de administrador (ou de tarefas) na Página.\n\n:::fora Facebook\nlink: https://www.facebook.com/\ncaminho: Clique na sua foto de perfil, no canto de cima à direita > Clique em **Ver todas as Páginas** > Entre na Página e clique na foto dela, no canto de cima à direita > **Configurações e privacidade** > **Configurações** > Em **Permissões**, clique em **Contas vinculadas** > Clique em **Instagram** > Clique em **Conectar conta** e siga as telas\ncole: nada para colar; a ligação fica na Meta\ndesenho: facebook-pagina-instagram\n:::\n\n**O que você deve ver:** a conta do Instagram aparece como conectada na Página.\n\nFonte oficial: [Central de Ajuda do Facebook](https://www.facebook.com/help/1148909221857370)"
   },
   {
     "id": "token-instagram",
@@ -45,7 +45,7 @@ export const ARTICLES: Article[] = [
       "app",
       "conectar"
     ],
-    "body": "# Token do Instagram\n\nO token é a \"chave\" que deixa o ContentHub ler os números da conta. Ele é gerado no painel de desenvolvedor da Meta, dentro do app da plataforma.\n\n> Quem gera o token precisa ter acesso ao app da Meta da plataforma. Se você é cliente, normalmente o suporte faz este passo com você.\n\n## Gerar o token\n\n1. Abra o painel de apps da Meta em [developers.facebook.com](https://developers.facebook.com/apps) e escolha o app.\n2. No menu da esquerda, clique em **Instagram** e depois em **API setup with Instagram business login** (o nome pode variar).\n3. Ao lado da conta do Instagram, clique em **Generate token** (Gerar token).\n4. Entre com a conta do Instagram (precisa ser profissional) e aceite as permissões.\n5. Copie o token.\n\n**O que você deve ver:** um texto longo que começa com **IG**.\n\nSegundo a documentação oficial, o token gerado no painel **vale 60 dias**. Fonte: [Instagram API com login do Instagram](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/get-started.md)\n\n## Colar no ContentHub\n\n1. No menu, clique em **Configurações** e depois em **Redes Sociais**.\n2. Clique em **Conectar Instagram**, escolha o projeto e cole o token no campo **Cole aqui o token (começa com IG...)**.\n3. Salve e depois clique em **Sincronizar agora** na tela Instagram.\n\n**O que você deve ver:** o @ da conta aparece em Instagram e os números chegam em alguns segundos.\n\n## O que este acesso não faz\n\n- Não lê anúncios: para isso existe o [token da Meta para Tráfego](artigo:token-meta-ads).\n- Comentários de pessoas de fora só chegam depois que a Meta aprovar o app (análise do app). Veja [Comentários](artigo:comentarios).\n\n## Tirar o acesso\n\nVeja [Como tirar o acesso de um app](artigo:revogar-acesso)."
+    "body": "# Token do Instagram\n\nO token é a \"chave\" que deixa o ContentHub ler os números da conta. Ele é gerado no painel de desenvolvedor da Meta, dentro do app da plataforma.\n\n> Quem gera o token precisa ter acesso ao app da Meta da plataforma. Se você é cliente, normalmente o suporte faz este passo com você.\n\n## Gerar o token\n\n:::fora Meta for Developers\nlink: https://developers.facebook.com/apps\ncaminho: Clique em **Meus apps** > Escolha o app da plataforma > No menu da esquerda, clique em **Instagram** > Depois em **API setup with Instagram business login** (o nome pode variar) > Ao lado da conta do Instagram, clique em **Generate token** (Gerar token) > Entre com a conta do Instagram (precisa ser profissional) e aceite as permissões > Copie o token\ncopie: o token, um texto longo que começa com **IG**\ncole: **Configurações** › **Redes Sociais** › **Adicionar Conta** › campo **Cole aqui o token (começa com IG...)**\ndesenho: meta-dev-token-instagram\n:::\n\n**O que você deve ver:** um texto longo que começa com **IG**.\n\nSegundo a documentação oficial, o token gerado no painel **vale 60 dias**. Fonte: [Instagram API com login do Instagram](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/get-started.md)\n\n## Colar no ContentHub\n\n1. No menu, clique em **Configurações** e depois em **Redes Sociais**.\n2. Clique em **Adicionar Conta**: abre o quadro **Conectar Instagram**.\n3. Escolha o projeto e cole o token no campo **Cole aqui o token (começa com IG...)**.\n4. Clique em **Validar e conectar** e depois em **Sincronizar agora**.\n\n**O que você deve ver:** o @ da conta aparece em Instagram e os números chegam em alguns segundos.\n\n## O que este acesso não faz\n\n- Não lê anúncios: para isso existe o [token da Meta para Tráfego](artigo:token-meta-ads).\n- Comentários de pessoas de fora só chegam depois que a Meta aprovar o app (análise do app). Veja [Comentários](artigo:comentarios).\n\n## Tirar o acesso\n\nVeja [Como tirar o acesso de um app](artigo:revogar-acesso)."
   },
   {
     "id": "token-meta-ads",
@@ -63,7 +63,7 @@ export const ARTICLES: Article[] = [
       "explorer",
       "ads_read"
     ],
-    "body": "# Token da Meta para Tráfego\n\nServe para ver campanhas, conjuntos e anúncios em **Tráfego**, e para ler o Instagram de **concorrentes**. O ContentHub só **lê**: pausar, ativar e mudar orçamento ficam desligados.\n\n## Permissões necessárias\n\n- **ads_read**: ler a conta de anúncio.\n- **instagram_basic** e **instagram_manage_insights**: ler o Instagram (concorrentes).\n- **pages_show_list** e **pages_read_engagement**: achar o Instagram ligado à Página.\n\n## Gerar no Explorador da Graph API\n\n1. Abra o [Explorador da Graph API](https://developers.facebook.com/tools/explorer/).\n2. No canto de cima à direita, escolha o app em **Meta App** (aparecem os apps em que você é administrador, desenvolvedor ou testador).\n3. Em **Permissions** (Permissões), adicione as cinco permissões acima.\n4. Clique no botão de gerar o token (na documentação aparece como **Get Access Token**; o nome pode variar) e aceite na janela da Meta.\n5. Copie o token.\n\n**O que você deve ver:** um texto longo que começa com **EAA**. O ícone de informação ao lado do token mostra o app e as permissões dadas.\n\nFonte oficial: [Graph API Explorer](https://developers.facebook.com/docs/graph-api/guides/explorer)\n\n## Quanto tempo o token dura\n\n- O token do Explorador é **de curta duração** (cerca de 1 a 2 horas, segundo a Meta).\n- Um token de **longa duração** dura cerca de **60 dias**. A troca é feita por uma chamada de servidor com a chave secreta do app, por isso **peça ao suporte** para fazer a troca.\n- A Meta avisa que essas durações podem mudar.\n\nFontes oficiais: [Tokens de longa duração](https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived) e [Tokens de acesso](https://developers.facebook.com/docs/facebook-login/guides/access-tokens). Para conferir validade e permissões, a Meta tem a [ferramenta de tokens](https://developers.facebook.com/tools/accesstoken).\n\n## Colar no ContentHub\n\n1. No menu, clique em **Tráfego**.\n2. Clique em **Conectar conta de anúncio da Meta**.\n3. Informe a conta (começa com **act_**) e cole o token.\n4. Clique em **Conectar** e depois em **Sincronizar agora**.\n\n**O que você deve ver:** as campanhas dos últimos 90 dias.\n\n## Tirar o acesso\n\nVeja [Como tirar o acesso de um app](artigo:revogar-acesso)."
+    "body": "# Token da Meta para Tráfego\n\nServe para ver campanhas, conjuntos e anúncios em **Tráfego**, e para ler o Instagram de **concorrentes**. O ContentHub só **lê**: pausar, ativar e mudar orçamento ficam desligados.\n\n## Permissões necessárias\n\n- **ads_read**: ler a conta de anúncio.\n- **instagram_basic** e **instagram_manage_insights**: ler o Instagram (concorrentes).\n- **pages_show_list** e **pages_read_engagement**: achar o Instagram ligado à Página.\n\n## Gerar no Explorador da Graph API\n\n:::fora Explorador da Graph API\nlink: https://developers.facebook.com/tools/explorer/\ncaminho: Em **Meta App**, escolha o app (aparecem os apps em que você é administrador, desenvolvedor ou testador) > Em **Permissions** (Permissões), adicione as cinco permissões acima > Clique no botão de gerar o token (na documentação aparece como **Get Access Token**; o nome pode variar) > Aceite na janela da Meta > Copie o token\ncopie: o token, um texto longo que começa com **EAA**\ncole: **Tráfego** › **Conectar conta de anúncio da Meta** (ou **Outra conta**) › campo **Token de acesso**\ndesenho: meta-graph-explorer\n:::\n\n**O que você deve ver:** um texto longo que começa com **EAA**. O ícone de informação ao lado do token mostra o app e as permissões dadas.\n\nFonte oficial: [Graph API Explorer](https://developers.facebook.com/docs/graph-api/guides/explorer)\n\n## Achar o número da conta de anúncio\n\n:::fora Configurações do negócio (Meta Business)\nlink: https://business.facebook.com/settings\ncaminho: Escolha o portfólio empresarial, no alto > No menu, clique em **Contas** > Depois em **Contas de anúncios** > Clique na conta > Copie a **identificação** (só números)\ncopie: o número da conta (o ContentHub aceita com ou sem **act_** na frente)\ncole: **Tráfego** › **Conectar conta de anúncio da Meta** › campo **ID da conta de anúncio**\ndesenho: meta-business-conta-anuncio\nobs: Também aparece no Gerenciador de Anúncios, no seletor de contas. Os nomes dos menus podem variar.\n:::\n\n## Quanto tempo o token dura\n\n- O token do Explorador é **de curta duração** (cerca de 1 a 2 horas, segundo a Meta).\n- Um token de **longa duração** dura cerca de **60 dias**. A troca é feita por uma chamada de servidor com a chave secreta do app, por isso **peça ao suporte** para fazer a troca.\n- A Meta avisa que essas durações podem mudar.\n\nFontes oficiais: [Tokens de longa duração](https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived) e [Tokens de acesso](https://developers.facebook.com/docs/facebook-login/guides/access-tokens). Para conferir validade e permissões, a Meta tem a [ferramenta de tokens](https://developers.facebook.com/tools/accesstoken).\n\n## Colar no ContentHub\n\n1. No menu, clique em **Tráfego**.\n2. Clique em **Conectar conta de anúncio da Meta**.\n3. Informe a conta (começa com **act_**) e cole o token.\n4. Clique em **Conectar** e depois em **Sincronizar agora**.\n\n**O que você deve ver:** as campanhas dos últimos 90 dias.\n\n## Tirar o acesso\n\nVeja [Como tirar o acesso de um app](artigo:revogar-acesso)."
   },
   {
     "id": "revogar-acesso",
@@ -93,7 +93,7 @@ export const ARTICLES: Article[] = [
       "api",
       "concorrentes"
     ],
-    "body": "# YouTube\n\nO ContentHub usa o YouTube para ler canais públicos de **concorrentes** (inscritos, vídeos e visualizações). Não publica no YouTube.\n\n## Já funciona sem você fazer nada?\n\nSe a plataforma tem a chave da casa, sim. Na lista de [Primeiros passos](artigo:primeiros-passos) o passo YouTube aparece como **feito**.\n\n## Criar uma chave própria (opcional)\n\n1. Abra o [Console de APIs do Google](https://console.cloud.google.com/) e crie ou escolha um projeto.\n2. Ative a **YouTube Data API v3** (em **APIs ativadas**; se não aparecer, procure na **Biblioteca de APIs**).\n3. Vá em **APIs e serviços** e depois **Credenciais**.\n4. Clique em **Criar credenciais** e depois **Chave de API**.\n5. Copie a chave.\n\n**O que você deve ver:** uma chave que começa com **AIza**.\n\nO limite gratuito padrão é de **10.000 unidades por dia**; ler um canal custa poucas unidades. O Google avisa que esses números podem mudar.\n\nFontes oficiais: [Primeiros passos da API do YouTube](https://developers.google.com/youtube/v3/getting-started) e [Criar chave de API](https://support.google.com/googleapi/answer/6158862)\n\n## Onde colar\n\nNo ContentHub: **Configurações**, aba **APIs de Produção**, **Adicionar API**, escolha **YouTube Data API (concorrentes)**, cole a chave e salve. A sua chave passa a valer no lugar da chave da plataforma."
+    "body": "# YouTube\n\nO ContentHub usa o YouTube para ler canais públicos de **concorrentes** (inscritos, vídeos e visualizações). Não publica no YouTube.\n\n## Já funciona sem você fazer nada?\n\nSe a plataforma tem a chave da casa, sim. Na lista de [Primeiros passos](artigo:primeiros-passos) o passo YouTube aparece como **feito**.\n\n## Criar uma chave própria (opcional)\n\n:::fora Console do Google Cloud\nlink: https://console.cloud.google.com/apis/credentials\ncaminho: Crie ou escolha um projeto, no alto > No menu, abra **APIs e serviços** > Em **Biblioteca**, procure **YouTube Data API v3** e clique em **Ativar** > Volte e clique em **Credenciais** > Clique em **Criar credenciais** e depois em **Chave de API** > Copie a chave\ncopie: a chave, que começa com **AIza**\ncole: **Configurações** › **APIs de Produção** › **Adicionar API** › **YouTube Data API (concorrentes)**\ndesenho: google-cloud-chave\n:::\n\n**O que você deve ver:** uma chave que começa com **AIza**.\n\nO limite gratuito padrão é de **10.000 unidades por dia**; ler um canal custa poucas unidades. O Google avisa que esses números podem mudar.\n\nFontes oficiais: [Primeiros passos da API do YouTube](https://developers.google.com/youtube/v3/getting-started) e [Criar chave de API](https://support.google.com/googleapi/answer/6158862)\n\n## Onde colar\n\nNo ContentHub: **Configurações**, aba **APIs de Produção**, **Adicionar API**, escolha **YouTube Data API (concorrentes)**, cole a chave e salve. A sua chave passa a valer no lugar da chave da plataforma."
   },
   {
     "id": "tiktok",
@@ -121,7 +121,7 @@ export const ARTICLES: Article[] = [
       "licença",
       "gratuito"
     ],
-    "body": "# Pexels\n\nO Pexels é um banco gratuito de vídeos. Com ele ligado, a **Biblioteca de cenas** ganha uma busca: você importa o vídeo e o ContentHub guarda o link, o autor e a licença junto da cena.\n\n## Quem liga\n\nA chave do Pexels é **da plataforma**: quem cadastra é o administrador. Enquanto não houver chave, a busca aparece desligada e você pode enviar os seus próprios clipes.\n\n## Como conseguir a chave (para o administrador)\n\n1. Crie uma conta gratuita no Pexels.\n2. Abra a [página da API do Pexels](https://www.pexels.com/api/) e peça a chave: ela sai na hora.\n\nO limite gratuito é de **200 pedidos por hora e 20.000 por mês**. O Pexels pede um link visível para o Pexels onde as imagens aparecem e, quando possível, crédito ao autor.\n\nFonte oficial: [Documentação da API do Pexels](https://www.pexels.com/api/documentation/)\n\n## A licença dos vídeos\n\nPela [Licença Pexels](https://www.pexels.com/license/): uso gratuito, crédito opcional, pode editar. **Não pode:** mostrar pessoas identificáveis de forma negativa, vender cópias sem alteração, dar a entender que alguém do vídeo apoia sua marca, redistribuir em outros bancos de imagem."
+    "body": "# Pexels\n\nO Pexels é um banco gratuito de vídeos. Com ele ligado, a **Biblioteca de cenas** ganha uma busca: você importa o vídeo e o ContentHub guarda o link, o autor e a licença junto da cena.\n\n## Quem liga\n\nA chave do Pexels é **da plataforma**: quem cadastra é o administrador. Enquanto não houver chave, a busca aparece desligada e você pode enviar os seus próprios clipes.\n\n## Como conseguir a chave (para o administrador)\n\n:::fora Pexels\nlink: https://www.pexels.com/api/\ncaminho: Entre na conta do Pexels (ou crie uma, é gratuita) > Na página da API, peça a chave (**Your API Key**): ela sai na hora > Copie a chave\ncopie: a chave da API\ncole: não tem campo na tela: o suporte cadastra a chave na plataforma (fica guardada criptografada)\ndesenho: pexels-api\n:::\n\nO limite gratuito é de **200 pedidos por hora e 20.000 por mês**. O Pexels pede um link visível para o Pexels onde as imagens aparecem e, quando possível, crédito ao autor.\n\nFonte oficial: [Documentação da API do Pexels](https://www.pexels.com/api/documentation/)\n\n## A licença dos vídeos\n\nPela [Licença Pexels](https://www.pexels.com/license/): uso gratuito, crédito opcional, pode editar. **Não pode:** mostrar pessoas identificáveis de forma negativa, vender cópias sem alteração, dar a entender que alguém do vídeo apoia sua marca, redistribuir em outros bancos de imagem."
   },
   {
     "id": "chaves-e-integracoes",
@@ -346,7 +346,7 @@ export const ARTICLES: Article[] = [
       "permissões",
       "instagram_business_manage_messages"
     ],
-    "body": "# App da Meta para automações\n\nAs automações dependem do app da Meta da plataforma. Este passo a passo é para quem administra o app (normalmente o suporte). Os nomes dos menus podem variar.\n\n## 1. Permissões\n\nO token da conta precisa destas três permissões:\n\n- **instagram_business_basic**\n- **instagram_business_manage_comments** (ler e responder comentários)\n- **instagram_business_manage_messages** (mandar DM)\n\nGere o token de novo marcando as três (veja [Token do Instagram](artigo:token-instagram)).\n\n## 2. Webhook (o Instagram avisa o ContentHub)\n\n1. Abra o app em [developers.facebook.com](https://developers.facebook.com/apps).\n2. Vá em **Instagram** e depois em **Configure webhooks** (o nome pode variar).\n3. Em **Callback URL**, coloque: `https://contenthub.vinculodigital.com.br/api/instagram/webhook`\n4. Em **Verify token**, coloque o mesmo valor da variável `IG_WEBHOOK_VERIFY_TOKEN` do servidor e clique em **Verify and save**.\n5. Assine os campos **comments**, **messages** e **messaging_postbacks**.\n6. No ContentHub, com as chaves ligadas, o suporte liga o webhook em cada conta (isso chama `POST /me/subscribed_apps` na Meta).\n\nCada aviso da Meta vem assinado com o segredo do app; o ContentHub confere a assinatura e descarta o que não confere. Fonte: [Webhooks do Instagram](https://developers.facebook.com/docs/instagram-platform/webhooks)\n\n**O que você deve ver:** o painel da Meta aceita a URL. No modo de desenvolvimento, só chegam comentários e mensagens de pessoas com função no app (testadores).\n\n## 3. Verificação da empresa\n\nA Meta só dá o acesso avançado para empresa verificada.\n\n1. No painel do app, abra **Configurações do app** e depois **Básico**, e confira qual portfólio empresarial é dono do app.\n2. Na Central de Segurança do portfólio, clique em **Iniciar verificação** e envie os documentos da empresa.\n\nFontes: [Níveis de acesso](https://developers.facebook.com/docs/graph-api/overview/access-levels) e [Verificação da empresa](https://developers.facebook.com/docs/development/release/business-verification)\n\n## 4. Análise do app (App Review)\n\n1. No painel do app, abra **Análise do app** e depois **Permissões e recursos**.\n2. Peça **acesso avançado** para as três permissões acima.\n3. Para cada uma, explique o uso e envie um vídeo (screencast) com a tela em inglês mostrando o fluxo: comentário com a palavra, resposta pública, DM com link, contato na lista.\n4. Faça antes pelo menos uma chamada com sucesso de cada permissão (com uma conta testadora).\n5. Depois de aprovado, coloque o app no modo **Ao vivo** (Live).\n\nFontes: [Análise do app do Instagram](https://developers.facebook.com/docs/instagram-platform/app-review) e [Modos do app](https://developers.facebook.com/docs/development/build-and-test/app-modes)\n\n## 5. Contas de clientes\n\nPara contas que não são da própria empresa dona do app, a Meta pede também a verificação de acesso de provedor de tecnologia (Tech Provider). Fonte: [Access Verification](https://developers.facebook.com/docs/development/release/access-verification)\n\n> **Importante:** o ContentHub não usa a etiqueta HUMAN_AGENT nem manda mensagem fora das 24 horas. Não vender a automação a cliente antes da aprovação da Meta."
+    "body": "# App da Meta para automações\n\nAs automações dependem do app da Meta da plataforma. Este passo a passo é para quem administra o app (normalmente o suporte). Os nomes dos menus podem variar.\n\n## 1. Permissões\n\nO token da conta precisa destas três permissões:\n\n- **instagram_business_basic**\n- **instagram_business_manage_comments** (ler e responder comentários)\n- **instagram_business_manage_messages** (mandar DM)\n\nGere o token de novo marcando as três (veja [Token do Instagram](artigo:token-instagram)).\n\n## 2. Webhook (o Instagram avisa o ContentHub)\n\n:::fora Meta for Developers\nlink: https://developers.facebook.com/apps\ncaminho: Escolha o app > No menu, clique em **Instagram** > Abra a parte **Configure webhooks** (o nome pode variar) > Em **Callback URL**, coloque `https://contenthub.vinculodigital.com.br/api/instagram/webhook` > Em **Verify token**, coloque o mesmo valor da variável `IG_WEBHOOK_VERIFY_TOKEN` do servidor > Clique em **Verify and save** > Assine os campos **comments**, **messages** e **messaging_postbacks**\ncole: nada para colar no ContentHub; aqui você leva o endereço do ContentHub para a Meta\ndesenho: meta-dev-webhook-instagram\n:::\n\nDepois, no ContentHub, com as chaves ligadas, o suporte liga o webhook em cada conta (isso chama `POST /me/subscribed_apps` na Meta).\n\nCada aviso da Meta vem assinado com o segredo do app; o ContentHub confere a assinatura e descarta o que não confere. Fonte: [Webhooks do Instagram](https://developers.facebook.com/docs/instagram-platform/webhooks)\n\n**O que você deve ver:** o painel da Meta aceita a URL. No modo de desenvolvimento, só chegam comentários e mensagens de pessoas com função no app (testadores).\n\n## 3. Verificação da empresa\n\nA Meta só dá o acesso avançado para empresa verificada.\n\n:::fora Meta for Developers e Meta Business\nlink: https://business.facebook.com/settings/security\ncaminho: No painel do app, abra **Configurações do app** > Clique em **Básico** e confira qual portfólio empresarial é dono do app > No Meta Business desse portfólio, abra a **Central de Segurança** > Clique em **Iniciar verificação** e envie os documentos da empresa\ndesenho: meta-verificacao-empresa\n:::\n\nFontes: [Níveis de acesso](https://developers.facebook.com/docs/graph-api/overview/access-levels) e [Verificação da empresa](https://developers.facebook.com/docs/development/release/business-verification)\n\n## 4. Análise do app (App Review)\n\nAntes, faça pelo menos uma chamada com sucesso de cada permissão (com uma conta testadora).\n\n:::fora Meta for Developers\nlink: https://developers.facebook.com/apps\ncaminho: No painel do app, abra **Análise do app** > Clique em **Permissões e recursos** > Peça **acesso avançado** para as três permissões acima; para cada uma, explique o uso e envie um vídeo (screencast) com a tela em inglês mostrando o fluxo: comentário com a palavra, resposta pública, DM com link, contato na lista > Depois de aprovado, coloque o app no modo **Ao vivo** (Live)\ndesenho: meta-dev-app-review\n:::\n\nFontes: [Análise do app do Instagram](https://developers.facebook.com/docs/instagram-platform/app-review) e [Modos do app](https://developers.facebook.com/docs/development/build-and-test/app-modes)\n\n## 5. Contas de clientes\n\nPara contas que não são da própria empresa dona do app, a Meta pede também a verificação de acesso de provedor de tecnologia (Tech Provider). Fonte: [Access Verification](https://developers.facebook.com/docs/development/release/access-verification)\n\n> **Importante:** o ContentHub não usa a etiqueta HUMAN_AGENT nem manda mensagem fora das 24 horas. Não vender a automação a cliente antes da aprovação da Meta."
   },
   {
     "id": "crm",
@@ -431,7 +431,7 @@ export const ARTICLES: Article[] = [
       "leads_retrieval",
       "crm"
     ],
-    "body": "# Formulários da Meta no CRM\n\nEste passo a passo liga o formulário de cadastro dos anúncios (Lead Ads) ao CRM. Os nomes dos menus da Meta podem variar.\n\n## Como funciona\n\n1. A pessoa preenche o formulário no anúncio.\n2. A Meta avisa o ContentHub (só o número do lead, sem os dados).\n3. O ContentHub busca o lead na Meta com o token da Página (só leitura) e cria no funil, com campanha, conjunto e anúncio.\n\nFontes: [Webhooks para Lead Ads](https://developers.facebook.com/docs/graph-api/webhooks/getting-started/webhooks-for-leadgen) e [Como ler os leads](https://developers.facebook.com/docs/marketing-api/guides/lead-ads/retrieving)\n\n## 1. App da Meta (quem administra o app, normalmente o suporte)\n\n1. Abra o app em [developers.facebook.com](https://developers.facebook.com/apps) e adicione o produto **Webhooks**.\n2. Escolha o objeto **Page** e assine o campo **leadgen**.\n3. Em **Callback URL**, coloque o endereço que aparece no CRM, aba **Entradas**, **Formulário da Meta** (termina em `/api/crm/lead-ads/webhook`).\n4. Em **Verify token**, coloque o valor da variável `LEAD_ADS_VERIFY_TOKEN` do servidor e clique em **Verify and save**.\n5. O servidor precisa da chave secreta do app em `META_APP_SECRET`: todo aviso vem assinado e o ContentHub descarta o que não confere.\n\nPermissões que a Meta lista para isso: **leads_retrieval**, **pages_manage_metadata**, **pages_show_list**, **pages_read_engagement** e **ads_management**. O token precisa ser de alguém que pode anunciar pela Página.\n\n## 2. Instalar o app na Página\n\nA Meta só avisa apps instalados na Página. Quem administra a Página faz a instalação (no Graph API Explorer, `POST /{id-da-página}/subscribed_apps` com `subscribed_fields=leadgen` e o token da Página). O ContentHub não faz essa chamada sozinho.\n\n**O que você deve ver:** na ferramenta de teste de leads da Meta, o app aparece como inscrito na Página.\n\n## 3. Cadastrar a Página no CRM\n\n1. No CRM, aba **Entradas**, **Formulário da Meta**, clique em **Cadastrar Página** (só o dono da conta).\n2. Cole o id da Página e o token da Página (com **leads_retrieval**). O ContentHub confere o token com uma leitura e guarda criptografado.\n3. Escolha a etapa, o responsável e as etiquetas dos leads que vierem dela.\n\n## 4. Ligar\n\nO suporte liga a chave **CRM: leads dos formulários da Meta** em Admin, Clientes. Sem ela (e sem a chave geral do servidor), os avisos não são guardados.\n\n## Testar\n\nUse a ferramenta de teste de leads da Meta para criar um lead de teste. Em **Últimos avisos da Meta** aparece a situação: na fila, no CRM ou falhou (com o motivo). Erro passageiro da Meta tenta de novo sozinho; token vencido aparece na Página até você colar um novo.\n\n> **Importante:** o lead do formulário é guardado com o consentimento \"formulário da Meta\" (o formulário mostra a política de privacidade do anunciante). Confira que o seu formulário tem o link da sua política."
+    "body": "# Formulários da Meta no CRM\n\nEste passo a passo liga o formulário de cadastro dos anúncios (Lead Ads) ao CRM. Os nomes dos menus da Meta podem variar.\n\n## Como funciona\n\n1. A pessoa preenche o formulário no anúncio.\n2. A Meta avisa o ContentHub (só o número do lead, sem os dados).\n3. O ContentHub busca o lead na Meta com o token da Página (só leitura) e cria no funil, com campanha, conjunto e anúncio.\n\nFontes: [Webhooks para Lead Ads](https://developers.facebook.com/docs/graph-api/webhooks/getting-started/webhooks-for-leadgen) e [Como ler os leads](https://developers.facebook.com/docs/marketing-api/guides/lead-ads/retrieving)\n\n## 1. App da Meta (quem administra o app, normalmente o suporte)\n\n:::fora Meta for Developers\nlink: https://developers.facebook.com/apps\ncaminho: Escolha o app > Adicione o produto **Webhooks** > Escolha o objeto **Page** > Em **Callback URL**, coloque o endereço que aparece no CRM, aba **Entradas**, **Formulário da Meta** (termina em `/api/crm/lead-ads/webhook`) > Em **Verify token**, coloque o valor da variável `LEAD_ADS_VERIFY_TOKEN` do servidor > Clique em **Verify and save** > Assine o campo **leadgen**\ncopie: no ContentHub, o endereço (Callback URL) que está em CRM › Entradas › Formulário da Meta, e cole lá na Meta\ndesenho: meta-dev-webhook-leadgen\n:::\n\nO servidor precisa da chave secreta do app em `META_APP_SECRET`: todo aviso vem assinado e o ContentHub descarta o que não confere.\n\nPermissões que a Meta lista para isso: **leads_retrieval**, **pages_manage_metadata**, **pages_show_list**, **pages_read_engagement** e **ads_management**. O token precisa ser de alguém que pode anunciar pela Página.\n\n## 2. Instalar o app na Página\n\nA Meta só avisa apps instalados na Página. Quem administra a Página faz a instalação (no Graph API Explorer, `POST /{id-da-página}/subscribed_apps` com `subscribed_fields=leadgen` e o token da Página). O ContentHub não faz essa chamada sozinho.\n\n**O que você deve ver:** na ferramenta de teste de leads da Meta, o app aparece como inscrito na Página.\n\n## 3. Cadastrar a Página no CRM\n\nPrimeiro pegue o id e o token da Página:\n\n:::fora Facebook\nlink: https://www.facebook.com/\ncaminho: Abra a sua Página > Clique em **Sobre** > Abra **Transparência da Página** > Copie o **ID da Página**\ncopie: o ID da Página (só números)\ncole: **CRM** › **Entradas** › **Formulário da Meta** › **Cadastrar Página** › campo do id da Página\ndesenho: facebook-pagina-id\nobs: O nome dos menus pode variar. O id também aparece no Explorador da Graph API ao escolher a Página.\n:::\n\n:::fora Explorador da Graph API\nlink: https://developers.facebook.com/tools/explorer/\ncaminho: Em **Meta App**, escolha o app > Em **Permissions**, adicione **leads_retrieval**, **pages_manage_metadata**, **pages_show_list**, **pages_read_engagement** e **ads_management** > Clique no botão de gerar o token e aceite na janela da Meta > Em **User or Page**, escolha a Página > Copie o token da Página\ncopie: o token da Página (começa com **EAA**)\ncole: **CRM** › **Entradas** › **Formulário da Meta** › **Cadastrar Página** › campo do token\ndesenho: meta-graph-explorer-pagina\nobs: O token do Explorador dura pouco. Peça ao suporte o de longa duração, como no [token da Meta para Tráfego](artigo:token-meta-ads).\n:::\n\n1. No CRM, aba **Entradas**, **Formulário da Meta**, clique em **Cadastrar Página** (só o dono da conta).\n2. Cole o id da Página e o token da Página (com **leads_retrieval**). O ContentHub confere o token com uma leitura e guarda criptografado.\n3. Escolha a etapa, o responsável e as etiquetas dos leads que vierem dela.\n\n## 4. Ligar\n\nO suporte liga a chave **CRM: leads dos formulários da Meta** em Admin, Clientes. Sem ela (e sem a chave geral do servidor), os avisos não são guardados.\n\n## Testar\n\nUse a ferramenta de teste de leads da Meta para criar um lead de teste. Em **Últimos avisos da Meta** aparece a situação: na fila, no CRM ou falhou (com o motivo). Erro passageiro da Meta tenta de novo sozinho; token vencido aparece na Página até você colar um novo.\n\n> **Importante:** o lead do formulário é guardado com o consentimento \"formulário da Meta\" (o formulário mostra a política de privacidade do anunciante). Confira que o seu formulário tem o link da sua política."
   },
   {
     "id": "rastreamento-script",
@@ -476,7 +476,7 @@ export const ARTICLES: Article[] = [
       "carrinho abandonado",
       "roas"
     ],
-    "body": "# Vendas da Hotmart e da Kiwify no CRM\n\nCada venda que a plataforma avisar entra no CRM: compra aprovada, reembolso, chargeback, aguardando pagamento e carrinho abandonado.\n\n## Configurar no ContentHub\n\n1. No CRM, aba **Rastreamento**, em **Vendas**, clique em **Nova integração**.\n2. Escolha **Hotmart** ou **Kiwify**, o projeto (é o pixel que recebe o Purchase) e cole a chave de autenticação da plataforma.\n3. Escolha a etapa da compra aprovada (padrão: a etapa de ganho do funil) e, se quiser, a etapa de reembolso.\n4. Clique em **Salvar e gerar URL** e copie a URL.\n\n## Hotmart\n\n1. Na Hotmart, abra **Ferramentas**, depois **Webhook** (os nomes podem variar).\n2. Cadastre uma configuração nova com a URL copiada, versão **2.0.0**, e marque os eventos de compra (aprovada, completa, reembolsada, chargeback, cancelada, abandono de carrinho).\n3. Na aba **Autenticação**, copie o **Hottok** e cole no ContentHub.\n4. Use **Enviar teste** e confira a venda de teste na lista do ContentHub.\n\n## Kiwify\n\n1. Na Kiwify, abra **Apps**, depois **Webhooks**, e crie um webhook com a URL copiada.\n2. Marque os gatilhos: compra aprovada, compra reembolsada, chargeback, carrinho abandonado (e boleto/pix gerado, se quiser).\n3. Copie o **token** do webhook e cole no ContentHub. Toda notificação vem assinada com ele; o ContentHub descarta o que não confere.\n\n## Como a venda acha o lead\n\nNa ordem: o código `src`/`sck` que o script pôs no link do checkout, o e-mail do comprador, o telefone. Comprador que não estava no CRM vira lead (origem **Venda (checkout)**), com o consentimento \"compra\". Carrinho abandonado só marca quem já é lead (etiqueta `carrinho-abandonado`); de quem não é, nada é guardado.\n\nVenda repetida (a plataforma reenvia) não duplica. Com a chave de rastreamento desligada, a URL responde e não guarda nada.\n\n> **Importante:** a página oficial de webhooks da Hotmart estava fora do ar quando isto foi feito e a da Kiwify não descreve o corpo do aviso. Antes de ligar para um cliente, mande o **teste** de cada plataforma e confira se a venda aparece certa."
+    "body": "# Vendas da Hotmart e da Kiwify no CRM\n\nCada venda que a plataforma avisar entra no CRM: compra aprovada, reembolso, chargeback, aguardando pagamento e carrinho abandonado.\n\n## Configurar no ContentHub\n\n1. No CRM, aba **Rastreamento**, em **Vendas**, clique em **Nova integração**.\n2. Escolha **Hotmart** ou **Kiwify**, o projeto (é o pixel que recebe o Purchase) e cole a chave de autenticação da plataforma.\n3. Escolha a etapa da compra aprovada (padrão: a etapa de ganho do funil) e, se quiser, a etapa de reembolso.\n4. Clique em **Salvar e gerar URL** e copie a URL.\n\n## Hotmart\n\n:::fora Hotmart\nlink: https://app.hotmart.com/\ncaminho: No menu, abra **Ferramentas** > Clique em **Webhook** > Cadastre uma configuração nova (**Cadastrar Webhook**) > Cole a URL copiada do ContentHub e escolha a versão **2.0.0** > Marque os eventos de compra (aprovada, completa, reembolsada, chargeback, cancelada, abandono de carrinho) > Na aba **Autenticação**, copie o **Hottok**\ncopie: o **Hottok** (aba Autenticação)\ncole: **CRM** › **Rastreamento** › **Vendas** › integração da Hotmart › campo da chave de autenticação\ndesenho: hotmart-webhook\nobs: Os nomes vieram de fontes secundárias (a página oficial estava fora do ar) e podem variar.\n:::\n\nDepois use **Enviar teste** na Hotmart e confira a venda de teste na lista do ContentHub.\n\n## Kiwify\n\n:::fora Kiwify\nlink: https://dashboard.kiwify.com.br/\ncaminho: No menu, abra **Apps** > Clique em **Webhooks** > Clique em **Criar Webhook** > Cole a URL copiada do ContentHub > Marque os gatilhos: compra aprovada, compra reembolsada, chargeback, carrinho abandonado (e boleto/pix gerado, se quiser) > Copie o **token** do webhook\ncopie: o **token** do webhook\ncole: **CRM** › **Rastreamento** › **Vendas** › integração da Kiwify › campo da chave de autenticação\ndesenho: kiwify-webhook\nobs: Toda notificação vem assinada com o token; o ContentHub descarta o que não confere. Nomes de fontes secundárias, podem variar.\n:::\n\n## Como a venda acha o lead\n\nNa ordem: o código `src`/`sck` que o script pôs no link do checkout, o e-mail do comprador, o telefone. Comprador que não estava no CRM vira lead (origem **Venda (checkout)**), com o consentimento \"compra\". Carrinho abandonado só marca quem já é lead (etiqueta `carrinho-abandonado`); de quem não é, nada é guardado.\n\nVenda repetida (a plataforma reenvia) não duplica. Com a chave de rastreamento desligada, a URL responde e não guarda nada.\n\n> **Importante:** a página oficial de webhooks da Hotmart estava fora do ar quando isto foi feito e a da Kiwify não descreve o corpo do aviso. Antes de ligar para um cliente, mande o **teste** de cada plataforma e confira se a venda aparece certa."
   },
   {
     "id": "rastreamento-capi",
@@ -497,7 +497,7 @@ export const ARTICLES: Article[] = [
       "hash",
       "test_event_code"
     ],
-    "body": "# Pixel e API de Conversões da Meta\n\nAlém do pixel no navegador, o ContentHub manda os eventos **Lead** e **Purchase** (e, se quiser, **InitiateCheckout**) direto do servidor para a Meta. Isso recupera conversões que o navegador perde (bloqueador, iPhone, aba fechada).\n\n## Configurar\n\n1. No Gerenciador de Eventos da Meta, abra o pixel, vá em **Configurações** e gere o **token de acesso** da API de Conversões.\n2. No CRM, aba **Rastreamento**, no script do projeto, preencha o **Id do pixel** e cole o **token** (fica criptografado).\n3. Marque **Enviar Lead e Purchase para a Meta** e clique em **Salvar**.\n4. O suporte liga a chave **API de Conversões** da sua conta em Admin, Clientes.\n\n## Deduplicação com o pixel\n\nSe o pixel da Meta está na página, o script dispara o mesmo evento no navegador com o **mesmo eventID** que o servidor manda como `event_id`. A Meta junta os dois e conta uma vez só (dentro de 48 horas). Fonte: [Deduplicação](https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events)\n\n## O que vai para a Meta\n\n- E-mail, telefone (com 55), nome, sobrenome e o código do lead vão **com hash SHA-256**, nunca em texto.\n- `fbc`, `fbp`, IP e navegador vão sem hash, como a Meta pede.\n- Só vai quem deu consentimento (aceite de cookies e caixinha do formulário) ou quem comprou.\n\nFonte: [Parâmetros de informação do cliente](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters)\n\n## Registro\n\nEm **Envios para a Meta** aparece cada evento: enviado, teste, falhou (com a resposta da Meta) ou não enviado (com o motivo, por exemplo chave desligada). O registro mostra quais dados foram, nunca os valores, e some em 90 dias. Veja também [Testar os eventos](artigo:rastreamento-testar)."
+    "body": "# Pixel e API de Conversões da Meta\n\nAlém do pixel no navegador, o ContentHub manda os eventos **Lead** e **Purchase** (e, se quiser, **InitiateCheckout**) direto do servidor para a Meta. Isso recupera conversões que o navegador perde (bloqueador, iPhone, aba fechada).\n\n## Configurar\n\n:::fora Gerenciador de Eventos da Meta\nlink: https://business.facebook.com/events_manager2\ncaminho: No menu, clique em **Fontes de dados** > Escolha o pixel do site > Abra a aba **Configurações** > Em **API de Conversões**, clique em **Gerar token de acesso** > Copie o token e a **identificação do pixel** (fica no alto da mesma página)\ncopie: o token de acesso e o número do pixel\ncole: **CRM** › **Rastreamento** › script do projeto › campos **Id do pixel** e token\ndesenho: meta-eventos-capi\n:::\n\n1. Gere o token no Gerenciador de Eventos (passo a passo acima).\n2. No CRM, aba **Rastreamento**, no script do projeto, preencha o **Id do pixel** e cole o **token** (fica criptografado).\n3. Marque **Enviar Lead e Purchase para a Meta** e clique em **Salvar**.\n4. O suporte liga a chave **API de Conversões** da sua conta em Admin, Clientes.\n\n## Deduplicação com o pixel\n\nSe o pixel da Meta está na página, o script dispara o mesmo evento no navegador com o **mesmo eventID** que o servidor manda como `event_id`. A Meta junta os dois e conta uma vez só (dentro de 48 horas). Fonte: [Deduplicação](https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events)\n\n## O que vai para a Meta\n\n- E-mail, telefone (com 55), nome, sobrenome e o código do lead vão **com hash SHA-256**, nunca em texto.\n- `fbc`, `fbp`, IP e navegador vão sem hash, como a Meta pede.\n- Só vai quem deu consentimento (aceite de cookies e caixinha do formulário) ou quem comprou.\n\nFonte: [Parâmetros de informação do cliente](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters)\n\n## Registro\n\nEm **Envios para a Meta** aparece cada evento: enviado, teste, falhou (com a resposta da Meta) ou não enviado (com o motivo, por exemplo chave desligada). O registro mostra quais dados foram, nunca os valores, e some em 90 dias. Veja também [Testar os eventos](artigo:rastreamento-testar)."
   },
   {
     "id": "rastreamento-testar",
@@ -516,6 +516,39 @@ export const ARTICLES: Article[] = [
       "kiwify"
     ],
     "body": "# Testar o rastreamento e os eventos\n\nFaça nesta ordem, com as chaves ligadas só na sua conta.\n\n## 1. Script\n\nAbra o site com `?utm_source=teste&utm_campaign=teste` no fim do endereço, aceite os cookies e confira na aba **Rastreamento** que o contador de eventos subiu.\n\n## 2. Lead\n\nPreencha o formulário (com a caixinha marcada). O lead aparece no funil com a origem **Página de captura** e as UTMs na aba **Origem** da ficha.\n\n## 3. Link do checkout\n\nPasse o mouse no botão de compra: o endereço deve ter `src=` e `sck=` no fim.\n\n## 4. Venda de teste\n\nUse o envio de teste da Hotmart ou da Kiwify. A venda aparece em **Vendas**, com o lead (se achou) e a origem.\n\n## 5. Meta\n\n1. No Gerenciador de Eventos, abra **Testar eventos** e copie o código (ex.: `TEST12345`).\n2. Cole em **Código de teste** no script do projeto e salve.\n3. Clique em **Enviar evento de teste**. O evento aparece em **Testar eventos** da Meta e em **Envios para a Meta** como \"teste\".\n4. **Apague o código de teste** depois: enquanto ele estiver preenchido, todos os eventos vão como teste e não contam para os anúncios.\n\nFonte: [API de Conversões](https://developers.facebook.com/docs/marketing-api/conversions-api)"
+  },
+  {
+    "id": "projetos",
+    "title": "Projetos: uma marca por projeto",
+    "summary": "Criar um projeto, escolher no menu e o que fica guardado em cada um.",
+    "order": 30,
+    "admin": false,
+    "tags": [
+      "projeto",
+      "marca",
+      "criar",
+      "cor",
+      "ícone",
+      "menu"
+    ],
+    "body": "# Projetos\n\nCada **projeto** é uma marca ou perfil: tem a sua conta do Instagram, a conta de anúncio, o kit de marca, os padrões de vídeo e os posts. A sua equipe vê todos os projetos da conta.\n\n## Criar um projeto\n\n1. No menu, ao lado de **Projetos**, clique no **+**.\n2. Preencha o **Nome** e, se quiser, a **Descrição**.\n3. Escolha a **Cor** e o **Ícone (emoji)**: aparecem no menu e nos posts do calendário.\n4. Marque as redes sociais do projeto e clique em **Criar Projeto**.\n\n**O que você deve ver:** o projeto novo aparece no menu, em Projetos.\n\n## Escolher o projeto\n\nClique no nome do projeto no menu. Calendário, Lista, Instagram, Estúdio, Tráfego e Concorrentes passam a mostrar só ele. **Todos os projetos** junta tudo no calendário.\n\n## Depois de criar\n\nSiga os [Primeiros passos](artigo:primeiros-passos): conectar o Instagram, preencher o kit de marca e, se for usar, a conta de anúncio."
+  },
+  {
+    "id": "minha-conta",
+    "title": "Minha conta e equipe",
+    "summary": "Trocar nome e senha, convidar a equipe, gerar link de nova senha e ajustar a marca.",
+    "order": 31,
+    "admin": false,
+    "tags": [
+      "conta",
+      "senha",
+      "equipe",
+      "convite",
+      "membro",
+      "marca",
+      "logo"
+    ],
+    "body": "# Minha conta e equipe\n\n## Seus dados e a senha\n\n1. No menu, clique em **Minha conta** (ou **Minha conta e equipe**).\n2. Mude o nome se quiser. Para trocar a senha, clique em **Trocar a senha**: o campo abre ali mesmo.\n3. Clique em **Salvar** (um botão só para tudo).\n\n## Convidar alguém da equipe (dono da conta)\n\n1. Em **Equipe**, digite o e-mail da pessoa (opcional: com e-mail, o convite só vale para ele).\n2. Clique em **Gerar link de convite** e mande o link para a pessoa. Ele vale 7 dias e só uma vez.\n\n**O que você deve ver:** quando a pessoa criar a senha, ela aparece na lista da equipe.\n\n## Esqueceu a senha\n\nO ContentHub não manda e-mail. O dono da conta clica em **Nova senha** ao lado da pessoa e manda o link gerado. Quem é dono e esqueceu pede ao suporte.\n\n## Marca\n\nO **nome**, o **logo** e a **cor de destaque** aparecem no menu e na tela de entrada da sua equipe."
   },
   {
     "id": "admin-clientes",
@@ -547,5 +580,697 @@ export const ARTICLES: Article[] = [
       "selo"
     ],
     "body": "# Módulo Ofertas (administrador)\n\n## Ligar para um cliente\n\n1. Em **Clientes**, abra o cliente.\n2. Marque **Módulo Ofertas (lista da casa)** e salve.\n\n**O que você deve ver:** o cliente passa a ter a lista **Lista da casa** em Concorrentes › Ofertas, o contador de novas do dia e o relatório mensal. Desligado é o padrão.\n\n## Cuidar da lista da casa\n\n1. Em **Concorrentes › Ofertas › Lista da casa**, clique em **Adicionar à lista da casa**.\n2. Preencha como uma oferta comum. Oferta adicionada hoje aparece como **nova hoje** para os clientes.\n3. Para tirar, use a lixeira: a oferta é **arquivada** (some para os clientes, o histórico fica e dá para voltar editando).\n\n## Token da Biblioteca de Anúncios (da casa)\n\n1. Clique em **Configurar módulo**.\n2. Cole o token de usuário de um app da Meta e clique em **Salvar token**, depois em **Testar**.\n\nAntes, a pessoa dona do token precisa:\n\n- confirmar identidade e localização em facebook.com/ID (a Meta leva alguns dias);\n- aceitar os termos da API em facebook.com/ads/library/api.\n\nA página de referência da Meta (developers.facebook.com/docs/graph-api/reference/ads_archive) não fala em análise do app para essa API; isso ainda não foi conferido com um token de verdade. Token de curta duração vence em horas: gere um de longa duração.\n\n## Países e regras do selo\n\n- **Países**: padrão, os 27 da União Europeia. A env `OFFERS_AD_COUNTRIES` (ex.: `PT,ES,FR`) manda mais que a tela.\n- **Regras do selo**: lista em ordem; a primeira que bate vale. Campos: minCount, maxCount, minDelta7, maxDelta7, minDelta7Pct, maxDelta7Pct e tone. **Voltar ao padrão** desfaz.\n\n## Rotina diária\n\n`POST /api/ofertas/atualizar` com `Authorization: Bearer CRON_TOKEN` conta, uma vez por dia, as ofertas de contagem pela API de todos os clientes ativos e da lista da casa. Rodar duas vezes no mesmo dia só atualiza a foto do dia; contagem manual do dia não é sobrescrita."
+  }
+];
+
+export const SCREENS: Screen[] = [
+  {
+    "id": "calendario",
+    "area": "calendar",
+    "title": "Calendário",
+    "summary": "Os posts do mês, por dia. Daqui você cria, abre e acompanha cada post.",
+    "article": "calendario-e-aprovacao",
+    "order": 1,
+    "admin": false,
+    "image": "/ajuda/telas/calendario.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Projeto**: escolha no menu de qual marca você quer ver os posts (ou **Todos os projetos**).",
+      "**Setas do mês**: voltam e avançam o mês. **Hoje** volta para o mês atual.",
+      "**Novo Post**: cria um post. Ele nasce como rascunho.",
+      "**Post no dia**: clique para abrir, editar, aprovar ou ver os comentários. A bolinha mostra a situação (cores do Filtro de status).",
+      "**?**: abre esta ajuda em qualquer tela, sem sair do lugar."
+    ]
+  },
+  {
+    "id": "lista",
+    "area": "calendar",
+    "title": "Lista de posts",
+    "summary": "Os mesmos posts do calendário, um por linha, com legenda e situação.",
+    "article": "calendario-e-aprovacao",
+    "order": 2,
+    "admin": false,
+    "image": "/ajuda/telas/lista.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Lista**: troca o calendário por esta lista.",
+      "**Filtro de status**: mostra só os posts de uma situação (por exemplo, aguardando aprovação).",
+      "**Linha do post**: clique para abrir o post.",
+      "**Calendário**: volta para a visão por dia."
+    ]
+  },
+  {
+    "id": "novo-post",
+    "area": "calendar",
+    "title": "Novo post",
+    "summary": "Criar um post: projeto, formato, legenda, mídia, data e hora.",
+    "article": "calendario-e-aprovacao",
+    "order": 3,
+    "admin": false,
+    "image": "/ajuda/telas/novo-post.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Projeto e formato**: escolha a marca e o tipo (post, carrossel, reel, story).",
+      "**Enviar foto ou vídeo**: anexe a mídia (até 10 itens).",
+      "**Legenda**: o texto do post. Data e hora ficam logo abaixo.",
+      "**Salvar**: guarda como rascunho. Depois peça a aprovação no próprio post."
+    ]
+  },
+  {
+    "id": "aprovacoes",
+    "area": "aprovacoes",
+    "title": "Aprovações",
+    "summary": "A fila do que precisa de você: aprovar, pedir ajuste ou tentar de novo.",
+    "article": "calendario-e-aprovacao",
+    "order": 4,
+    "admin": false,
+    "image": "/ajuda/telas/aprovacoes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Aprovações**: o número mostra quantos posts esperam por você.",
+      "**Post na fila**: clique para abrir e conferir antes de decidir.",
+      "**Aprovar**: o post vira agendado (só o dono da conta aprova).",
+      "**Pedir ajuste**: devolve para quem criou, com o seu comentário.",
+      "**Tentar de novo / Publicar agora**: para post que falhou ou perdeu o horário."
+    ]
+  },
+  {
+    "id": "projetos",
+    "area": "projetos",
+    "title": "Projetos",
+    "summary": "Cada marca é um projeto, com suas contas, kit de marca e posts.",
+    "article": "projetos",
+    "order": 5,
+    "admin": false,
+    "image": "/ajuda/telas/projetos.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Nome**: o nome da marca ou do perfil.",
+      "**Descrição**: para a equipe saber do que se trata (opcional).",
+      "**Cor e ícone**: aparecem no menu e nos posts do calendário.",
+      "**Criar Projeto**: o projeto aparece no menu, em Projetos."
+    ]
+  },
+  {
+    "id": "instagram",
+    "area": "instagram",
+    "title": "Instagram: desempenho",
+    "summary": "Seguidores, alcance e views do período escolhido, e os posts que mais renderam.",
+    "article": "instagram",
+    "order": 6,
+    "admin": false,
+    "image": "/ajuda/telas/instagram.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Projeto**: escolha a conta do Instagram que quer ver.",
+      "**Sincronizar agora**: busca os números mais novos no Instagram.",
+      "**Período**: 7, 30, 90 dias, este mês, mês passado ou datas suas. Tudo na tela segue o período.",
+      "**Comentários**: abre o estudo dos comentários dos posts.",
+      "**Ver relatório**: texto pronto para copiar e mandar ao cliente.",
+      "**Buscar histórico**: traz até 12 meses de posts antigos."
+    ]
+  },
+  {
+    "id": "comentarios",
+    "area": "instagram",
+    "title": "Instagram: comentários",
+    "summary": "O que as pessoas comentaram nos posts do período, separado por assunto.",
+    "article": "comentarios",
+    "order": 7,
+    "admin": false,
+    "image": "/ajuda/telas/comentarios.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Comentários**: a aba do estudo dos comentários.",
+      "**Buscar comentários**: traz os comentários dos posts do período.",
+      "**Período**: o estudo considera os posts publicados nas datas escolhidas."
+    ]
+  },
+  {
+    "id": "estudio-carrossel",
+    "area": "estudio",
+    "title": "Estúdio: carrossel",
+    "summary": "Gerar um carrossel com a cara da marca, por IA ou com o texto escrito por você.",
+    "article": "estudio",
+    "order": 10,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-carrossel.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Projeto**: o carrossel usa o kit de marca deste projeto.",
+      "**Abas do Estúdio**: carrossel, reel, cenas, padrões, biblioteca, kit, chaves e custos.",
+      "**Tema**: sobre o que é o carrossel (a IA escreve a partir dele, se houver chave de texto).",
+      "**Modelo e número de páginas**: editorial, pergunta e resposta ou lista numerada.",
+      "**Escrever o roteiro à mão**: funciona sem chave nenhuma."
+    ]
+  },
+  {
+    "id": "estudio-reel",
+    "area": "estudio",
+    "title": "Estúdio: reel",
+    "summary": "Reel montado com texto animado (sem chave) ou com vídeo de IA (com chave).",
+    "article": "estudio",
+    "order": 11,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-reel.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Reel**: a aba de vídeos curtos.",
+      "**Reel montado**: texto animado sobre fundo da marca; funciona sem chave.",
+      "**Reel com vídeo de IA**: precisa de chave de vídeo e sempre pede confirmação do custo.",
+      "**Tema**: sobre o que é o vídeo.",
+      "**Escrever o roteiro à mão**: você escreve as falas."
+    ]
+  },
+  {
+    "id": "estudio-cenas",
+    "area": "estudio",
+    "title": "Estúdio: reel com cenas",
+    "summary": "Vídeo com cenas reais da biblioteca, voz e legenda, no padrão da marca.",
+    "article": "reel-com-cenas",
+    "order": 12,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-cenas.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Reel com cenas**: a aba deste tipo de vídeo.",
+      "**Padrão**: voz, cores, fontes e estrutura salvos para a marca.",
+      "**Tema ou pedido livre**: como a IA deve montar o roteiro.",
+      "**Texto**: o tema ou o pedido.",
+      "**Escrever à mão**: cada frase vira uma cena, sem IA."
+    ]
+  },
+  {
+    "id": "estudio-padroes",
+    "area": "estudio",
+    "title": "Estúdio: padrões de vídeo",
+    "summary": "Salvar o jeito de fazer vídeo da marca para repetir sempre igual.",
+    "article": "padroes-de-video",
+    "order": 13,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-padroes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Padrões de vídeo**: a lista de padrões do projeto.",
+      "**Novo padrão**: comece por um estilo pronto (impacto ou sereno).",
+      "**Nome**: como o padrão aparece na hora de criar o vídeo.",
+      "**Voz e aparência**: voz, velocidade, cores, fontes e legenda."
+    ]
+  },
+  {
+    "id": "estudio-biblioteca",
+    "area": "estudio",
+    "title": "Estúdio: biblioteca de cenas",
+    "summary": "Os clipes que os vídeos usam, com a licença de cada um.",
+    "article": "reel-com-cenas",
+    "order": 14,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-biblioteca.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Biblioteca de cenas**: os clipes da conta.",
+      "**Categoria**: onde a cena entra (mar, cidade, pessoas...).",
+      "**Licença e autor**: obrigatórios; o ContentHub guarda junto da cena.",
+      "**Escolher o clipe**: envie o vídeo (até 20 segundos são usados)."
+    ]
+  },
+  {
+    "id": "estudio-kit",
+    "area": "estudio",
+    "title": "Estúdio: kit de marca",
+    "summary": "Nome, @, cores, fontes e regras do setor que o Estúdio segue.",
+    "article": "estudio",
+    "order": 15,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-kit.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Kit de marca**: um kit por projeto.",
+      "**Nome e @**: aparecem nas artes.",
+      "**Setor**: liga as regras do conselho profissional (por exemplo, odontologia)."
+    ]
+  },
+  {
+    "id": "estudio-chaves",
+    "area": "estudio",
+    "title": "Estúdio: chaves de IA",
+    "summary": "Cadastrar as chaves dos provedores de IA, em ordem de preferência.",
+    "article": "chaves-e-integracoes",
+    "order": 16,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-chaves.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Chaves de IA**: as chaves da sua conta (texto, voz, imagem e vídeo).",
+      "**Adicionar chave**: escolha o provedor e cole a chave. Ela fica guardada criptografada."
+    ]
+  },
+  {
+    "id": "estudio-uso",
+    "area": "estudio",
+    "title": "Estúdio: uso e custos",
+    "summary": "Quanto a IA gastou no mês e o teto da conta.",
+    "article": "chaves-e-integracoes",
+    "order": 17,
+    "admin": false,
+    "image": "/ajuda/telas/estudio-uso.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Uso e custos**: o gasto por provedor e por tipo.",
+      "**Período**: este mês, mês passado ou datas suas."
+    ]
+  },
+  {
+    "id": "trafego",
+    "area": "trafego",
+    "title": "Tráfego",
+    "summary": "Os números dos anúncios da Meta: investimento, alcance, compras, leads e ROAS.",
+    "article": "trafego",
+    "order": 20,
+    "admin": false,
+    "image": "/ajuda/telas/trafego.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Projeto**: cada projeto tem a sua conta de anúncio.",
+      "**Sincronizar agora**: busca os números novos na Meta.",
+      "**Buscar 12 meses**: traz o histórico.",
+      "**Período**: tudo na tela segue as datas escolhidas.",
+      "**Investimento por dia**: o gráfico do período. Acima ficam os cartões (investimento, alcance, CPM, CPC, CTR, compras, leads, ROAS) e abaixo campanhas, conjuntos e anúncios."
+    ]
+  },
+  {
+    "id": "trafego-conectar",
+    "area": "trafego",
+    "title": "Tráfego: conectar a conta de anúncio",
+    "summary": "Colar o número da conta (act_) e o token da Meta.",
+    "article": "token-meta-ads",
+    "order": 21,
+    "admin": false,
+    "image": "/ajuda/telas/trafego-conectar.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**ID da conta de anúncio**: começa com **act_** (veja no passo a passo como achar).",
+      "**Token de acesso**: o texto que começa com **EAA**, gerado no Explorador da Graph API.",
+      "**Como gerar o token**: o resumo do passo a passo, ali mesmo.",
+      "**Conectar**: confere o token e traz os últimos 90 dias."
+    ]
+  },
+  {
+    "id": "concorrentes",
+    "area": "concorrentes",
+    "title": "Concorrentes: perfis",
+    "summary": "Acompanhar perfis e canais de concorrentes: seguidores, posts e vídeos.",
+    "article": "concorrentes",
+    "order": 22,
+    "admin": false,
+    "image": "/ajuda/telas/concorrentes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Abas**: perfis, anúncios, produtos e ofertas.",
+      "**Adicionar concorrente**: o @ do Instagram e/ou o canal do YouTube.",
+      "**Atualizar todos**: busca os números de todos de uma vez.",
+      "**Atualizar**: só deste concorrente."
+    ]
+  },
+  {
+    "id": "concorrentes-anuncios",
+    "area": "concorrentes",
+    "title": "Concorrentes: anúncios",
+    "summary": "Abrir os anúncios ativos de cada concorrente na Biblioteca de Anúncios da Meta.",
+    "article": "concorrentes",
+    "order": 23,
+    "admin": false,
+    "image": "/ajuda/telas/concorrentes-anuncios.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Anúncios**: um cartão por concorrente.",
+      "**Ver anúncios ativos na Biblioteca**: abre a Biblioteca pública da Meta, já filtrada.",
+      "**Tentar pela API**: a API da Meta só entrega anúncios comerciais da Europa (o motivo aparece na tela)."
+    ]
+  },
+  {
+    "id": "concorrentes-produtos",
+    "area": "concorrentes",
+    "title": "Concorrentes: produtos",
+    "summary": "Anotar os produtos dos concorrentes: preço, promessa e onde vendem.",
+    "article": "concorrentes",
+    "order": 24,
+    "admin": false,
+    "image": "/ajuda/telas/concorrentes-produtos.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Produtos**: a lista de produtos anotados.",
+      "**Nome**: o nome do produto do concorrente.",
+      "**Preço, plataforma e link**: onde vende e por quanto.",
+      "**Adicionar**: guarda na lista."
+    ]
+  },
+  {
+    "id": "ofertas",
+    "area": "concorrentes",
+    "title": "Concorrentes: ofertas",
+    "summary": "Ofertas que estão escalando, pelo número de anúncios ativos.",
+    "article": "ofertas",
+    "order": 25,
+    "admin": false,
+    "image": "/ajuda/telas/ofertas.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Listas**: minhas ofertas, a lista da casa e as favoritas.",
+      "**Buscar**: pelo nome da oferta.",
+      "**Ordem e filtros**: mais anúncios, maior alta, selo, tipo de página, nicho, língua e país.",
+      "**Adicionar oferta**: a página do anunciante e o link da oferta.",
+      "**Histórico**: a curva de anúncios ativos, dia a dia.",
+      "**Mais escaladas do mês**: texto pronto para copiar."
+    ]
+  },
+  {
+    "id": "automacoes",
+    "area": "automacoes",
+    "title": "Automações do direct",
+    "summary": "Responder comentário com palavra-chave e mandar o link no direct.",
+    "article": "automacoes",
+    "order": 30,
+    "admin": false,
+    "image": "/ajuda/telas/automacoes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Projeto**: as automações são da conta do Instagram do projeto.",
+      "**Nova automação**: palavra, posts, respostas públicas e a mensagem do direct.",
+      "**Testar**: simula um comentário, sem chamar o Instagram.",
+      "**Ligar / Desligar**: a automação passa a valer.",
+      "**Ensaio**: no ensaio nada é enviado de verdade; sair do ensaio pede confirmação.",
+      "**Execuções**: o que aconteceu com cada comentário e mensagem."
+    ]
+  },
+  {
+    "id": "automacoes-nova",
+    "area": "automacoes",
+    "title": "Automações: nova automação",
+    "summary": "Montar a automação em passos: gatilho, posts, respostas e direct.",
+    "article": "automacoes",
+    "order": 31,
+    "admin": false,
+    "image": "/ajuda/telas/automacoes-nova.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Nome**: para você achar depois.",
+      "**Gatilho**: comentário no post ou mensagem no direct.",
+      "**Palavras**: separadas por vírgula (QUERO, EBOOK...).",
+      "**Quais posts**: o próximo post publicado, posts escolhidos ou todos.",
+      "**Respostas públicas**: até 3, em rodízio.",
+      "**Salvar**: a automação nasce desligada e em ensaio."
+    ]
+  },
+  {
+    "id": "automacoes-execucoes",
+    "area": "automacoes",
+    "title": "Automações: execuções",
+    "summary": "Cada comentário ou mensagem que passou pelas automações e o que foi feito.",
+    "article": "automacoes",
+    "order": 32,
+    "admin": false,
+    "image": "/ajuda/telas/automacoes-execucoes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Execuções**: a lista do que aconteceu.",
+      "**Automação**: filtra por uma automação.",
+      "**Situação**: enviado, ensaio, não enviado ou falhou.",
+      "**Linha**: abre os passos (resposta pública, direct, motivo de não enviar)."
+    ]
+  },
+  {
+    "id": "contatos",
+    "area": "contatos",
+    "title": "Contatos",
+    "summary": "Quem falou com a conta pelas automações, com o consentimento de cada um.",
+    "article": "contatos-e-lgpd",
+    "order": 35,
+    "admin": false,
+    "image": "/ajuda/telas/contatos.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Buscar**: pelo @, nome, e-mail ou telefone.",
+      "**Com e-mail ou telefone**: só quem deixou contato (com consentimento).",
+      "**Etiquetas**: filtram pelos assuntos.",
+      "**Exportar CSV**: a lista filtrada, para planilha."
+    ]
+  },
+  {
+    "id": "crm-funil",
+    "area": "crm",
+    "title": "CRM: funil",
+    "summary": "Os leads por etapa. Arraste o cartão para mudar de etapa.",
+    "article": "crm",
+    "order": 40,
+    "admin": false,
+    "image": "/ajuda/telas/crm-funil.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Abas do CRM**: funil, lista, tarefas, relatórios, rastreamento, entradas e etapas.",
+      "**Novo lead**: cadastro à mão.",
+      "**Filtros**: busca, responsável, origem, campanha e etiqueta (ficam no link).",
+      "**Período**: quando o lead chegou.",
+      "**Cartão do lead**: arraste para outra etapa ou clique para abrir a ficha."
+    ]
+  },
+  {
+    "id": "crm-lista",
+    "area": "crm",
+    "title": "CRM: lista",
+    "summary": "Os leads em tabela, com os mesmos filtros do funil.",
+    "article": "crm",
+    "order": 41,
+    "admin": false,
+    "image": "/ajuda/telas/crm-lista.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Lista**: um lead por linha.",
+      "**CSV**: baixa a lista filtrada.",
+      "**Linha**: clique para abrir a ficha do lead."
+    ]
+  },
+  {
+    "id": "crm-tarefas",
+    "area": "crm",
+    "title": "CRM: tarefas",
+    "summary": "O que precisa ser feito com cada lead, e quando.",
+    "article": "crm",
+    "order": 42,
+    "admin": false,
+    "image": "/ajuda/telas/crm-tarefas.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Tarefas**: o número mostra as abertas.",
+      "**Minhas / Da equipe**: as suas ou de todos.",
+      "**Concluir**: marque quando terminar."
+    ]
+  },
+  {
+    "id": "crm-relatorios",
+    "area": "crm",
+    "title": "CRM: relatórios",
+    "summary": "Leads, vendas, receita, custo por lead e ROAS por campanha, anúncio, post ou automação.",
+    "article": "crm-relatorios",
+    "order": 43,
+    "admin": false,
+    "image": "/ajuda/telas/crm-relatorios.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Relatórios**: a aba dos números.",
+      "**Período**: quando os leads chegaram.",
+      "**Agrupar por**: campanha, conjunto, anúncio, post, automação ou origem.",
+      "**Toque**: conta pela primeira ou pela última origem do lead.",
+      "**CSV**: baixa a tabela."
+    ]
+  },
+  {
+    "id": "crm-rastreio",
+    "area": "crm",
+    "title": "CRM: rastreamento",
+    "summary": "O script do site, as vendas da Hotmart e Kiwify e os envios para a Meta.",
+    "article": "rastreamento-script",
+    "order": 44,
+    "admin": false,
+    "image": "/ajuda/telas/crm-rastreio.webp",
+    "width": 1280,
+    "height": 1000,
+    "steps": [
+      "**Rastreamento**: a aba do script e das vendas.",
+      "**Copiar**: copia o script para colar no site.",
+      "**Domínios**: onde o script pode rodar (e o checkout).",
+      "**API de Conversões da Meta**: id do pixel e token para mandar Lead e Purchase pelo servidor."
+    ]
+  },
+  {
+    "id": "crm-entradas",
+    "area": "crm",
+    "title": "CRM: entradas",
+    "summary": "Por onde os leads chegam: página de captura, formulário da Meta, planilha e direct.",
+    "article": "crm-entradas",
+    "order": 45,
+    "admin": false,
+    "image": "/ajuda/telas/crm-entradas.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Entradas**: a aba das fontes de lead.",
+      "**Página de captura**: formulário para colar no seu site.",
+      "**Formulário da Meta**: leads dos anúncios de cadastro (Lead Ads).",
+      "**Planilha**: importar um CSV.",
+      "**Novo formulário**: cria um formulário de captura."
+    ]
+  },
+  {
+    "id": "crm-etapas",
+    "area": "crm",
+    "title": "CRM: etapas do funil",
+    "summary": "Nome, cor e tipo de cada etapa (em andamento, ganhou, perdeu).",
+    "article": "crm",
+    "order": 46,
+    "admin": false,
+    "image": "/ajuda/telas/crm-etapas.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Etapas**: só o dono da conta mexe aqui.",
+      "**Nome da etapa**: como aparece no funil.",
+      "**Tipo**: em andamento, ganhou (venda) ou perdeu.",
+      "**Salvar**: um botão só para todas as mudanças.",
+      "**Criar funil**: outro funil (por produto, por exemplo)."
+    ]
+  },
+  {
+    "id": "ajuda",
+    "area": "ajuda",
+    "title": "Ajuda",
+    "summary": "Todos os artigos, a busca e o andamento do projeto.",
+    "article": "primeiros-passos",
+    "order": 50,
+    "admin": false,
+    "image": "/ajuda/telas/ajuda.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Buscar**: digite o que procura (token, Pexels, aprovar...).",
+      "**Andamento do projeto**: o que já está feito e o que falta, lido agora do sistema.",
+      "**Artigos**: clique para abrir."
+    ]
+  },
+  {
+    "id": "conta",
+    "area": "conta",
+    "title": "Minha conta e equipe",
+    "summary": "Seus dados, a senha, a equipe e a marca da conta.",
+    "article": "minha-conta",
+    "order": 55,
+    "admin": false,
+    "image": "/ajuda/telas/conta.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Trocar a senha**: abre o campo ali mesmo.",
+      "**Convidar**: o e-mail da pessoa; o ContentHub gera um link de convite.",
+      "**Nova senha**: gera um link para a pessoa da equipe criar outra senha.",
+      "**Marca**: nome, logo e cor que aparecem para a sua equipe."
+    ]
+  },
+  {
+    "id": "config-redes",
+    "area": "configuracoes",
+    "title": "Configurações: redes sociais",
+    "summary": "As contas conectadas de cada projeto e o token do Instagram.",
+    "article": "token-instagram",
+    "order": 60,
+    "admin": false,
+    "image": "/ajuda/telas/config-redes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Redes Sociais**: as contas conectadas.",
+      "**Adicionar Conta**: escolha Instagram e cole o token (começa com IG).",
+      "**Renovar agora**: estica a validade do token.",
+      "**Sincronizar agora**: busca os números novos."
+    ]
+  },
+  {
+    "id": "config-apis",
+    "area": "configuracoes",
+    "title": "Configurações: APIs de produção",
+    "summary": "Chaves de serviços como o YouTube (concorrentes).",
+    "article": "chaves-e-integracoes",
+    "order": 61,
+    "admin": false,
+    "image": "/ajuda/telas/config-apis.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**APIs de Produção**: as chaves de serviços da conta.",
+      "**Adicionar API**: escolha o serviço (por exemplo, YouTube Data API) e cole a chave."
+    ]
+  },
+  {
+    "id": "config-instagram",
+    "area": "configuracoes",
+    "title": "Configurações: conectar o Instagram",
+    "summary": "Onde colar o token do Instagram que você copiou na Meta.",
+    "article": "token-instagram",
+    "order": 62,
+    "admin": false,
+    "image": "/ajuda/telas/config-instagram.webp",
+    "width": 1280,
+    "height": 1050,
+    "steps": [
+      "**Projeto**: em qual projeto a conta entra.",
+      "**Token de acesso**: cole aqui o token copiado na Meta (começa com **IG**).",
+      "**Validar e conectar**: o ContentHub confere com o Instagram e guarda o token criptografado."
+    ]
+  },
+  {
+    "id": "clientes",
+    "area": "clientes",
+    "title": "Clientes (administrador)",
+    "summary": "Criar cliente, convidar o dono, entrar como e ligar as chaves de cada um.",
+    "article": "admin-clientes",
+    "order": 90,
+    "admin": true,
+    "image": "/ajuda/telas/clientes.webp",
+    "width": 1280,
+    "height": 800,
+    "steps": [
+      "**Nome da empresa**: o cliente novo.",
+      "**Criar e gerar convite**: gera o link para o dono criar a senha (7 dias, uso único).",
+      "**Buscar e filtrar**: ativos, inativos e aguardando o dono.",
+      "**Entrar como**: ver a conta como o cliente vê (fica registrado)."
+    ]
   }
 ];

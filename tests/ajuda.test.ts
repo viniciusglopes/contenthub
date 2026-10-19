@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { ARTICLES } from "@/lib/help/content.generated";
-import { LINKED_ARTICLES, helpFor } from "@/lib/help/map";
+import { ARTICLES, SCREENS } from "@/lib/help/content.generated";
+import { LINKED_ARTICLES, LINKED_SCREENS, helpFor, screenFor } from "@/lib/help/map";
 import { HouseCredential } from "@/models/Platform";
 import Project from "@/models/Project";
 import SocialAccount from "@/models/SocialAccount";
@@ -15,6 +16,7 @@ import { SEED_TEMPLATES } from "@/lib/studio/cenas-spec";
 import * as ajuda from "@/app/api/ajuda/route";
 import * as artigo from "@/app/api/ajuda/[id]/route";
 import * as checklist from "@/app/api/ajuda/checklist/route";
+import * as telas from "@/app/api/ajuda/telas/route";
 import { call, cookieFor, makeOrg, makeUser, setTestEnv } from "./helpers";
 
 // AJUDA: artigos versionados (docs/ajuda/*.md), "?" de cada tela, artigo de administrador
@@ -59,7 +61,54 @@ describe("conteúdo", () => {
   });
 });
 
+describe("popup: print de cada tela e passos de fora", () => {
+  const pub = path.join(import.meta.dirname, "..", "public");
+  it("todo '?' (tela e item do menu) tem guia com print, passos e artigo que existe", () => {
+    const ids = new Set(ARTICLES.map((a) => a.id));
+    const sids = new Set(SCREENS.map((s) => s.id));
+    for (const id of LINKED_SCREENS) expect(sids.has(id), id).toBe(true);
+    for (const v of ["calendar", "list", "aprovacoes", "projetos", "instagram", "estudio", "trafego", "concorrentes", "automacoes", "contatos", "crm", "ajuda", "clientes", "conta", "configuracoes"]) expect(sids.has(screenFor(v)), v).toBe(true);
+    expect(screenFor("crm", "funis")).toBe("crm-etapas");
+    expect(screenFor("concorrentes", "ofertas")).toBe("ofertas");
+    expect(screenFor("configuracoes", "apis")).toBe("config-apis");
+    for (const s of SCREENS) {
+      expect(ids.has(s.article), `${s.id} -> ${s.article}`).toBe(true);
+      expect(existsSync(path.join(pub, s.image)), s.image).toBe(true);
+      expect(s.steps.length, s.id).toBeGreaterThan(0);
+      expect(s.width, s.id).toBe(1280);
+      expect(s.steps.join(" ").includes("—"), s.id).toBe(false);
+    }
+    expect(SCREENS.find((s) => s.id === "clientes")!.admin).toBe(true);
+  });
+  it("passo fora do ContentHub: link oficial https, desenho existe e tem os mesmos números do caminho", () => {
+    let n = 0;
+    for (const a of ARTICLES) {
+      for (const m of a.body.matchAll(/^:::fora (.+)\n([\s\S]*?)\n:::$/gm)) {
+        n++;
+        const f = Object.fromEntries(m[2].split("\n").map((l) => [l.slice(0, l.indexOf(":")).trim(), l.slice(l.indexOf(":") + 1).trim()]));
+        expect(f.link, `${a.id}: ${m[1]}`).toMatch(/^https:\/\/(www\.)?(facebook\.com|developers\.facebook\.com|business\.facebook\.com|instagram\.com|console\.cloud\.google\.com|pexels\.com|app\.hotmart\.com|dashboard\.kiwify\.com\.br)\//);
+        const parts = f.caminho.split(/\s+>\s+/);
+        expect(parts.length, `${a.id}: ${m[1]}`).toBeGreaterThan(1);
+        expect(f.desenho, `${a.id}: ${m[1]} sem desenho`).toBeTruthy();
+        const svg = readFileSync(path.join(pub, "ajuda", "externo", `${f.desenho}.svg`), "utf8");
+        expect(svg).toMatch(/DESENHO ILUSTRATIVO/);
+        expect(Number(/data-passos="(\d+)"/.exec(svg)![1]), `${a.id}: ${f.desenho}`).toBe(parts.length);
+      }
+    }
+    expect(n).toBeGreaterThanOrEqual(15);
+  });
+});
+
 describe("rotas", () => {
+  it("guias de tela: cliente não vê o de administrador; o administrador vê", async () => {
+    const mine = await call(telas.GET, { path: "/api/ajuda/telas", cookie: A.cookie });
+    expect(mine.status).toBe(200);
+    expect(mine.data.some((s: any) => s.id === "calendario")).toBe(true);
+    expect(mine.data.some((s: any) => s.admin)).toBe(false);
+    const adm = await call(telas.GET, { path: "/api/ajuda/telas", cookie: admin.cookie });
+    expect(adm.data.some((s: any) => s.id === "clientes")).toBe(true);
+  });
+
   it("cliente não vê artigo de administrador; o administrador vê", async () => {
     const mine = await call(ajuda.GET, { path: "/api/ajuda", cookie: A.cookie });
     expect(mine.data.some((a: any) => a.admin)).toBe(false);

@@ -21,12 +21,14 @@ Gere o token de novo marcando as três (veja [Token do Instagram](artigo:token-i
 
 ## 2. Webhook (o Instagram avisa o ContentHub)
 
-1. Abra o app em [developers.facebook.com](https://developers.facebook.com/apps).
-2. Vá em **Instagram** e depois em **Configure webhooks** (o nome pode variar).
-3. Em **Callback URL**, coloque: `https://contenthub.vinculodigital.com.br/api/instagram/webhook`
-4. Em **Verify token**, coloque o mesmo valor da variável `IG_WEBHOOK_VERIFY_TOKEN` do servidor e clique em **Verify and save**.
-5. Assine os campos **comments**, **messages** e **messaging_postbacks**.
-6. No ContentHub, com as chaves ligadas, o suporte liga o webhook em cada conta (isso chama `POST /me/subscribed_apps` na Meta).
+:::fora Meta for Developers
+link: https://developers.facebook.com/apps
+caminho: Escolha o app > No menu, clique em **Instagram** > Abra a parte **Configure webhooks** (o nome pode variar) > Em **Callback URL**, coloque `https://contenthub.vinculodigital.com.br/api/instagram/webhook` > Em **Verify token**, coloque o mesmo valor da variável `IG_WEBHOOK_VERIFY_TOKEN` do servidor > Clique em **Verify and save** > Assine os campos **comments**, **messages** e **messaging_postbacks**
+cole: nada para colar no ContentHub; aqui você leva o endereço do ContentHub para a Meta
+desenho: meta-dev-webhook-instagram
+:::
+
+Depois, no ContentHub, com as chaves ligadas, o suporte liga o webhook em cada conta (isso chama `POST /me/subscribed_apps` na Meta).
 
 Cada aviso da Meta vem assinado com o segredo do app; o ContentHub confere a assinatura e descarta o que não confere. Fonte: [Webhooks do Instagram](https://developers.facebook.com/docs/instagram-platform/webhooks)
 
@@ -36,18 +38,23 @@ Cada aviso da Meta vem assinado com o segredo do app; o ContentHub confere a ass
 
 A Meta só dá o acesso avançado para empresa verificada.
 
-1. No painel do app, abra **Configurações do app** e depois **Básico**, e confira qual portfólio empresarial é dono do app.
-2. Na Central de Segurança do portfólio, clique em **Iniciar verificação** e envie os documentos da empresa.
+:::fora Meta for Developers e Meta Business
+link: https://business.facebook.com/settings/security
+caminho: No painel do app, abra **Configurações do app** > Clique em **Básico** e confira qual portfólio empresarial é dono do app > No Meta Business desse portfólio, abra a **Central de Segurança** > Clique em **Iniciar verificação** e envie os documentos da empresa
+desenho: meta-verificacao-empresa
+:::
 
 Fontes: [Níveis de acesso](https://developers.facebook.com/docs/graph-api/overview/access-levels) e [Verificação da empresa](https://developers.facebook.com/docs/development/release/business-verification)
 
 ## 4. Análise do app (App Review)
 
-1. No painel do app, abra **Análise do app** e depois **Permissões e recursos**.
-2. Peça **acesso avançado** para as três permissões acima.
-3. Para cada uma, explique o uso e envie um vídeo (screencast) com a tela em inglês mostrando o fluxo: comentário com a palavra, resposta pública, DM com link, contato na lista.
-4. Faça antes pelo menos uma chamada com sucesso de cada permissão (com uma conta testadora).
-5. Depois de aprovado, coloque o app no modo **Ao vivo** (Live).
+Antes, faça pelo menos uma chamada com sucesso de cada permissão (com uma conta testadora).
+
+:::fora Meta for Developers
+link: https://developers.facebook.com/apps
+caminho: No painel do app, abra **Análise do app** > Clique em **Permissões e recursos** > Peça **acesso avançado** para as três permissões acima; para cada uma, explique o uso e envie um vídeo (screencast) com a tela em inglês mostrando o fluxo: comentário com a palavra, resposta pública, DM com link, contato na lista > Depois de aprovado, coloque o app no modo **Ao vivo** (Live)
+desenho: meta-dev-app-review
+:::
 
 Fontes: [Análise do app do Instagram](https://developers.facebook.com/docs/instagram-platform/app-review) e [Modos do app](https://developers.facebook.com/docs/development/build-and-test/app-modes)
 

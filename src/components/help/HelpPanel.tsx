@@ -6,8 +6,9 @@ import { ArrowLeft, CheckCircle2, Circle, Info, Lock, MinusCircle, Search } from
 import { fieldCls } from "@/components/brand";
 import { send } from "@/components/http";
 import type { ProjectLite } from "@/components/posts/flow";
-import type { Article } from "@/lib/help/types";
+import type { Article, Screen } from "@/lib/help/types";
 import Markdown from "./Markdown";
+import ScreenGuide from "./ScreenGuide";
 
 interface Step { id: string; title: string; state: "feito" | "pendente" | "indisponivel" | "info"; detail: string; article: string }
 const ICON = { feito: <CheckCircle2 size={18} className="text-green-400" />, pendente: <Circle size={18} className="text-gray-500" />, indisponivel: <MinusCircle size={18} className="text-gray-600" />, info: <Info size={18} className="text-sky-400" /> };
@@ -18,6 +19,7 @@ const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCa
 // No artigo "Primeiros passos" aparece o andamento real do projeto escolhido.
 export default function HelpPanel({ projects, selectedProject, onSelectProject }: { projects: ProjectLite[]; selectedProject: string; onSelectProject: (id: string) => void }) {
   const [list, setList] = useState<Article[] | null>(null);
+  const [screens, setScreens] = useState<Screen[]>([]);
   const [q, setQ] = useState("");
   const [current, setCurrentState] = useState("");
   const [steps, setSteps] = useState<{ steps: Step[]; done: number; total: number } | null>(null);
@@ -26,6 +28,7 @@ export default function HelpPanel({ projects, selectedProject, onSelectProject }
 
   useEffect(() => {
     send<Article[]>("GET", "/api/ajuda").then((r) => (r.ok ? setList(r.data!) : setError(r.error)));
+    send<Screen[]>("GET", "/api/ajuda/telas").then((r) => r.ok && setScreens(r.data!));
     const a = new URLSearchParams(window.location.search).get("artigo");
     setCurrentState(a || "primeiros-passos");
   }, []);
@@ -105,6 +108,12 @@ export default function HelpPanel({ projects, selectedProject, onSelectProject }
                 )}
               </div>
             )}
+            {screens.filter((s) => s.article === art.id).map((s) => (
+              <details key={s.id} className="rounded-xl border border-gray-800 bg-gray-900/60 p-3" data-testid={`ajuda-tela-${s.id}`}>
+                <summary className="cursor-pointer text-sm font-semibold text-gray-200">Onde clicar no ContentHub: {s.title}</summary>
+                <div className="mt-3"><ScreenGuide screen={s} /></div>
+              </details>
+            ))}
             <Markdown text={art.body} onArticle={open} />
           </article>
         ) : list && <p className="text-sm text-gray-500">Escolha um artigo.</p>}

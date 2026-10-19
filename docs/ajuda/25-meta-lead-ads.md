@@ -19,11 +19,14 @@ Fontes: [Webhooks para Lead Ads](https://developers.facebook.com/docs/graph-api/
 
 ## 1. App da Meta (quem administra o app, normalmente o suporte)
 
-1. Abra o app em [developers.facebook.com](https://developers.facebook.com/apps) e adicione o produto **Webhooks**.
-2. Escolha o objeto **Page** e assine o campo **leadgen**.
-3. Em **Callback URL**, coloque o endereço que aparece no CRM, aba **Entradas**, **Formulário da Meta** (termina em `/api/crm/lead-ads/webhook`).
-4. Em **Verify token**, coloque o valor da variável `LEAD_ADS_VERIFY_TOKEN` do servidor e clique em **Verify and save**.
-5. O servidor precisa da chave secreta do app em `META_APP_SECRET`: todo aviso vem assinado e o ContentHub descarta o que não confere.
+:::fora Meta for Developers
+link: https://developers.facebook.com/apps
+caminho: Escolha o app > Adicione o produto **Webhooks** > Escolha o objeto **Page** > Em **Callback URL**, coloque o endereço que aparece no CRM, aba **Entradas**, **Formulário da Meta** (termina em `/api/crm/lead-ads/webhook`) > Em **Verify token**, coloque o valor da variável `LEAD_ADS_VERIFY_TOKEN` do servidor > Clique em **Verify and save** > Assine o campo **leadgen**
+copie: no ContentHub, o endereço (Callback URL) que está em CRM › Entradas › Formulário da Meta, e cole lá na Meta
+desenho: meta-dev-webhook-leadgen
+:::
+
+O servidor precisa da chave secreta do app em `META_APP_SECRET`: todo aviso vem assinado e o ContentHub descarta o que não confere.
 
 Permissões que a Meta lista para isso: **leads_retrieval**, **pages_manage_metadata**, **pages_show_list**, **pages_read_engagement** e **ads_management**. O token precisa ser de alguém que pode anunciar pela Página.
 
@@ -34,6 +37,26 @@ A Meta só avisa apps instalados na Página. Quem administra a Página faz a ins
 **O que você deve ver:** na ferramenta de teste de leads da Meta, o app aparece como inscrito na Página.
 
 ## 3. Cadastrar a Página no CRM
+
+Primeiro pegue o id e o token da Página:
+
+:::fora Facebook
+link: https://www.facebook.com/
+caminho: Abra a sua Página > Clique em **Sobre** > Abra **Transparência da Página** > Copie o **ID da Página**
+copie: o ID da Página (só números)
+cole: **CRM** › **Entradas** › **Formulário da Meta** › **Cadastrar Página** › campo do id da Página
+desenho: facebook-pagina-id
+obs: O nome dos menus pode variar. O id também aparece no Explorador da Graph API ao escolher a Página.
+:::
+
+:::fora Explorador da Graph API
+link: https://developers.facebook.com/tools/explorer/
+caminho: Em **Meta App**, escolha o app > Em **Permissions**, adicione **leads_retrieval**, **pages_manage_metadata**, **pages_show_list**, **pages_read_engagement** e **ads_management** > Clique no botão de gerar o token e aceite na janela da Meta > Em **User or Page**, escolha a Página > Copie o token da Página
+copie: o token da Página (começa com **EAA**)
+cole: **CRM** › **Entradas** › **Formulário da Meta** › **Cadastrar Página** › campo do token
+desenho: meta-graph-explorer-pagina
+obs: O token do Explorador dura pouco. Peça ao suporte o de longa duração, como no [token da Meta para Tráfego](artigo:token-meta-ads).
+:::
 
 1. No CRM, aba **Entradas**, **Formulário da Meta**, clique em **Cadastrar Página** (só o dono da conta).
 2. Cole o id da Página e o token da Página (com **leads_retrieval**). O ContentHub confere o token com uma leitura e guarda criptografado.

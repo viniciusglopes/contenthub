@@ -15,8 +15,13 @@ A chave do Pexels é **da plataforma**: quem cadastra é o administrador. Enquan
 
 ## Como conseguir a chave (para o administrador)
 
-1. Crie uma conta gratuita no Pexels.
-2. Abra a [página da API do Pexels](https://www.pexels.com/api/) e peça a chave: ela sai na hora.
+:::fora Pexels
+link: https://www.pexels.com/api/
+caminho: Entre na conta do Pexels (ou crie uma, é gratuita) > Na página da API, peça a chave (**Your API Key**): ela sai na hora > Copie a chave
+copie: a chave da API
+cole: não tem campo na tela: o suporte cadastra a chave na plataforma (fica guardada criptografada)
+desenho: pexels-api
+:::
 
 O limite gratuito é de **200 pedidos por hora e 20.000 por mês**. O Pexels pede um link visível para o Pexels onde as imagens aparecem e, quando possível, crédito ao autor.
 
